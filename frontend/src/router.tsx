@@ -1,0 +1,147 @@
+import {
+    BarChartIcon,
+    FolderIcon,
+    HelpCircleIcon,
+    LayoutDashboardIcon,
+    SearchIcon,
+    SettingsIcon,
+    UsersIcon,
+} from "lucide-react"
+import React, { Suspense, LazyExoticComponent } from "react"
+import App from '@/App'
+import AppWeb from '@/AppWeb'
+import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
+
+// 懒加载组件
+export const LazyComponent = ({
+    component: Component,
+}: {
+    component: LazyExoticComponent<() => JSX.Element>;
+}) => (
+    <Suspense >
+        <Component />
+    </Suspense>
+);
+// 客户端菜单路由上部分
+export let navMain = [
+    {
+        title: "面板",
+        path: "dashboard",
+        icon: LayoutDashboardIcon,
+        element: LazyComponent({
+            component: React.lazy(() => import("@/components/main/dashboard")),
+        })
+    },
+    {
+        title: "数据分析",
+        path: "analytics",
+        icon: BarChartIcon,
+        element: LazyComponent({
+            component: React.lazy(() => import("@/components/main/analytics"))
+        })
+    },
+    {
+        title: "项目",
+        path: "projects",
+        icon: FolderIcon,
+        element: LazyComponent({
+            component: React.lazy(() => import("@/components/main/projects"))
+        })
+    },
+    {
+        title: "团队",
+        path: "team",
+        icon: UsersIcon,
+        element: LazyComponent({
+            component: React.lazy(() => import("@/components/main/team"))
+        })
+    },
+]
+// 客户端菜单路由下部分
+export let navSecondary = [
+    {
+        title: "设置",
+        path: "settings",
+        icon: SettingsIcon,
+        element: LazyComponent({
+            component: React.lazy(() => import("@/components/main/settings"))
+        })
+    },
+    {
+        title: "获取帮助",
+        path: "help",
+        icon: HelpCircleIcon,
+        element: LazyComponent({
+            component: React.lazy(() => import("@/components/main/help"))
+        })
+    },
+    {
+        title: "搜索",
+        path: "search",
+        icon: SearchIcon,
+        element: LazyComponent({
+            component: React.lazy(() => import("@/components/main/search"))
+        })
+    },
+]
+
+export const otherRouter = [
+    {
+        title: "当前分享",
+        path: "shared",
+        element: LazyComponent({
+            component: React.lazy(() => import("@/components/main/shared"))
+        })
+    },
+]
+
+// 主路由
+export const appRouter = [
+    {
+        path: "/",
+        element: <Navigate to="/client" replace />,
+    },
+    {
+        path: "/client",
+        element: <App />,
+        children: [    {
+            path: "/client",
+            element: <Navigate to="/client/dashboard" replace />,
+        },...navMain, ...navSecondary,...otherRouter],
+    },
+    {
+        path: "/web",
+        element: <AppWeb />,
+    },
+]
+
+// 路由组件
+export const AppRouterComponent = () => (
+    <Router>
+        <Routes>
+            {appRouter.map((route) => (
+                <Route key={route.path} path={route.path} element={route.element}>
+                    {route.children?.map((child) => (
+                        <Route
+                            key={child.path}
+                            path={child.path}
+                            element={child.element}
+                        />
+                    ))}
+                </Route>
+            ))}
+        </Routes>
+    </Router>
+)
+
+
+export const menuRouter = [...navMain, ...navSecondary, ...otherRouter]
+export default {
+    menuRouter,
+    appRouter,
+    AppRouterComponent,
+    LazyComponent,
+    navMain,
+    navSecondary
+
+}

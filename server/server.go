@@ -1,0 +1,208 @@
+package server
+
+import (
+	"context"
+	"embed"
+	"fmt"
+	"log"
+	"net"
+	"net/http"
+	"os"
+	"os/signal"
+	"path/filepath"
+	"strings"
+	"sync"
+	"syscall"
+	"time"
+
+	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
+	"github.com/gofiber/fiber/v2/middleware/filesystem"
+)
+
+var (
+	app         *fiber.App
+	serverMutex sync.Mutex
+	shutdownCtx context.Context
+	cancelFunc  context.CancelFunc
+)
+
+// 初始化上下文和取消函数
+func init() {
+	shutdownCtx, cancelFunc = context.WithCancel(context.Background())
+}
+
+type FileInfo struct {
+	Name    string    `json:"name"`
+	Size    int64     `json:"size"`
+	Mode    string    `json:"mode"`
+	ModTime time.Time `json:"mod_time"`
+	IsDir   bool      `json:"is_dir"`
+}
+
+// 检查端口是否占用
+func isPortAvailable(port int) bool {
+	conn, err := net.DialTimeout("tcp", fmt.Sprintf(":%d", port), 2*time.Second)
+	if err == nil {
+		conn.Close()
+		return false
+	}
+	return true
+}
+
+func createSharedDir() string {
+	// 获取当前可执行文件所在目录
+	exeDir, err := filepath.Abs(filepath.Dir(os.Args[0]))
+	if err != nil {
+		log.Println("获取当前目录失败:", err)
+		return ""
+	}
+	// 拼接 shared 目录路径
+	sharedDir := filepath.Join(exeDir, "shared")
+	// 检查目录是否存在
+	if _, err := os.Stat(sharedDir); os.IsNotExist(err) {
+		// 目录不存在，创建
+		err := os.Mkdir(sharedDir, os.ModePerm) // 权限 0777
+		if err != nil {
+			log.Println("创建 shared 目录失败:", err)
+			return ""
+		}
+		log.Println("shared 目录创建成功:", sharedDir)
+	} else if err != nil {
+		// 其他错误（如权限问题）
+		log.Println("检查 shared 目录失败:", err)
+		return ""
+	} else {
+		// 目录已存在
+		log.Println("shared 目录已存在:", sharedDir)
+	}
+	return sharedDir
+}
+func Run(assets embed.FS) {
+	serverMutex.Lock()
+	defer serverMutex.Unlock()
+
+	if !isPortAvailable(4321) {
+		log.Println("端口 4321 已被占用，跳过 Fiber 启动")
+		return
+	}
+	sharedDir := createSharedDir()
+	if sharedDir == "" {
+		log.Println("创建 shared 目录失败")
+		return
+	}
+	// 初始化 Fiber 应用
+	app = fiber.New(fiber.Config{
+		Prefork:      false,             // 启用多核并行处理
+		ErrorHandler: errorHandler,      // 全局错误处理
+		BodyLimit:    500 * 1024 * 1024, // 最大支持500MB
+	})
+	// 完全跨域允许
+	// app.Use(cors.New())
+	// 设置跨域允许
+	app.Use(cors.New(cors.Config{
+		AllowOrigins: "http://wails.localhost:34115,http://wails.localhost",
+		AllowMethods: strings.Join([]string{
+			fiber.MethodGet,
+			fiber.MethodPost,
+			fiber.MethodHead,
+			fiber.MethodPut,
+			fiber.MethodDelete,
+			fiber.MethodPatch,
+			fiber.MethodOptions,
+		}, ","),
+		AllowHeaders:     "*",
+		AllowCredentials: true,
+		ExposeHeaders:    "*",
+	}))
+
+	// 中间件：请求日志
+	app.Use(func(c *fiber.Ctx) error {
+		log.Printf("[%s] %s\n", c.Method(), c.Path())
+		return c.Next()
+	})
+
+	// 将wails前端资源挂载到根路径下，wails静态资源会在应用启动时候读取加载到内存中虚拟目录。
+	app.Use("/", filesystem.New(filesystem.Config{
+		Root:       http.FS(assets),
+		PathPrefix: "frontend/dist", // 匹配嵌入的路径
+		Browse:     true,            // 允许目录浏览（可选）
+	}))
+	app.Static("/shared", sharedDir)
+
+	// 启动路由组
+	startRouter(app, assets, sharedDir)
+
+	// 404 处理
+	app.Use(func(c *fiber.Ctx) error {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"code": 404,
+			"msg":  "This API or page does not exist.",
+			"data": "Not found",
+		})
+	})
+
+	// 启动服务
+	// 启动服务（异步）
+	go func() {
+		log.Println("服务启动中，监听端口 :4321")
+		if err := app.Listen(":4321"); err != nil {
+			log.Fatal("服务启动失败:", err)
+		}
+	}()
+
+	// 监听终止信号
+	go handleSignals()
+}
+
+// Stop 停止服务
+func Stop() {
+	serverMutex.Lock()
+	defer serverMutex.Unlock()
+
+	if app == nil {
+		log.Println("服务未启动，无需停止")
+		return
+	}
+
+	log.Println("开始优雅关闭服务...")
+	if err := app.Shutdown(); err != nil {
+		log.Fatal("强制关闭服务失败:", err)
+	}
+	cancelFunc() // 通知所有阻塞的goroutine退出
+	log.Println("服务已停止")
+}
+
+// Restart 重启服务
+func Restart(assets embed.FS) {
+	Stop()
+	time.Sleep(1 * time.Second) // 等待资源释放
+	Run(assets)
+}
+
+// 信号处理
+func handleSignals() {
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
+	select {
+	case sig := <-sigChan:
+		log.Printf("接收到信号: %v\n", sig)
+		Stop()
+	case <-shutdownCtx.Done():
+		return // 主动调用Stop时退出
+	}
+}
+
+// 全局错误处理
+func errorHandler(c *fiber.Ctx, err error) error {
+	code := fiber.StatusInternalServerError
+	if e, ok := err.(*fiber.Error); ok {
+		code = e.Code
+	}
+	return c.Status(code).JSON(fiber.Map{
+		"code": 500,
+		"msg":  "Error occurred.",
+		"data": err.Error(),
+	})
+}
