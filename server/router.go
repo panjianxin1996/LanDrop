@@ -107,6 +107,8 @@ func startRouter(app *fiber.App, assets embed.FS, sharedDirPath string) {
 		api.Post("/uploadFile", r.uploadFile)
 		// 获取共享目录信息
 		api.Get("/getSharedDirInfo", r.getSharedDirInfo)
+		// 在路由中使用
+		// app.Get("/setSharedDir", r.setSharedDir)
 	}
 }
 

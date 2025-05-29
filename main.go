@@ -47,7 +47,6 @@ func main() {
 		Logger:   nil,
 		LogLevel: logger.DEBUG,
 		OnStartup: func(ctx context.Context) {
-			// log.Println("=================================进入startup=============================")
 			app.startup(ctx)
 			// 启动web服务
 			server.Run(assets)
@@ -55,7 +54,6 @@ func main() {
 		OnDomReady:    app.domReady,
 		OnBeforeClose: app.beforeClose,
 		OnShutdown: func(ctx context.Context) {
-			// log.Println("############################进入OnShutdown##############################")
 			app.shutdown(ctx)
 			server.Stop()
 		},

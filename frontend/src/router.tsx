@@ -11,6 +11,7 @@ import React, { Suspense, LazyExoticComponent } from "react"
 import App from '@/App'
 import AppWeb from '@/AppWeb'
 import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
+import { Toaster } from "@/components/ui/sonner"
 
 // 懒加载组件
 export const LazyComponent = ({
@@ -104,10 +105,10 @@ export const appRouter = [
     {
         path: "/client",
         element: <App />,
-        children: [    {
+        children: [{
             path: "/client",
             element: <Navigate to="/client/dashboard" replace />,
-        },...navMain, ...navSecondary,...otherRouter],
+        }, ...navMain, ...navSecondary, ...otherRouter],
     },
     {
         path: "/web",
@@ -117,21 +118,27 @@ export const appRouter = [
 
 // 路由组件
 export const AppRouterComponent = () => (
-    <Router>
-        <Routes>
-            {appRouter.map((route) => (
-                <Route key={route.path} path={route.path} element={route.element}>
-                    {route.children?.map((child) => (
-                        <Route
-                            key={child.path}
-                            path={child.path}
-                            element={child.element}
-                        />
-                    ))}
-                </Route>
-            ))}
-        </Routes>
-    </Router>
+    <>
+        {/* sonner toast 弹框容器 */}
+        <Toaster richColors/>
+        <Router>
+            <Routes>
+                {appRouter.map(route => (
+                    // 主路由
+                    <Route key={route.path} path={route.path} element={route.element}>
+                        {/* 子路由 */}
+                        {route.children?.map(child => (
+                            <Route
+                                key={child.path}
+                                path={child.path}
+                                element={child.element}
+                            />
+                        ))}
+                    </Route>
+                ))}
+            </Routes>
+        </Router>
+    </>
 )
 
 

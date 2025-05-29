@@ -67,7 +67,7 @@ export function NavMain({
                   <div className="grid flex-1 gap-2">
                     <Input
                       id="link"
-                      defaultValue="https://ui.shadcn.com/docs/installation"
+                      // defaultValue="https://ui.shadcn.com/docs/installation"
                       readOnly
                       value={dirPath}
                     />

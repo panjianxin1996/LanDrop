@@ -3,6 +3,7 @@ import { DataTable } from "@/components/data-table"
 import { SectionCards, type DeviceInfo } from "@/components/section-cards"
 import { useEffect, useState } from "react"
 import data from "../../data.json"
+import { useApiRequest  } from "@/tools/request"
 export default function Dashboard() {
   const [deviceInfo, setDeviceInfo] = useState<DeviceInfo>({
     cpuInfo: {
@@ -14,6 +15,7 @@ export default function Dashboard() {
     }
   })
   const [deviceLogs, setDeviceLogs] = useState<any>([])
+  const { request } = useApiRequest()
   let wsHandle: (null | WebSocket) = null
   useEffect(() => {
     fetchData()
@@ -21,9 +23,8 @@ export default function Dashboard() {
     return () => wsHandle?.close()
   }, [])
   const fetchData = async () => {
-    const response = await fetch("http://127.0.0.1:4321/api/v1/getDeviceInfo")
-    const res = await response.json()
-    if (res.code === 200) {
+    const res = await request("/api/v1/getDeviceInfo")
+    if (res?.code === 200) {
       setDeviceInfo(res.data)
     } 
   }
