@@ -23,7 +23,7 @@ export default function Dashboard() {
     return () => wsHandle?.close()
   }, [])
   const fetchData = async () => {
-    const res = await request("/api/v1/getDeviceInfo")
+    const res = await request("/getDeviceInfo")
     if (res?.code === 200) {
       setDeviceInfo(res.data)
     } 

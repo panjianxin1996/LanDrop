@@ -1,6 +1,6 @@
 import { toast } from "sonner"
 import { useState, useCallback } from "react"
-const Host = "http://127.0.0.1:4321"
+const Host = "http://127.0.0.1:4321/api/v1"
 type RequestMethod = "GET" | "POST" | "PUT" | "DELETE"
 type ErrorResponse = {
     statusText: string

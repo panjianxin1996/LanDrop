@@ -172,7 +172,7 @@ func (r Router) getSharedDirInfo(c *fiber.Ctx) error {
 		}
 		return c.Status(r.Reply.Code).JSON(r.Reply)
 	}
-	var files []FileInfo
+	files := []FileInfo{}
 	for _, entry := range entries {
 		info, _ := entry.Info()
 		files = append(files, FileInfo{
