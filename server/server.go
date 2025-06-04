@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"embed"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net"
@@ -40,6 +41,13 @@ type FileInfo struct {
 	IsDir   bool      `json:"is_dir"`
 }
 
+type Config struct {
+	AppName    string `json:"appName"`
+	Port       int    `json:"port"`
+	DefaultDir string `json:"defaultDir"`
+	Version    string `json:"version"`
+}
+
 // 检查端口是否占用
 func isPortAvailable(port int) bool {
 	conn, err := net.DialTimeout("tcp", fmt.Sprintf(":%d", port), 2*time.Second)
@@ -50,15 +58,16 @@ func isPortAvailable(port int) bool {
 	return true
 }
 
-func createSharedDir() string {
-	// 获取当前可执行文件所在目录
-	exeDir, err := filepath.Abs(filepath.Dir(os.Args[0]))
-	if err != nil {
-		log.Println("获取当前目录失败:", err)
-		return ""
-	}
+// 获取当前程序所在目录
+func getAppDir() string {
+	exePath, _ := os.Executable()
+	return filepath.Dir(exePath)
+}
+
+// 创建共享目录
+func createSharedDir(appDir string) string {
 	// 拼接 shared 目录路径
-	sharedDir := filepath.Join(exeDir, "shared")
+	sharedDir := filepath.Join(appDir, "shared")
 	// 检查目录是否存在
 	if _, err := os.Stat(sharedDir); os.IsNotExist(err) {
 		// 目录不存在，创建
@@ -67,28 +76,66 @@ func createSharedDir() string {
 			log.Println("创建 shared 目录失败:", err)
 			return ""
 		}
-		log.Println("shared 目录创建成功:", sharedDir)
 	} else if err != nil {
 		// 其他错误（如权限问题）
 		log.Println("检查 shared 目录失败:", err)
 		return ""
-	} else {
-		// 目录已存在
-		log.Println("shared 目录已存在:", sharedDir)
 	}
 	return sharedDir
+}
+
+// 加载配置文档
+func loadConfigFile() (Config, error) {
+	appDir := getAppDir()
+	configFile := filepath.Join(appDir, "config.json")
+	if _, err := os.Stat(configFile); os.IsNotExist(err) { // 检查配置文件是否存在
+		defaultConfig := Config{ // 创建默认配置
+			AppName:    "LanDrop",
+			Port:       4321,
+			DefaultDir: "",
+			Version:    "0.0.1",
+		}
+		sharedDir := createSharedDir(appDir) // 创建默认分享目录
+		if sharedDir == "" {
+			return defaultConfig, fmt.Errorf("创建默认目录失败")
+		}
+		defaultConfig.DefaultDir = sharedDir
+		file, err := os.Create(configFile) // 将默认配置写入文件
+		if err != nil {
+			return defaultConfig, err
+		}
+		defer file.Close()
+		encoder := json.NewEncoder(file)
+		encoder.SetIndent("", "    ") // 设置缩进，使文件更易读
+		if err := encoder.Encode(defaultConfig); err != nil {
+			return defaultConfig, err
+		}
+		return defaultConfig, nil
+	} else {
+		var config Config
+		file, err := os.Open(configFile)
+		if err != nil {
+			return config, err
+		}
+		defer file.Close()
+		decoder := json.NewDecoder(file)
+		if err := decoder.Decode(&config); err != nil {
+			return config, err
+		}
+		return config, nil
+	}
 }
 func Run(assets embed.FS) {
 	serverMutex.Lock()
 	defer serverMutex.Unlock()
 
-	if !isPortAvailable(4321) {
-		log.Println("端口 4321 已被占用，跳过 Fiber 启动")
+	config, err := loadConfigFile()
+	if err != nil {
+		log.Println(err.Error())
 		return
 	}
-	sharedDir := createSharedDir()
-	if sharedDir == "" {
-		log.Println("创建 shared 目录失败")
+	if !isPortAvailable(config.Port) {
+		log.Println(fmt.Printf("端口 %v 已被占用，跳过 Fiber 启动", config.Port))
 		return
 	}
 	// 初始化 Fiber 应用
@@ -128,10 +175,10 @@ func Run(assets embed.FS) {
 		PathPrefix: "frontend/dist", // 匹配嵌入的路径
 		Browse:     true,            // 允许目录浏览（可选）
 	}))
-	app.Static("/shared", sharedDir)
+	app.Static("/shared", config.DefaultDir)
 
 	// 启动路由组
-	startRouter(app, assets, sharedDir)
+	startRouter(app, assets, config.DefaultDir)
 
 	// 404 处理
 	app.Use(func(c *fiber.Ctx) error {
@@ -145,8 +192,8 @@ func Run(assets embed.FS) {
 	// 启动服务
 	// 启动服务（异步）
 	go func() {
-		log.Println("服务启动中，监听端口 :4321")
-		if err := app.Listen(":4321"); err != nil {
+		log.Println(fmt.Sprintf("服务启动中，监听端口 :%v", config.Port))
+		if err := app.Listen(fmt.Sprintf(":%v", config.Port)); err != nil {
 			log.Fatal("服务启动失败:", err)
 		}
 	}()
