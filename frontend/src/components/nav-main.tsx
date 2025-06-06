@@ -48,17 +48,17 @@ export function NavMain({
             <Dialog>
               <DialogTrigger asChild>
                 <SidebarMenuButton
-                  tooltip="快捷分享"
+                  tooltip="快速分享"
                   className="min-w-8 bg-primary text-primary-foreground duration-200 ease-linear hover:bg-primary/90 hover:text-primary-foreground active:bg-primary/90 active:text-primary-foreground"
                   // onClick={openDirectory}
                 >
                   <PlusCircleIcon />
-                  <span>快捷分享</span>
+                  <span>快速分享</span>
                 </SidebarMenuButton>
               </DialogTrigger>
               <DialogContent className="sm:max-w-md">
                 <DialogHeader>
-                  <DialogTitle>快捷分享</DialogTitle>
+                  <DialogTitle>快速分享</DialogTitle>
                   <DialogDescription>
                     请选择分享的文件夹或者<del>文件</del>[目前暂不支持单文件]
                   </DialogDescription>

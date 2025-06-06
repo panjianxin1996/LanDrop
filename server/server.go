@@ -39,6 +39,9 @@ type FileInfo struct {
 	Mode    string    `json:"mode"`
 	ModTime time.Time `json:"mod_time"`
 	IsDir   bool      `json:"is_dir"`
+	URIName string    `json:"uri_name"`
+	Path    string    `json:"path"`
+	FileId  string    `json:"file_id"`
 }
 
 type Config struct {

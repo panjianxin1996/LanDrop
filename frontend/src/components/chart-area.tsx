@@ -22,6 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import useClientStore from "@/store/appStore"
 
 
 const chartConfig = {
@@ -41,9 +42,10 @@ const chartConfig = {
 export function ChartAreaInteractive({ deviceLogs }: {
   deviceLogs: Array<any>
 }) {
+  const {selectNetAdapter, setSelectNetAdapter} = useClientStore()
   const [allNetData, setAllNetData] = React.useState<any>([])
   const [netAdapters, setNetAdapters] = React.useState<any>([])
-  const [selectNetAdapter, setSelectNetAdapter] = React.useState("")
+  // const [selectNetAdapter, setSelectNetAdapter] = React.useState("")
 
   React.useEffect(() => {
     if (deviceLogs.length > 0) {
@@ -58,11 +60,10 @@ export function ChartAreaInteractive({ deviceLogs }: {
   const filteredData = allNetData.map((item: any) => {
     return {
       time: item.time,
-      upload: item[selectNetAdapter].upload,
-      download: item[selectNetAdapter].download
+      upload: selectNetAdapter && item[selectNetAdapter].upload,
+      download: selectNetAdapter && item[selectNetAdapter].download
     }
   })
-
 
   return (
     <Card className="@container/card">
@@ -75,9 +76,9 @@ export function ChartAreaInteractive({ deviceLogs }: {
           <Select value={selectNetAdapter} onValueChange={setSelectNetAdapter}>
             <SelectTrigger
               className="@[767px]/card:hidden flex w-40"
-              aria-label="选择你的网卡"
+              aria-label="获取网卡列表中..."
             >
-              <SelectValue placeholder="选择你的网卡" />
+              <SelectValue placeholder="获取网卡列表中..." />
             </SelectTrigger>
             <SelectContent className="rounded-xl">
               {
