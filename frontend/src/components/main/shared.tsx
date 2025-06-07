@@ -4,7 +4,8 @@ import DirList from "@/components/common/dir-list"
 export default function Shared() {
   const { request } = useApiRequest()
   // 分享文件列表信息
-  const [sharedData, setSharedData] = useState<any>([{name: '123'}])
+  const [sharedData, setSharedData] = useState<any>([])
+  const [sharedDir, setSharedDir] =  useState<string>("")
   useEffect(() => {
     getSharedDirInfo()
   }, [])
@@ -13,13 +14,10 @@ export default function Shared() {
       if (res?.code === 200) {
         // 将文件名编码处理，解决get请求特殊文件名无法访问的问题
         setSharedData(res.data.files)
+        setSharedDir(res.data.sharedDir)
       }
     })
   }
 
-  return (
-    // <div className="flex flex-col gap-4 p-4">
-      <DirList dirData={sharedData} />
-
-  )
+  return <DirList dirData={sharedData} sharedDir={sharedDir} reload={getSharedDirInfo} />
 }

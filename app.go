@@ -3,8 +3,10 @@ package main
 import (
 	"context"
 	"fmt"
+	"os/exec"
+	"runtime"
 
-	"github.com/wailsapp/wails/v2/pkg/runtime"
+	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 // App struct
@@ -48,7 +50,7 @@ func (a *App) Greet(name string) string {
 
 func (a *App) OpenDirectory() map[string]any {
 	dirInfo := map[string]any{}
-	selectedDir, err := runtime.OpenDirectoryDialog(a.ctx, runtime.OpenDialogOptions{
+	selectedDir, err := wailsRuntime.OpenDirectoryDialog(a.ctx, wailsRuntime.OpenDialogOptions{
 		Title:                "选择目录",
 		DefaultDirectory:     "/",  // 默认打开的目录路径
 		CanCreateDirectories: true, // 允许用户创建新目录
@@ -60,4 +62,19 @@ func (a *App) OpenDirectory() map[string]any {
 	}
 	dirInfo["dir"] = selectedDir
 	return dirInfo
+}
+
+func (a *App) OpenDirInExplorer(dirPath string) error {
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "windows":
+		cmd = exec.Command("explorer", dirPath) // Windows 使用 explorer
+	case "darwin":
+		cmd = exec.Command("open", dirPath) // macOS 使用 open
+	case "linux":
+		cmd = exec.Command("xdg-open", dirPath) // Linux 使用 xdg-open
+	default:
+		return nil
+	}
+	return cmd.Start()
 }

@@ -3,4 +3,6 @@
 
 export function Greet(arg1:string):Promise<string>;
 
+export function OpenDirInExplorer(arg1:string):Promise<void>;
+
 export function OpenDirectory():Promise<Record<string, any>>;

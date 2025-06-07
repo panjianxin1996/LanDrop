@@ -19,8 +19,8 @@ import { Link } from 'react-router-dom'
 
 const data = {
   user: {
-    name: "shadcn",
-    email: "m@example.com",
+    name: "admin",
+    email: "panjianxin0807@163.com",
     avatar: "",
   },
 }

@@ -6,6 +6,10 @@ export function Greet(arg1) {
   return window['go']['main']['App']['Greet'](arg1);
 }
 
+export function OpenDirInExplorer(arg1) {
+  return window['go']['main']['App']['OpenDirInExplorer'](arg1);
+}
+
 export function OpenDirectory() {
   return window['go']['main']['App']['OpenDirectory']();
 }

@@ -17,6 +17,7 @@ import {
     ContextMenuItem,
     ContextMenuTrigger,
 } from "@/components/ui/context-menu"
+import { OpenDirInExplorer } from "@clientSDK/App"
 
 export interface DirItem {
     name: string
@@ -28,8 +29,8 @@ export interface DirItem {
     path: string
     file_id: string
 }
-export default function DirList(props: { dirData: any }) {
-    const [showType, setShowType] = React.useState("columns")
+export default function DirList(props: { dirData: any, sharedDir: string, reload: () => void }) {
+    const [showType, setShowType] = React.useState("card")
     const [activeFile, setActiveFile] = React.useState<DirItem>({
         name: '',
         size: 0,
@@ -52,6 +53,12 @@ export default function DirList(props: { dirData: any }) {
     }
     const copyEvent = (text: string) => {
         navigator.clipboard.writeText(text).catch(err => console.error('复制失败:', err))
+    }
+
+    const openDirInExplorer = () => {
+        OpenDirInExplorer(props.sharedDir).then(res=> {
+            console.log(res,'打开目录成功回调')
+        })
     }
     return (
         <ContextMenu>
@@ -156,11 +163,11 @@ export default function DirList(props: { dirData: any }) {
                 {/* </div> */}
             </ContextMenuTrigger>
             <ContextMenuContent>
-                <ContextMenuItem onClick={() => { }}>
+                <ContextMenuItem onClick={() => props.reload()}>
                     <RefreshCw size={15} />
                     <span className="ml-2">刷新</span>
                 </ContextMenuItem>
-                <ContextMenuItem onClick={() => { }}>
+                <ContextMenuItem onClick={() => openDirInExplorer()}>
                     <FolderOpen size={15} />
                     <span className="ml-2">在资源管理器中打开</span>
                 </ContextMenuItem>
