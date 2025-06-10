@@ -1,6 +1,6 @@
 import { toast } from "sonner"
 import { useState, useCallback } from "react"
-const Host = "http://127.0.0.1:4321/api/v1"
+import useClientStore from "@/store/appStore"
 type RequestMethod = "GET" | "POST" | "PUT" | "DELETE"
 type ErrorResponse = {
     statusText: string
@@ -15,7 +15,9 @@ type ErrorResponse = {
  *   - error: 请求失败时的错误信息
  */
 export function useApiRequest() {
-    // const { toast } = useToast()
+    const { isClient } = useClientStore()
+    let baseHost = `http://${isClient ? "127.0.0.1:4321" : location.host}`
+    let Host = baseHost + "/api/v1"
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState<ErrorResponse | null>(null)
     /**
@@ -45,7 +47,7 @@ export function useApiRequest() {
                     }
                     try {
                         const errorResponse = await response.json()
-                        errorData.message = errorResponse.message
+                        errorData.message = errorResponse.msg
                     } catch (e: any) {
                         errorData.message = e
                     }
@@ -71,5 +73,5 @@ export function useApiRequest() {
         },
         [toast]
     )
-    return { request, isLoading, error }
+    return { request, isLoading, error, baseHost }
 }

@@ -1,5 +1,5 @@
 import * as React from "react"
-import { List, LayoutGrid, Columns, Link, Trash2, Share2, Copy, RefreshCw, FolderOpen } from "lucide-react"
+import { List, LayoutGrid, Columns, Link, Trash2, Share2, Copy, RefreshCw, FolderOpen, CircleEllipsis } from "lucide-react"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import {
     Table,
@@ -17,7 +17,25 @@ import {
     ContextMenuItem,
     ContextMenuTrigger,
 } from "@/components/ui/context-menu"
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipTrigger,
+} from "@/components/ui/tooltip"
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+    DialogFooter
+} from "@/components/ui/dialog"
+import {
+    Button,
+} from "@/components/ui/button"
 import { OpenDirInExplorer } from "@clientSDK/App"
+import useClientStore from "@/store/appStore"
+import { useApiRequest } from "@/tools/request"
 
 export interface DirItem {
     name: string
@@ -30,6 +48,8 @@ export interface DirItem {
     file_id: string
 }
 export default function DirList(props: { dirData: any, sharedDir: string, reload: () => void }) {
+    const { isClient } = useClientStore()
+    const { baseHost } = useApiRequest()
     const [showType, setShowType] = React.useState("card")
     const [activeFile, setActiveFile] = React.useState<DirItem>({
         name: '',
@@ -42,7 +62,9 @@ export default function DirList(props: { dirData: any, sharedDir: string, reload
         uri_name: ''
     })
     const [txtFileData, setTxtFileData] = React.useState<string>('')
-    const baseServer = 'http://127.0.0.1:4321/shared/'
+    const [openDialog, setOpenDialog] = React.useState(false)
+    const [fileInfo, setFileInfo] = React.useState<any>({})
+    const baseServer = baseHost+'/shared/'
     const changeShowType = (type: string) => {
         setShowType(type)
     }
@@ -52,12 +74,22 @@ export default function DirList(props: { dirData: any, sharedDir: string, reload
         })
     }
     const copyEvent = (text: string) => {
-        navigator.clipboard.writeText(text).catch(err => console.error('复制失败:', err))
+        if (navigator.clipboard) {
+            navigator.clipboard.writeText(text).catch(err => console.error('复制失败:', err))
+        } else { // 安全策略http不允许navigator.clipboard复制操作
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.style.position = 'fixed';
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            textarea.remove();
+        }
     }
 
     const openDirInExplorer = () => {
-        OpenDirInExplorer(props.sharedDir).then(res=> {
-            console.log(res,'打开目录成功回调')
+        OpenDirInExplorer(props.sharedDir).then(res => {
+            console.log(res, '打开目录成功回调')
         })
     }
     return (
@@ -90,7 +122,14 @@ export default function DirList(props: { dirData: any, sharedDir: string, reload
                                     <TableRow key={item.name}>
                                         <TableCell className="font-medium text-xs flex p-2">
                                             <img src={item.is_dir ? getImageUrl("file.png") : getFileIconUrl(item.name)} className="w-6 h-6 mr-4" />
-                                            <p className="overflow-hidden overflow-ellipsis line-clamp-2">{item.name}</p>
+                                            <Tooltip> {/* 文件名超长显示提示框 */}
+                                                <TooltipTrigger asChild>
+                                                    <p className="overflow-hidden overflow-ellipsis line-clamp-2">{item.name}</p>
+                                                </TooltipTrigger>
+                                                <TooltipContent>
+                                                    <p className="max-w-sm">{item.name}</p>
+                                                </TooltipContent>
+                                            </Tooltip>
                                         </TableCell>
                                         <TableCell className="text-xs p-2">{item.is_dir ? '文件夹' : getFileType(item.name)}</TableCell>
                                         <TableCell className="text-xs p-2">{item.is_dir ? '-' : autoUnitCalc(item.size).Unit}</TableCell>
@@ -104,18 +143,25 @@ export default function DirList(props: { dirData: any, sharedDir: string, reload
                     }
                     {// 卡片模式
                         showType !== 'list' && <>
-                            <div style={{ gridTemplateColumns: "repeat(auto-fit, minmax(5rem, 1fr))", transition: "all .2s ease-in" }} className={`overflow-auto ${showType === 'columns' ? 'w-1/2 border-r-2' : 'w-full'} grid auto-rows-min gap-2 px-2`}>
+                            <div style={{ transition: "all .2s ease-in" }} className={`overflow-auto ${showType === 'columns' ? 'w-1/2 border-r-2' : 'w-full'} flex flex-wrap gap-2 px-2`}>
                                 {
                                     props.dirData?.map((item: DirItem) => (
                                         <ContextMenu key={item.name}>
-                                            <ContextMenuTrigger className="w-20 h-24 lg:h-32 px-2 py-4 flex flex-col items-center gap-1 cursor-pointer active:bg-gray-100 rounded-lg select-none" onClick={() => {
+                                            <ContextMenuTrigger className="w-20 max-h-24 lg:max-h-28 lg:h-32 px-1 py-2 flex flex-col items-center gap-1 cursor-pointer active:bg-gray-100 rounded-lg select-none" onClick={() => {
                                                 setActiveFile(item)
                                                 if (getFileType(item.name) === "code" || getFileType(item.name) === "txt") {
                                                     getTxtFileData(item)
                                                 }
                                             }}>
-                                                <img src={item.is_dir ? getImageUrl("file.png") : getFileIconUrl(item.name)} className="w-6 lg:w-10 h-6 lg:h-10" />
-                                                <p className="overflow-hidden overflow-ellipsis line-clamp-2 text-xs text-center">{item.name}</p>
+                                                <img src={item.is_dir ? getImageUrl("file.png") : getFileIconUrl(item.name)} className="w-8 lg:w-12 h-8 lg:h-12" />
+                                                <Tooltip> {/* 文件名超长显示提示框 */}
+                                                    <TooltipTrigger asChild>
+                                                        <p className="overflow-hidden overflow-ellipsis line-clamp-2 text-xs text-center">{item.name}</p>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>
+                                                        <p className="max-w-sm">{item.name}</p>
+                                                    </TooltipContent>
+                                                </Tooltip>
                                             </ContextMenuTrigger>
                                             <ContextMenuContent>
                                                 <ContextMenuItem onClick={() => copyEvent(item.name)}>
@@ -130,15 +176,47 @@ export default function DirList(props: { dirData: any, sharedDir: string, reload
                                                     <Share2 size={15} />
                                                     <span className="ml-2">分享码</span>
                                                 </ContextMenuItem>
-                                                <ContextMenuItem>
-                                                    <Trash2 size={15} />
-                                                    <span className="ml-2">删除文件</span>
+                                                {
+                                                    isClient && <ContextMenuItem>
+                                                        <Trash2 size={15} />
+                                                        <span className="ml-2">删除文件</span>
+                                                    </ContextMenuItem>
+                                                }
+                                                <ContextMenuItem onClick={() => { setFileInfo(item); setOpenDialog(true); }}>
+                                                    <CircleEllipsis size={15} />
+                                                    <span className="ml-2">文件属性</span>
                                                 </ContextMenuItem>
                                             </ContextMenuContent>
                                         </ContextMenu>
                                     ))
                                 }
                             </div>
+                            <Dialog open={openDialog} onOpenChange={setOpenDialog}>
+                                <DialogContent>
+                                    <DialogHeader>
+                                        <DialogTitle>文件详情</DialogTitle>
+                                        <DialogDescription>
+                                            <div className="grid grid-cols-2 gap-2 mt-4">
+                                                <div>文件名</div>
+                                                <div className="overflow-hidden overflow-ellipsis line-clamp-2">{fileInfo.name}</div>
+                                                <div>类型</div>
+                                                <div>{fileInfo.is_dir ? '文件夹' : getFileType(fileInfo.name)}</div>
+                                                <div>大小</div>
+                                                <div>{fileInfo.is_dir ? '-' : autoUnitCalc(fileInfo.size).Unit}</div>
+                                                <div>修改时间</div>
+                                                <div>{dayjs(fileInfo.mod_time).format("YYYY-MM-DD HH:mm:ss")}</div>
+                                                <div>权限</div>
+                                                <div>{fileInfo.mode}</div>
+                                                <div>是否文件夹</div>
+                                                <div>{fileInfo.is_dir ? '是' : '否'}</div>
+                                            </div>
+                                        </DialogDescription>
+                                    </DialogHeader>
+                                    <DialogFooter>
+                                        <Button onClick={()=>setOpenDialog(false)}>关闭</Button>
+                                    </DialogFooter>
+                                </DialogContent>
+                            </Dialog>
                             <div className={`${showType === 'columns' ? 'w-1/2 p-4' : 'w-0'} box-border flex flex-col items-center transition-all relative `}>
                                 {showType === 'columns' && <>
                                     <p className="pb-2">预览</p>
@@ -167,10 +245,12 @@ export default function DirList(props: { dirData: any, sharedDir: string, reload
                     <RefreshCw size={15} />
                     <span className="ml-2">刷新</span>
                 </ContextMenuItem>
-                <ContextMenuItem onClick={() => openDirInExplorer()}>
-                    <FolderOpen size={15} />
-                    <span className="ml-2">在资源管理器中打开</span>
-                </ContextMenuItem>
+                {
+                    isClient && <ContextMenuItem onClick={() => openDirInExplorer()}>
+                        <FolderOpen size={15} />
+                        <span className="ml-2">在资源管理器中打开</span>
+                    </ContextMenuItem>
+                }
             </ContextMenuContent>
         </ContextMenu>
     )

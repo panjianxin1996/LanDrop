@@ -55,7 +55,7 @@ export function autoUnitCalc(bytes: number): UnitCalc {
  * @returns 文件类型的小写字符串，如果文件名不含扩展名或为空，则返回空字符串
  */
 export function getFileExtension(fileName: string) {
-    return fileName.split('.').pop()?.toLowerCase();
+    return fileName?.split('.').pop()?.toLowerCase();
 }
 
 /**

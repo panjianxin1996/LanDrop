@@ -4,7 +4,6 @@ import (
 	"crypto/rand"
 	"embed"
 	"encoding/json"
-	"fmt"
 	"log"
 	"math/big"
 	"net/http"
@@ -109,13 +108,13 @@ func startRouter(app *fiber.App, assets embed.FS, sharedDirPath string) {
 					if stat.Name == initialStats[i].Name {
 						upload := stat.BytesSent - initialStats[i].BytesSent
 						download := stat.BytesRecv - initialStats[i].BytesRecv
-						adapterCode := fmt.Sprintf("netAdapter_%v", i)
+						// adapterCode := fmt.Sprintf("netAdapter_%v", i)
 						adapterList = append(adapterList, map[string]string{
-							"adapterCode": adapterCode,
+							"adapterCode": stat.Name,
 							"adapterName": stat.Name,
 						})
-						sendData[adapterCode] = map[string]any{
-							"adapterCode": adapterCode,
+						sendData[stat.Name] = map[string]any{
+							"adapterCode": stat.Name,
 							"adapterName": stat.Name,
 							"upload":      upload,
 							"download":    download,
@@ -143,6 +142,8 @@ func startRouter(app *fiber.App, assets embed.FS, sharedDirPath string) {
 		api.Get("/getSharedDirInfo", r.getSharedDirInfo)
 		// 通过fileId 获取真实路径
 		api.Get("/getRealFilePath", r.getRealFilePath)
+		// 获取所有网卡信息包括ipv4 v6地址
+		api.Get("/getNetworkInfo", r.getNetworkInfo)
 		// 在路由中使用
 		// app.Get("/setSharedDir", r.setSharedDir)
 	}
@@ -245,6 +246,31 @@ func (r Router) getRealFilePath(c *fiber.Ctx) error {
 		r.Reply.Code = -1
 		r.Reply.Data = ""
 		r.Reply.Msg = "get real path failed"
+	}
+	return c.Status(r.Reply.Code).JSON(r.Reply)
+}
+
+func (r Router) getNetworkInfo(c *fiber.Ctx) error {
+	// 获取所有网络接口的IP地址
+	addrs, err := psNet.Interfaces()
+	if err != nil {
+		r.Reply.Code = http.StatusBadRequest
+		r.Reply.Msg = "get network info failed."
+	} else {
+		interfaces := []map[string]any{}
+		for _, addr := range addrs {
+			interfaceItem := map[string]any{}
+			ips := []string{}
+			for _, a := range addr.Addrs {
+				ips = append(ips, a.Addr)
+			}
+			interfaceItem["name"] = addr.Name
+			interfaceItem["ips"] = ips
+			interfaces = append(interfaces, interfaceItem)
+		}
+		r.Reply.Code = http.StatusOK
+		r.Reply.Msg = "success."
+		r.Reply.Data = interfaces
 	}
 	return c.Status(r.Reply.Code).JSON(r.Reply)
 }

@@ -1,25 +1,34 @@
-import { SidebarProvider } from "@/components/ui/sidebar"
+import {
+    TooltipProvider
+} from "@/components/ui/tooltip"
+import useClientStore from "@/store/appStore"
+import { useEffect, useState } from "react"
+import DirList from "@/components/common/dir-list"
+import { useApiRequest } from "@/tools/request"
 
-// const Settings = React.lazy(() => import('./pages/settings'));
-export default function AppWev() {
-    return (
-        <SidebarProvider>
-            <div>web app
-                <form className="upload-form"
-                    action="http://localhost:4321/api/v1/uploadFile"
-                    method="POST"
-                    encType="multipart/form-data">
-                    <div>
-                        <label>选择文件：</label>
-                        <input type="file" id="fileInput" name="file" required />
-                    </div>
-                    <div>
-                        <label>描述（可选）：</label>
-                        <input type="text" id="description" name="description" />
-                    </div>
-                    <button type="submit">上传文件</button>
-                </form>
-            </div>
-        </SidebarProvider>
-    )
+export default function AppWeb() {
+    const { setIsClient } = useClientStore()
+    const { request } = useApiRequest()
+    // 分享文件列表信息
+    const [sharedData, setSharedData] = useState<any>([])
+    const [sharedDir, setSharedDir] = useState<string>("")
+    useEffect(() => {
+        // web端设置为非客户端
+        setIsClient(false)
+        // 获取分享目录
+        getSharedDirInfo()
+    }, [])
+    const getSharedDirInfo = () => {
+        request("/getSharedDirInfo").then(res => {
+            if (res?.code === 200) {
+                setSharedData(res.data.files)
+                setSharedDir(res.data.sharedDir)
+            }
+        })
+    }
+    return <TooltipProvider>
+        <div>
+            <DirList dirData={sharedData} sharedDir={sharedDir} reload={getSharedDirInfo} />
+        </div>
+    </TooltipProvider> 
 }

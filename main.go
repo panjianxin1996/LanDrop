@@ -24,7 +24,6 @@ func main() {
 
 	// Create an instance of the app structure
 	app := NewApp()
-
 	// Create application with options
 	err := wails.Run(&options.App{
 		Title:             "LanDrop",
@@ -50,12 +49,14 @@ func main() {
 			app.startup(ctx)
 			// 启动web服务
 			server.Run(assets)
+			go server.StartDNSServer()
 		},
 		OnDomReady:    app.domReady,
 		OnBeforeClose: app.beforeClose,
 		OnShutdown: func(ctx context.Context) {
 			app.shutdown(ctx)
 			server.Stop()
+			go server.StopDNSServer()
 		},
 		WindowStartState: options.Normal,
 		Bind: []interface{}{

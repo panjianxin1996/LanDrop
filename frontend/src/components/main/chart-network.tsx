@@ -42,14 +42,14 @@ const chartConfig = {
 export function ChartAreaInteractive({ deviceLogs }: {
   deviceLogs: Array<any>
 }) {
-  const {selectNetAdapter, setSelectNetAdapter} = useClientStore()
+  const {selectNetAdapter, setSelectNetAdapter, netAdapterList } = useClientStore()
   const [allNetData, setAllNetData] = React.useState<any>([])
-  const [netAdapters, setNetAdapters] = React.useState<any>([])
+  // const [netAdapters, setNetAdapters] = React.useState<any>([])
   // const [selectNetAdapter, setSelectNetAdapter] = React.useState("")
 
   React.useEffect(() => {
     if (deviceLogs.length > 0) {
-      setNetAdapters(deviceLogs[0].adapterList) // 可能出现用户自行更改网卡比如关闭、启用、新增
+      // setNetAdapters(deviceLogs[0].adapterList) // 可能出现用户自行更改网卡比如关闭、启用、新增
       if (selectNetAdapter === "") {
         setSelectNetAdapter(deviceLogs[0].adapterList[0].adapterCode)
       }
@@ -60,8 +60,8 @@ export function ChartAreaInteractive({ deviceLogs }: {
   const filteredData = allNetData.map((item: any) => {
     return {
       time: item.time,
-      upload: selectNetAdapter && item[selectNetAdapter].upload,
-      download: selectNetAdapter && item[selectNetAdapter].download
+      upload: selectNetAdapter && item[selectNetAdapter] && item[selectNetAdapter].upload,
+      download: selectNetAdapter && item[selectNetAdapter] &&  item[selectNetAdapter].download
     }
   })
 
@@ -70,7 +70,7 @@ export function ChartAreaInteractive({ deviceLogs }: {
       <CardHeader className="relative">
         <CardTitle>网络使用情况</CardTitle>
         <CardDescription>
-          <span className="@[540px]/card:hidden">{netAdapters.find((item: any) => item.adapterCode === selectNetAdapter)?.adapterName}</span>
+          <span className="@[540px]/card:hidden">{selectNetAdapter}</span>
         </CardDescription>
         <div className="absolute right-4 top-4">
           <Select value={selectNetAdapter} onValueChange={setSelectNetAdapter}>
@@ -82,10 +82,10 @@ export function ChartAreaInteractive({ deviceLogs }: {
             </SelectTrigger>
             <SelectContent className="rounded-xl">
               {
-                netAdapters.map((item: any) => {
+                netAdapterList.map((item: any) => {
                   return (
-                    <SelectItem value={item.adapterCode} key={item.adapterCode} className="rounded-lg">
-                      {item.adapterName}
+                    <SelectItem value={item.name} key={item.name} className="rounded-lg">
+                      {item.name}
                     </SelectItem>
                   )
                 })

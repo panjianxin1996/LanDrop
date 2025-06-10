@@ -1,8 +1,6 @@
-import { ChartAreaInteractive } from "@/components/chart-area"
-// import { DataTable } from "@/components/data-table"
-import { SectionCards, type DeviceInfo } from "@/components/section-cards"
+import { ChartAreaInteractive } from "@/components/main/chart-network"
+import { SectionCards, type DeviceInfo } from "@/components/main/chart-device-info"
 import { useEffect, useState } from "react"
-// import data from "../../data.json"
 import { useApiRequest } from "@/tools/request"
 import useClientStore from "@/store/appStore";
 export default function Dashboard() {
@@ -27,7 +25,6 @@ export default function Dashboard() {
       <div className="px-4 lg:px-6">
         <ChartAreaInteractive deviceLogs={deviceLogsData} />
       </div>
-      {/* <DataTable data={data} /> */}
     </div>
   </div>)
 }

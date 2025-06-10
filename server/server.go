@@ -8,6 +8,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -151,6 +152,14 @@ func Run(assets embed.FS) {
 	// app.Use(cors.New())
 	// 设置跨域允许
 	app.Use(cors.New(cors.Config{
+		// 在AllowOrigins之后触发，放行所有4321端口的请求
+		AllowOriginsFunc: func(origin string) bool {
+			parsed, err := url.Parse(origin)
+			if err != nil {
+				return false
+			}
+			return parsed.Port() == "4321" // 仅允许4321端口
+		},
 		AllowOrigins: "http://wails.localhost:34115,http://wails.localhost",
 		AllowMethods: strings.Join([]string{
 			fiber.MethodGet,

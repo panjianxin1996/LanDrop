@@ -2,9 +2,9 @@ import * as React from "react"
 import {
   ArrowUpCircleIcon,
 } from "lucide-react"
-import { NavMain } from "@/components/nav-main"
-import { NavSecondary } from "@/components/nav-secondary"
-import { NavUser } from "@/components/nav-user"
+import { NavMain } from "@/components/main/nav-main"
+import { NavSecondary } from "@/components/main/nav-secondary"
+import { NavUser } from "@/components/main/nav-user"
 import {
   Sidebar,
   SidebarContent,

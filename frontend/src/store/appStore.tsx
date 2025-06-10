@@ -11,10 +11,13 @@ type AppStore = {
   closeWS: () => void // 关闭websocket
   selectNetAdapter: string // 选择的网络适配器
   setSelectNetAdapter: (selectNetAdapter: string) => void // 设置选择网络适配器
+  netAdapterList: Array<any>,
+  setNetAdapterList: (netAdapterList: Array<any>) => void // 设置网卡列表
 }
 
 // 持久化白名单
 const blackList = ['deviceLogsData', 'wsHandle']
+
 
 const useClientStore = create<AppStore>()(persist(
   (set, get) => ({
@@ -40,9 +43,13 @@ const useClientStore = create<AppStore>()(persist(
     },
     selectNetAdapter: "",
     setSelectNetAdapter: (selectNetAdapter) => {
-      set({selectNetAdapter})
-    }
-  }), { name: 'client-store', partialize: (state) => Object.fromEntries( Object.entries(state).filter(([key]) => !blackList.includes(key))), })
+      set({ selectNetAdapter })
+    },
+    netAdapterList: [],
+    setNetAdapterList: netAdapterList => {
+      set({ netAdapterList })
+    },
+  }), { name: 'client-store', partialize: (state) => Object.fromEntries(Object.entries(state).filter(([key]) => !blackList.includes(key))), })
 )
 
 export default useClientStore
