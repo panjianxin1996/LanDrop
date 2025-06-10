@@ -30,5 +30,5 @@ export default function AppWeb() {
         <div>
             <DirList dirData={sharedData} sharedDir={sharedDir} reload={getSharedDirInfo} />
         </div>
-    </TooltipProvider> 
+    </TooltipProvider>
 }

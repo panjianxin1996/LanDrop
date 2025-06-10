@@ -21,29 +21,29 @@ export default function App() {
     // '/client'路由导航守卫
     console.log(enterClient, isClientEnv, navigate);
     !isClientEnv && enterClient && navigate("/web", { replace: true });
-    return  () => {
+    return () => {
       closeWS()
     }
   }, [])
 
   const getNetworkInfo = () => {
-    request("/getNetworkInfo").then(res=> {
+    request("/getNetworkInfo").then(res => {
       if (res.code === 200) {
         setNetAdapterList(res.data)
       }
     })
   }
-    return !isClientEnv && enterClient ? <></> : (<SidebarProvider>
+  return !isClientEnv && enterClient ? <></> : (<SidebarProvider>
     {/* return <SidebarProvider> */}
-      {/* 侧边栏 */}
-      <AppSidebar variant="inset" />
-      {/* 主体 */}
-      <SidebarInset className="!w-3/5">
-        <SiteHeader />
-        <main className=" flex flex-1 flex-col">
-          <Outlet />
-        </main>
-      </SidebarInset>
-    </SidebarProvider>
+    {/* 侧边栏 */}
+    <AppSidebar variant="inset" />
+    {/* 主体 */}
+    <SidebarInset className="!w-3/5">
+      <SiteHeader />
+      <main className=" flex flex-1 flex-col">
+        <Outlet />
+      </main>
+    </SidebarInset>
+  </SidebarProvider>
   )
 }
