@@ -23,7 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import useClientStore from "@/store/appStore"
-
+import { useApiRequest } from "@/tools/request"
 
 const chartConfig = {
   visitors: {
@@ -39,20 +39,21 @@ const chartConfig = {
   },
 } satisfies ChartConfig
 
-export function ChartAreaInteractive({ deviceLogs }: {
+export function ChartNetwork({ deviceLogs }: {
   deviceLogs: Array<any>
 }) {
-  const {selectNetAdapter, setSelectNetAdapter, netAdapterList } = useClientStore()
+  const { request } = useApiRequest()
+  const { selectNetAdapter, setSelectNetAdapter, netAdapterList, ipv4Address, ipv6Address } = useClientStore()
   const [allNetData, setAllNetData] = React.useState<any>([])
-  // const [netAdapters, setNetAdapters] = React.useState<any>([])
-  // const [selectNetAdapter, setSelectNetAdapter] = React.useState("")
+
+  React.useEffect(() => {
+    if (selectNetAdapter) {
+      selectNetAdapterEvent(selectNetAdapter)
+    }
+  }, [])
 
   React.useEffect(() => {
     if (deviceLogs.length > 0) {
-      // setNetAdapters(deviceLogs[0].adapterList) // 可能出现用户自行更改网卡比如关闭、启用、新增
-      if (selectNetAdapter === "") {
-        setSelectNetAdapter(deviceLogs[0].adapterList[0].adapterCode)
-      }
       setAllNetData(deviceLogs)
     }
   }, [deviceLogs])
@@ -61,19 +62,32 @@ export function ChartAreaInteractive({ deviceLogs }: {
     return {
       time: item.time,
       upload: selectNetAdapter && item[selectNetAdapter] && item[selectNetAdapter].upload,
-      download: selectNetAdapter && item[selectNetAdapter] &&  item[selectNetAdapter].download
+      download: selectNetAdapter && item[selectNetAdapter] && item[selectNetAdapter].download
     }
   })
+
+  const selectNetAdapterEvent = (adapterCode: string) => {
+    setSelectNetAdapter(adapterCode)
+    // 通知客户端本地ip地址作为dns服务器
+    if (!ipv4Address || !ipv6Address) {
+      return
+    }
+    request('/setIpAddress', 'POST', { ipv4:ipv4Address, ipv6:ipv6Address })
+  }
 
   return (
     <Card className="@container/card">
       <CardHeader className="relative">
-        <CardTitle>网络使用情况</CardTitle>
+        <CardTitle>网络使用情况{selectNetAdapter}</CardTitle>
         <CardDescription>
-          <span className="@[540px]/card:hidden">{selectNetAdapter}</span>
+          <p className="@[540px]/card:hidden text-xs">你的分享服务根据您的网卡进行变更，包括dns服务。</p>
+          <p className="text-xs">
+            <span className='font-mono text-sm bg-gray-100 dark:bg-gray-800 rounded px-1 py-0.5'>{ipv4Address}</span>
+            <span className='font-mono text-sm bg-gray-100 dark:bg-gray-800 rounded px-1 py-0.5 ml-2'>{ipv6Address}</span>
+          </p>
         </CardDescription>
         <div className="absolute right-4 top-4">
-          <Select value={selectNetAdapter} onValueChange={setSelectNetAdapter}>
+          <Select value={selectNetAdapter} onValueChange={val => selectNetAdapterEvent(val)}>
             <SelectTrigger
               className="@[767px]/card:hidden flex w-40"
               aria-label="获取网卡列表中..."
@@ -137,8 +151,8 @@ export function ChartAreaInteractive({ deviceLogs }: {
               cursor={true}
               formatter={(value: number, type: string, item: any) => {
                 return <>
-                  <span className="w-2 h-2" style={{backgroundColor: item.color}}></span>
-                  <span>{type === 'upload' ? '上传':'下载'}</span>
+                  <span className="w-2 h-2" style={{ backgroundColor: item.color }}></span>
+                  <span>{type === 'upload' ? '上传' : '下载'}</span>
                   <span>{(value / 1024)?.toFixed(2)} KB</span>
                 </>
               }}

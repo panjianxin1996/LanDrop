@@ -13,6 +13,10 @@ type AppStore = {
   setSelectNetAdapter: (selectNetAdapter: string) => void // 设置选择网络适配器
   netAdapterList: Array<any>,
   setNetAdapterList: (netAdapterList: Array<any>) => void // 设置网卡列表
+  ipv4Address: string
+  setIpv4Address: (ipv4Address: string) => void
+  ipv6Address: string
+  setIpv6Address: (ipv6Address: string) => void
 }
 
 // 持久化白名单
@@ -43,11 +47,27 @@ const useClientStore = create<AppStore>()(persist(
     },
     selectNetAdapter: "",
     setSelectNetAdapter: (selectNetAdapter) => {
-      set({ selectNetAdapter })
+      let ipv4Address = ''
+      let ipv6Address = ''
+      if (selectNetAdapter && get().netAdapterList.length > 0) {
+        console.log(selectNetAdapter, get().netAdapterList,"selectNetAdapter")
+        let ips = get().netAdapterList.find(item => item.name === selectNetAdapter)?.ips
+        ipv4Address = ips?.find((item: string) => ['8', '16', '24', '32'].includes(item.split('/')[1])).split('/')[0]
+        ipv6Address = ips?.find((item: string) => item.indexOf("/64") !== -1 || item.indexOf("/128") !== -1).split('/')[0]
+      }
+      set({ selectNetAdapter,ipv4Address,ipv6Address })
     },
     netAdapterList: [],
     setNetAdapterList: netAdapterList => {
       set({ netAdapterList })
+    },
+    ipv4Address: "",
+    setIpv4Address: ipv4Address => {
+      set({ ipv4Address })
+    },
+    ipv6Address: "",
+    setIpv6Address: ipv6Address => {
+      set({ ipv6Address })
     },
   }), { name: 'client-store', partialize: (state) => Object.fromEntries(Object.entries(state).filter(([key]) => !blackList.includes(key))), })
 )

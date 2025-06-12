@@ -8,7 +8,7 @@ import { useApiRequest } from "@/tools/request"
 export default function App() {
   const navigate = useNavigate();
   const { request } = useApiRequest()
-  const { connectWS, closeWS, setIsClient, setNetAdapterList } = useClientStore()
+  const { connectWS, closeWS, setIsClient, setNetAdapterList, selectNetAdapter, setSelectNetAdapter } = useClientStore()
   const isClientEnv = window.location.hostname.includes('wails.localhost');
   const enterClient = window.location.pathname.includes('/client') || window.location.pathname.includes('/');
   useEffect(() => {
@@ -30,11 +30,15 @@ export default function App() {
     request("/getNetworkInfo").then(res => {
       if (res.code === 200) {
         setNetAdapterList(res.data)
+        if (selectNetAdapter === "") {
+          // 如果第一次加载选中第一个网卡
+          setSelectNetAdapter(res.data[0].name)
+        }
       }
     })
   }
   return !isClientEnv && enterClient ? <></> : (<SidebarProvider>
-    {/* return <SidebarProvider> */}
+  {/* return (<SidebarProvider> */}
     {/* 侧边栏 */}
     <AppSidebar variant="inset" />
     {/* 主体 */}

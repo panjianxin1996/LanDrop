@@ -144,6 +144,8 @@ func startRouter(app *fiber.App, assets embed.FS, sharedDirPath string) {
 		api.Get("/getRealFilePath", r.getRealFilePath)
 		// 获取所有网卡信息包括ipv4 v6地址
 		api.Get("/getNetworkInfo", r.getNetworkInfo)
+		// 动态设置本机ip地址信息
+		api.Post("/setIpAddress", r.setIpAddress)
 		// 在路由中使用
 		// app.Get("/setSharedDir", r.setSharedDir)
 	}
@@ -271,6 +273,21 @@ func (r Router) getNetworkInfo(c *fiber.Ctx) error {
 		r.Reply.Code = http.StatusOK
 		r.Reply.Msg = "success."
 		r.Reply.Data = interfaces
+	}
+	return c.Status(r.Reply.Code).JSON(r.Reply)
+}
+
+func (r Router) setIpAddress(c *fiber.Ctx) error {
+	postBody := map[string]string{}
+	if err := c.BodyParser(&postBody); err != nil {
+		r.Reply.Code = http.StatusBadRequest
+		r.Reply.Msg = "parse body failed."
+		r.Reply.Data = err
+	} else {
+		SetAppIPv4(postBody["ipv4"])
+		SetAppIPv6(postBody["ipv6"])
+		r.Reply.Code = http.StatusOK
+		r.Reply.Msg = "set ip success."
 	}
 	return c.Status(r.Reply.Code).JSON(r.Reply)
 }

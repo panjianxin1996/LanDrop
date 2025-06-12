@@ -1,4 +1,4 @@
-import { ChartAreaInteractive } from "@/components/main/chart-network"
+import { ChartNetwork } from "@/components/main/chart-network"
 import { SectionCards, type DeviceInfo } from "@/components/main/chart-device-info"
 import { useEffect, useState } from "react"
 import { useApiRequest } from "@/tools/request"
@@ -23,7 +23,7 @@ export default function Dashboard() {
     <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
       <SectionCards deviceInfo={deviceInfo} deviceLogs={deviceLogsData} />
       <div className="px-4 lg:px-6">
-        <ChartAreaInteractive deviceLogs={deviceLogsData} />
+        <ChartNetwork deviceLogs={deviceLogsData} />
       </div>
     </div>
   </div>)

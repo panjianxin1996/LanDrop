@@ -3,41 +3,89 @@ package server
 import (
 	"log"
 	"net"
+	"sync"
 
 	"github.com/miekg/dns"
 )
 
-var dnsServer *dns.Server
+var (
+	dnsServer   *dns.Server
+	AppIpv4Addr string
+	AppIpv6Addr string
+)
+
+var ipMutex sync.RWMutex
+
+func SetAppIPv4(ip string) {
+	ipMutex.Lock()
+	defer ipMutex.Unlock()
+	AppIpv4Addr = ip
+}
+
+func GetAppIPv4() string {
+	ipMutex.RLock()
+	defer ipMutex.RUnlock()
+	return AppIpv4Addr
+}
+
+func SetAppIPv6(ip string) {
+	ipMutex.Lock()
+	defer ipMutex.Unlock()
+	AppIpv6Addr = ip
+}
+
+func GetAppIPv6() string {
+	ipMutex.RLock()
+	defer ipMutex.RUnlock()
+	return AppIpv6Addr
+}
 
 func StartDNSServer() {
-	// 创建DNS服务器实例
 	dnsServer = &dns.Server{
-		Addr: ":53", // 监听53端口(DNS标准端口)
-		Net:  "udp", // 使用UDP协议
+		Addr: ":53",
+		Net:  "udp",
 	}
 
-	// 设置DNS处理函数
 	dns.HandleFunc(".", func(w dns.ResponseWriter, r *dns.Msg) {
 		msg := new(dns.Msg)
 		msg.SetReply(r)
+		msg.Authoritative = true
 
-		// 获取查询的域名
 		domain := r.Question[0].Name
+		qtype := r.Question[0].Qtype
 
-		// 自定义域名解析 - 这里将landrop.go解析到127.0.0.1
 		if domain == "landrop.go." {
-			rr := &dns.A{
-				Hdr: dns.RR_Header{
-					Name:   domain,
-					Rrtype: dns.TypeA,
-					Class:  dns.ClassINET,
-					Ttl:    300, // TTL时间(秒)
-				},
-				A: net.ParseIP("127.0.0.1"),
+			// IPv4 (A记录)
+			if qtype == dns.TypeA {
+				appIpv4 := "127.0.0.1"
+				if AppIpv4Addr != "" {
+					appIpv4 = GetAppIPv4()
+				}
+				msg.Answer = append(msg.Answer, &dns.A{
+					Hdr: dns.RR_Header{
+						Name:   domain,
+						Rrtype: dns.TypeA,
+						Class:  dns.ClassINET,
+						Ttl:    300,
+					},
+					A: net.ParseIP(appIpv4),
+				})
 			}
-			msg.Answer = append(msg.Answer, rr)
+
+			// IPv6 (AAAA记录)
+			if qtype == dns.TypeAAAA && AppIpv6Addr != "" {
+				msg.Answer = append(msg.Answer, &dns.AAAA{
+					Hdr: dns.RR_Header{
+						Name:   domain,
+						Rrtype: dns.TypeAAAA,
+						Class:  dns.ClassINET,
+						Ttl:    300,
+					},
+					AAAA: net.ParseIP(GetAppIPv6()),
+				})
+			}
 		} else {
-			// 其他域名转发到8.8.8.8
+			// 其他域名转发
 			c := new(dns.Client)
 			resp, _, err := c.Exchange(r, "8.8.8.8:53")
 			if err != nil {
@@ -51,7 +99,6 @@ func StartDNSServer() {
 		w.WriteMsg(msg)
 	})
 
-	// 启动DNS服务器
 	log.Printf("启动DNS服务器，监听 %s\n", dnsServer.Addr)
 	err := dnsServer.ListenAndServe()
 	if err != nil {
