@@ -3,41 +3,33 @@ package server
 import (
 	"log"
 	"net"
-	"sync"
+	"sync/atomic"
 
 	"github.com/miekg/dns"
 )
 
 var (
 	dnsServer   *dns.Server
-	AppIpv4Addr string
-	AppIpv6Addr string
+	AppIpv4Addr atomic.Value
+	AppIpv6Addr atomic.Value
 )
 
-var ipMutex sync.RWMutex
-
 func SetAppIPv4(ip string) {
-	ipMutex.Lock()
-	defer ipMutex.Unlock()
-	AppIpv4Addr = ip
+	AppIpv4Addr.Store(ip)
 }
 
 func GetAppIPv4() string {
-	ipMutex.RLock()
-	defer ipMutex.RUnlock()
-	return AppIpv4Addr
+	val, _ := AppIpv4Addr.Load().(string)
+	return val
 }
 
 func SetAppIPv6(ip string) {
-	ipMutex.Lock()
-	defer ipMutex.Unlock()
-	AppIpv6Addr = ip
+	AppIpv6Addr.Store(ip)
 }
 
 func GetAppIPv6() string {
-	ipMutex.RLock()
-	defer ipMutex.RUnlock()
-	return AppIpv6Addr
+	val, _ := AppIpv6Addr.Load().(string)
+	return val
 }
 
 func StartDNSServer() {
@@ -50,6 +42,9 @@ func StartDNSServer() {
 		msg := new(dns.Msg)
 		msg.SetReply(r)
 		msg.Authoritative = true
+		currentIPv4 := GetAppIPv4() // 通过线程安全方法获取
+		currentIPv6 := GetAppIPv6()
+		log.Println("===========当前ip地址", currentIPv4, currentIPv6)
 
 		domain := r.Question[0].Name
 		qtype := r.Question[0].Qtype
@@ -58,8 +53,8 @@ func StartDNSServer() {
 			// IPv4 (A记录)
 			if qtype == dns.TypeA {
 				appIpv4 := "127.0.0.1"
-				if AppIpv4Addr != "" {
-					appIpv4 = GetAppIPv4()
+				if currentIPv4 != "" {
+					appIpv4 = currentIPv4
 				}
 				msg.Answer = append(msg.Answer, &dns.A{
 					Hdr: dns.RR_Header{
@@ -73,7 +68,7 @@ func StartDNSServer() {
 			}
 
 			// IPv6 (AAAA记录)
-			if qtype == dns.TypeAAAA && AppIpv6Addr != "" {
+			if qtype == dns.TypeAAAA && currentIPv6 != "" {
 				msg.Answer = append(msg.Answer, &dns.AAAA{
 					Hdr: dns.RR_Header{
 						Name:   domain,
@@ -81,7 +76,7 @@ func StartDNSServer() {
 						Class:  dns.ClassINET,
 						Ttl:    300,
 					},
-					AAAA: net.ParseIP(GetAppIPv6()),
+					AAAA: net.ParseIP(currentIPv6),
 				})
 			}
 		} else {

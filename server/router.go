@@ -280,10 +280,12 @@ func (r Router) getNetworkInfo(c *fiber.Ctx) error {
 func (r Router) setIpAddress(c *fiber.Ctx) error {
 	postBody := map[string]string{}
 	if err := c.BodyParser(&postBody); err != nil {
+		log.Println("设置地址失败", err)
 		r.Reply.Code = http.StatusBadRequest
 		r.Reply.Msg = "parse body failed."
 		r.Reply.Data = err
 	} else {
+		log.Println("设置地址成功", postBody["ipv4"], postBody["ipv6"])
 		SetAppIPv4(postBody["ipv4"])
 		SetAppIPv6(postBody["ipv6"])
 		r.Reply.Code = http.StatusOK

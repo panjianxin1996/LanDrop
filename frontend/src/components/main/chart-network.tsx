@@ -78,7 +78,7 @@ export function ChartNetwork({ deviceLogs }: {
   return (
     <Card className="@container/card">
       <CardHeader className="relative">
-        <CardTitle>网络使用情况{selectNetAdapter}</CardTitle>
+        <CardTitle>网络使用情况</CardTitle>
         <CardDescription>
           <p className="@[540px]/card:hidden text-xs">你的分享服务根据您的网卡进行变更，包括dns服务。</p>
           <p className="text-xs">
