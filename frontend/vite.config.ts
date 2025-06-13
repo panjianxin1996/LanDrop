@@ -18,6 +18,9 @@ export default defineConfig({
     }
   },
   server: {
+    // host: '0.0.0.0', // 监听所有 IPv4 地址
+    host: true, // 也可以使用这个简写方式
+    port: 5173, // 指定端口（可选）
     proxy: {
       '/api/v1': {
         target: 'http://127.0.0.1:4321',
