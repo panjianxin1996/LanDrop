@@ -160,7 +160,7 @@ func Run(assets embed.FS) {
 			}
 			return parsed.Port() == "4321" // 仅允许4321端口
 		},
-		AllowOrigins: "http://wails.localhost:34115,http://wails.localhost",
+		AllowOrigins: "http://wails.localhost:34115,http://wails.localhost,wails://wails.localhost:34115,wails://wails", // windows协议为http://,macOS协议为wails://
 		AllowMethods: strings.Join([]string{
 			fiber.MethodGet,
 			fiber.MethodPost,
