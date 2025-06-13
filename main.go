@@ -90,6 +90,9 @@ func main() {
 				Icon:    icon,
 			},
 		},
+		Debug: options.Debug{
+			OpenInspectorOnStartup: true,
+		},
 	})
 
 	if err != nil {

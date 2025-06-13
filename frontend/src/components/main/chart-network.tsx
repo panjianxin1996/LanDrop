@@ -67,12 +67,14 @@ export function ChartNetwork({ deviceLogs }: {
   })
 
   const selectNetAdapterEvent = (adapterCode: string) => {
-    setSelectNetAdapter(adapterCode)
-    // 通知客户端本地ip地址作为dns服务器
-    if (!ipv4Address || !ipv6Address) {
-      return
-    }
-    request('/setIpAddress', 'POST', { ipv4:ipv4Address, ipv6:ipv6Address })
+    setSelectNetAdapter(adapterCode, newData => {
+      // 通知客户端本地ip地址作为dns服务器
+      if (!newData.ipv4Address || !newData.ipv6Address) {
+        return
+      }
+      request('/setIpAddress', 'POST', { ipv4: newData.ipv4Address, ipv6: newData.ipv6Address })
+    })
+
   }
 
   return (

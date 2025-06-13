@@ -7,17 +7,18 @@ import DirList from "@/components/common/dir-list"
 import { useApiRequest } from "@/tools/request"
 
 export default function AppWeb() {
-    const { setIsClient } = useClientStore()
+    const { checkIsClient } = useClientStore()
     const { request } = useApiRequest()
     // 分享文件列表信息
     const [sharedData, setSharedData] = useState<any>([])
     const [sharedDir, setSharedDir] = useState<string>("")
     useEffect(() => {
         // web端设置为非客户端
-        setIsClient(false)
+        checkIsClient()
         // 获取分享目录
         getSharedDirInfo()
     }, [])
+
     const getSharedDirInfo = () => {
         request("/getSharedDirInfo").then(res => {
             if (res?.code === 200) {

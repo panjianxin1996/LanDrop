@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"os/exec"
 	"runtime"
 
@@ -44,8 +43,8 @@ func (a *App) shutdown(ctx context.Context) {
 }
 
 // Greet returns a greeting for the given name
-func (a *App) Greet(name string) string {
-	return fmt.Sprintf("Hello %s, It's show time!", name)
+func (a *App) Version() string {
+	return "V1.0.0"
 }
 
 func (a *App) OpenDirectory() map[string]any {

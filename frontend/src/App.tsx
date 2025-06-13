@@ -8,28 +8,31 @@ import { useApiRequest } from "@/tools/request"
 export default function App() {
   const navigate = useNavigate();
   const { request } = useApiRequest()
-  const { connectWS, closeWS, setIsClient, setNetAdapterList, selectNetAdapter, setSelectNetAdapter } = useClientStore()
-  const isClientEnv = window.location.hostname.includes('wails.localhost');
-  const enterClient = window.location.pathname.includes('/client') || window.location.pathname.includes('/');
+  const { isClient, checkIsClient, setStoreData, connectWS, closeWS, selectNetAdapter, setSelectNetAdapter } = useClientStore()
+
   useEffect(() => {
-    // 设置为客户端
-    setIsClient(true)
-    // 连接socket数据
-    connectWS()
-    // 获取网卡列表
-    getNetworkInfo()
-    // '/client'路由导航守卫
-    console.log(enterClient, isClientEnv, navigate);
-    !isClientEnv && enterClient && navigate("/web", { replace: true });
+    if (checkIsClient()) {
+      // 连接socket数据
+      connectWS()
+      // 获取网卡列表
+      getNetworkInfo()
+    } else {
+      if (checkPagePath()) navigate("/web", { replace: true });
+    }
     return () => {
       closeWS()
     }
   }, [])
 
+  // 检测是否为客户端首页路由
+  const checkPagePath = () => {
+    return (window.location.pathname.includes('/client') || window.location.pathname.includes('/'))
+  }
+
   const getNetworkInfo = () => {
     request("/getNetworkInfo").then(res => {
       if (res.code === 200) {
-        setNetAdapterList(res.data)
+        setStoreData({ name: 'netAdapterList', value: res.data })
         if (selectNetAdapter === "") {
           // 如果第一次加载选中第一个网卡
           setSelectNetAdapter(res.data[0].name)
@@ -37,8 +40,8 @@ export default function App() {
       }
     })
   }
-  return !isClientEnv && enterClient ? <></> : (<SidebarProvider>
-  {/* return (<SidebarProvider> */}
+  return !isClient && checkPagePath() ? <></> : (<SidebarProvider>
+    {/* return (<SidebarProvider> */}
     {/* 侧边栏 */}
     <AppSidebar variant="inset" />
     {/* 主体 */}
