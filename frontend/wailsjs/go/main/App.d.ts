@@ -5,4 +5,8 @@ export function OpenDirInExplorer(arg1:string):Promise<void>;
 
 export function OpenDirectory():Promise<Record<string, any>>;
 
+export function RestartServer():Promise<void>;
+
+export function UpdateDefaultDir(arg1:string):Promise<Record<string, any>>;
+
 export function Version():Promise<string>;

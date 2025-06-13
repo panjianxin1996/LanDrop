@@ -36,6 +36,7 @@ import {
 import { OpenDirInExplorer } from "@clientSDK/App"
 import useClientStore from "@/store/appStore"
 import { useApiRequest } from "@/tools/request"
+import { toast } from "sonner"
 
 export interface DirItem {
     name: string
@@ -76,14 +77,21 @@ export default function DirList(props: { dirData: any, sharedDir: string, reload
     const copyEvent = (text: string) => {
         if (navigator.clipboard) {
             navigator.clipboard.writeText(text).catch(err => console.error('复制失败:', err))
+            toast("进入navigator.clipboard.writeText")
         } else { // 安全策略http不允许navigator.clipboard复制操作
             const textarea = document.createElement('textarea');
             textarea.value = text;
+            textarea.id = 'textarea'
             textarea.style.position = 'fixed';
             document.body.appendChild(textarea);
             textarea.select();
-            document.execCommand('copy');
-            textarea.remove();
+            setTimeout(() => {
+                const res = document.execCommand('copy');
+                toast(`进入document.execCommand${res}`)
+            }, 5000);
+            
+            // textarea.remove();
+            
         }
     }
 
@@ -147,21 +155,25 @@ export default function DirList(props: { dirData: any, sharedDir: string, reload
                                     {
                                         props.dirData?.map((item: DirItem) => (
                                             <ContextMenu key={item.name}>
-                                                <ContextMenuTrigger className="w-20 max-h-24 lg:max-h-28 lg:h-32 px-1 py-2 flex flex-col items-center gap-1 cursor-pointer active:bg-gray-100 rounded-lg select-none" onClick={() => {
-                                                    setActiveFile(item)
-                                                    if (getFileType(item.name) === "code" || getFileType(item.name) === "txt") {
-                                                        getTxtFileData(item)
-                                                    }
-                                                }}>
-                                                    <img src={item.is_dir ? getImageUrl("file.png") : getFileIconUrl(item.name)} className="w-8 lg:w-12 h-8 lg:h-12" />
-                                                    <Tooltip> {/* 文件名超长显示提示框 */}
-                                                        <TooltipTrigger asChild>
-                                                            <p className="overflow-hidden overflow-ellipsis line-clamp-2 text-xs text-center">{item.name}</p>
-                                                        </TooltipTrigger>
-                                                        <TooltipContent>
-                                                            <p className="max-w-sm">{item.name}</p>
-                                                        </TooltipContent>
-                                                    </Tooltip>
+                                                <ContextMenuTrigger asChild>
+                                                    <div className="w-20 max-h-24 lg:max-h-28 lg:h-32 px-1 py-2 flex flex-col items-center gap-1 cursor-pointer active:bg-gray-100 rounded-lg select-none" onClick={() => {
+                                                        setActiveFile(item)
+                                                        if (getFileType(item.name) === "code" || getFileType(item.name) === "txt") {
+                                                            getTxtFileData(item)
+                                                        }
+                                                    }}>
+                                                        <img src={item.is_dir ? getImageUrl("file.png") : getFileIconUrl(item.name)} className="w-8 lg:w-12 h-8 lg:h-12" />
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <p className="w-full overflow-hidden text-ellipsis line-clamp-2 [-webkit-line-clamp:2] [-webkit-box-orient:vertical] [display:-webkit-box] text-xs text-center break-words">
+                                                                    {item.name}
+                                                                </p>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent>
+                                                                <p className="max-w-sm">{item.name}</p>
+                                                            </TooltipContent>
+                                                        </Tooltip>
+                                                    </div>
                                                 </ContextMenuTrigger>
                                                 <ContextMenuContent>
                                                     <ContextMenuItem onClick={() => copyEvent(item.name)}>

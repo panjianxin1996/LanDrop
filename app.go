@@ -1,7 +1,9 @@
 package main
 
 import (
+	"LanDrop/server"
 	"context"
+	"fmt"
 	"os/exec"
 	"runtime"
 
@@ -76,4 +78,35 @@ func (a *App) OpenDirInExplorer(dirPath string) error {
 		return nil
 	}
 	return cmd.Start()
+}
+
+func (a *App) UpdateDefaultDir(dirPath string) map[string]any {
+	config, err := server.LoadConfigFile()
+	updateBack := map[string]interface{}{}
+	if err != nil {
+		updateBack["status"] = "error"
+		updateBack["newDir"] = nil
+		updateBack["msg"] = fmt.Errorf("加载配置失败: %v", err)
+		return updateBack
+	}
+
+	// 2. 更新配置项
+	config.DefaultDir = dirPath
+
+	// 3. 保存新配置
+	if err := server.SaveConfigFile(config); err != nil {
+		updateBack["status"] = "error"
+		updateBack["newDir"] = nil
+		updateBack["msg"] = fmt.Errorf("保存配置失败: %v", err)
+		return updateBack
+	}
+	updateBack["status"] = "success"
+	updateBack["newDir"] = dirPath
+	updateBack["msg"] = "保存成功"
+	return updateBack
+}
+
+func (a *App) RestartServer() error {
+	server.Restart(assets)
+	return nil
 }

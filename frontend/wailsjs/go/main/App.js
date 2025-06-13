@@ -10,6 +10,14 @@ export function OpenDirectory() {
   return window['go']['main']['App']['OpenDirectory']();
 }
 
+export function RestartServer() {
+  return window['go']['main']['App']['RestartServer']();
+}
+
+export function UpdateDefaultDir(arg1) {
+  return window['go']['main']['App']['UpdateDefaultDir'](arg1);
+}
+
 export function Version() {
   return window['go']['main']['App']['Version']();
 }

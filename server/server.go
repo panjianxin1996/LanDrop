@@ -89,7 +89,7 @@ func createSharedDir(appDir string) string {
 }
 
 // 加载配置文档
-func loadConfigFile() (Config, error) {
+func LoadConfigFile() (Config, error) {
 	appDir := getAppDir()
 	configFile := filepath.Join(appDir, "config.json")
 	if _, err := os.Stat(configFile); os.IsNotExist(err) { // 检查配置文件是否存在
@@ -129,11 +129,27 @@ func loadConfigFile() (Config, error) {
 		return config, nil
 	}
 }
+
+// 保存配置文档
+func SaveConfigFile(config Config) error {
+	appDir := getAppDir()
+	configFile := filepath.Join(appDir, "config.json")
+
+	file, err := os.Create(configFile)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	encoder := json.NewEncoder(file)
+	encoder.SetIndent("", "    ")
+	return encoder.Encode(config)
+}
 func Run(assets embed.FS) {
 	serverMutex.Lock()
 	defer serverMutex.Unlock()
 
-	config, err := loadConfigFile()
+	config, err := LoadConfigFile()
 	if err != nil {
 		log.Println(err.Error())
 		return
