@@ -10,7 +10,7 @@ export default function Shared() {
     getSharedDirInfo()
   }, [])
   const getSharedDirInfo = () => {
-    request("/getSharedDirInfo").then(res => {
+    request("/getSharedDirInfo?from=client").then(res => {
       if (res?.code === 200) {
         // 将文件名编码处理，解决get请求特殊文件名无法访问的问题
         setSharedData(res.data.files)

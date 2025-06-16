@@ -31,7 +31,7 @@ export default function App() {
 
   const getNetworkInfo = () => {
     request("/getNetworkInfo").then(res => {
-      if (res.code === 200) {
+      if (res && res.code === 200) {
         setStoreData({ name: 'netAdapterList', value: res.data })
         if (selectNetAdapter === "") {
           // 如果第一次加载选中第一个网卡

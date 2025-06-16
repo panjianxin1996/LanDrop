@@ -35,11 +35,14 @@ const useClientStore = create<AppStore>()(
     (set, get) => ({
       isClient: false,
       checkIsClient: () => {
+        // set({ isClient: true})
+        // return true
         if ((window as any)?.go?.main?.App?.Version) {
           const version = (window as any)?.go?.main?.App?.Version();
           set({ isClient: true, clientVersion: version })
           return true
         } else {
+          set({ isClient: false})
           return false
         }
       },

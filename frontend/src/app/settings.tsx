@@ -1,5 +1,5 @@
 import React from "react"
-import { Copy, ListRestart } from "lucide-react"
+import { FolderOpen, RefreshCcwDot } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useApiRequest } from "@/tools/request"
@@ -42,7 +42,7 @@ export default function Settings() {
   return (
     <div className="flex flex-col items-start justify-center p-6">
       <div className="flex items-center space-x-2">
-        <span className="text-sm font-medium">分享目录：</span>
+        <span className="text-sm font-medium">分享目录</span>
         <div className="relative grid flex-1 gap-2 w-96">
           <Input
             readOnly
@@ -50,24 +50,19 @@ export default function Settings() {
             className="text-sm font-medium"
           />
           {
-            changeDirFlag && <p className="absolute bottom-0 right-0 text-xs text-muted-foreground text-red-400">修改后点击重启服务。</p>
+            changeDirFlag && <p className="absolute bottom-0 right-0 text-xs text-muted-foreground text-red-300">修改后需点击按钮重启服务。</p>
           }
         </div>
         {
-          !changeDirFlag && <Button variant="outline" onClick={openDirectory}>
-            <Copy />
+          !changeDirFlag && <Button variant="outline" className="px-3" onClick={openDirectory}>
+            <FolderOpen size={20}/>
           </Button>
         }
         {
           changeDirFlag && <Button variant="destructive" className="px-3" onClick={restartServer}>
-            <ListRestart />
+            <RefreshCcwDot size={20} />
           </Button>
         }
-        {/* <Button variant="link">link</Button>
-        <Button variant="destructive">destructive</Button>
-        <Button variant="outline">outline</Button>
-        <Button variant="ghost">ghost</Button>
-        <Button variant="default">default</Button> */}
       </div>
     </div>
   )

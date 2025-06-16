@@ -34,10 +34,11 @@ type Reply struct {
 }
 
 var pathMap sync.Map // 路径映射
+var fileMap sync.Map // 文件映射
 
 // 获取随机code码
 func generateRandomCode(length int) string {
-	const charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+	const charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 	code := make([]byte, length)
 	for i := range code {
 		n, err := rand.Int(rand.Reader, big.NewInt(int64(len(charset))))
@@ -52,6 +53,7 @@ func generateRandomCode(length int) string {
 // 添加映射
 func addMapping(code, realPath string) {
 	pathMap.Store(code, realPath)
+	fileMap.Store(realPath, code)
 }
 
 // 获取真实路径
@@ -61,6 +63,18 @@ func getRealPath(code string) (string, bool) {
 		return "", false
 	}
 	return value.(string), true
+}
+
+func getFileCode(code string) (string, bool) {
+	value, ok := fileMap.Load(code)
+	if !ok {
+		return "", false
+	}
+	return value.(string), true
+}
+
+func createDirMap() {
+
 }
 
 func startRouter(app *fiber.App, assets embed.FS, sharedDirPath string) {
@@ -202,6 +216,7 @@ func (r Router) uploadFile(c *fiber.Ctx) error {
 }
 
 func (r Router) getSharedDirInfo(c *fiber.Ctx) error {
+	from := c.Query("from")
 	entries, err := os.ReadDir(r.sharedDirPath)
 	if err != nil {
 		r.Reply = Reply{
@@ -214,18 +229,34 @@ func (r Router) getSharedDirInfo(c *fiber.Ctx) error {
 	files := []FileInfo{}
 	for _, entry := range entries {
 		info, _ := entry.Info()
-		fileId := generateRandomCode(8)
-		addMapping(fileId, "/shared/"+url.PathEscape(entry.Name()))
-		files = append(files, FileInfo{
-			Name:    entry.Name(),
-			Size:    info.Size(),
-			Mode:    info.Mode().String(),
-			ModTime: info.ModTime(),
-			IsDir:   entry.IsDir(),
-			URIName: url.PathEscape(entry.Name()),
-			Path:    "/shared/" + url.PathEscape(entry.Name()),
-			FileId:  fileId,
-		})
+		path := "/shared/" + url.PathEscape(entry.Name())
+		if from == "client" {
+			fileId := generateRandomCode(8)
+			addMapping(fileId, "/shared/"+url.PathEscape(entry.Name()))
+			files = append(files, FileInfo{
+				Name:    entry.Name(),
+				Size:    info.Size(),
+				Mode:    info.Mode().String(),
+				ModTime: info.ModTime(),
+				IsDir:   entry.IsDir(),
+				URIName: url.PathEscape(entry.Name()),
+				Path:    "/shared/" + url.PathEscape(entry.Name()),
+				FileId:  fileId,
+			})
+		} else {
+			if fileId, ok := getFileCode(path); ok {
+				files = append(files, FileInfo{
+					Name:    entry.Name(),
+					Size:    info.Size(),
+					Mode:    info.Mode().String(),
+					ModTime: info.ModTime(),
+					IsDir:   entry.IsDir(),
+					URIName: url.PathEscape(entry.Name()),
+					Path:    "/shared/" + url.PathEscape(entry.Name()),
+					FileId:  fileId,
+				})
+			}
+		}
 	}
 	r.Reply = Reply{
 		Code: http.StatusOK,
@@ -240,13 +271,26 @@ func (r Router) getSharedDirInfo(c *fiber.Ctx) error {
 
 func (r Router) getRealFilePath(c *fiber.Ctx) error {
 	fileId := c.Query("fileId")
+	var pathM, fileM map[string]string
+	pathMap.Range(func(key, value interface{}) bool {
+		// fmt.Printf("Key: %v, Value: %v\n", key, value)
+		pathM[key.(string)] = value.(string)
+		return true // 继续遍历
+	})
+	fileMap.Range(func(key, value interface{}) bool {
+		fileM[key.(string)] = value.(string)
+		return true // 继续遍历
+	})
 	if path, ok := getRealPath(fileId); ok {
 		r.Reply.Code = 200
 		r.Reply.Data = path
 		r.Reply.Msg = "successed"
 	} else {
 		r.Reply.Code = -1
-		r.Reply.Data = ""
+		r.Reply.Data = map[string]any{
+			"p": pathM,
+			"f": fileM,
+		}
 		r.Reply.Msg = "get real path failed"
 	}
 	return c.Status(r.Reply.Code).JSON(r.Reply)
@@ -280,12 +324,10 @@ func (r Router) getNetworkInfo(c *fiber.Ctx) error {
 func (r Router) setIpAddress(c *fiber.Ctx) error {
 	postBody := map[string]string{}
 	if err := c.BodyParser(&postBody); err != nil {
-		log.Println("设置地址失败", err)
 		r.Reply.Code = http.StatusBadRequest
 		r.Reply.Msg = "parse body failed."
 		r.Reply.Data = err
 	} else {
-		log.Println("设置地址成功", postBody["ipv4"], postBody["ipv6"])
 		SetAppIPv4(postBody["ipv4"])
 		SetAppIPv6(postBody["ipv6"])
 		r.Reply.Code = http.StatusOK

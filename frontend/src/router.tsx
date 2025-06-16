@@ -114,6 +114,10 @@ export const appRouter = [
         path: "/web",
         element: <AppWeb />,
     },
+    {
+        path: "/testweb",
+        element: <AppWeb />,
+    },
 ]
 
 // 路由组件
