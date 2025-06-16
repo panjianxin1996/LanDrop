@@ -201,7 +201,8 @@ func Run(assets embed.FS) {
 		return
 	}
 	// 启动监听目录
-	fsListen.FSWatcher(config.DefaultDir, db)
+	go fsListen.FSWatcher(config.DefaultDir, db)
+	log.Println("========================================监听目录启动成功")
 	if !isPortAvailable(config.Port) {
 		log.Println(fmt.Printf("端口 %v 已被占用，跳过 Fiber 启动", config.Port))
 		return

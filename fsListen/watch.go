@@ -33,7 +33,7 @@ func FSWatcher(watchDir string, db *sql.DB) {
 
 	// 读取目录进行映射到数据库
 	db.Exec(`DROP TABLE IF EXISTS files;`)
-	db.Exec(`
+	if _, err := db.Exec(`
 		CREATE TABLE IF NOT EXISTS files (
 			fileId INTEGER PRIMARY KEY AUTOINCREMENT,
 			fileName TEXT NOT NULL,
@@ -43,15 +43,21 @@ func FSWatcher(watchDir string, db *sql.DB) {
 			IsDir   INTEGER NOT NULL,
 			URIName TEXT NOT NULL,
 			Path  TEXT NOT NULL,
-			FileId TEXT NOT NULL,
+			FileId TEXT NOT NULL
 		)
-	`)
+	`); err != nil {
+		log.Println("============================FSWatcher", err)
+		return
+	}
 	entries, err := os.ReadDir(watchDir)
 	for _, entry := range entries {
 		info, _ := entry.Info()
 		fileId := generateRandomCode(8)
-		db.Exec(`INSERT INTO files (fileName, fileSize, fileMode, fileModTime, IsDir, URIName, Path, FileId) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-			entry.Name(), info.Size(), info.Mode().String(), info.ModTime().String(), info.IsDir(), url.PathEscape(entry.Name()), "/shared/"+url.PathEscape(entry.Name()), fileId)
+		if _, err := db.Exec(`INSERT INTO files (fileName, fileSize, fileMode, fileModTime, IsDir, URIName, Path, FileId) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+			entry.Name(), info.Size(), info.Mode().String(), info.ModTime().String(), info.IsDir(), url.PathEscape(entry.Name()), "/shared/"+url.PathEscape(entry.Name()), fileId); err != nil {
+			log.Println("============================FSWatcher", err)
+			return
+		}
 	}
 
 	// 监听目录
