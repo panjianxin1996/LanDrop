@@ -193,7 +193,6 @@ func Run(assets embed.FS) {
 		log.Fatalf("数据库初始化失败: %v", err)
 		return
 	}
-	defer db.Close()
 
 	config, err := LoadConfigFile()
 	if err != nil {

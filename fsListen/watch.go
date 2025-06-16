@@ -11,6 +11,13 @@ import (
 	"github.com/fsnotify/fsnotify"
 )
 
+func boolToInt(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
+}
+
 func generateRandomCode(length int) string {
 	const charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 	code := make([]byte, length)
@@ -26,7 +33,7 @@ func generateRandomCode(length int) string {
 func FSWatcher(watchDir string, db *sql.DB) {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
-		log.Println("============================FSWatcher", err)
+		log.Println("[x]开启监听:", err)
 		return
 	}
 	defer watcher.Close()
@@ -40,22 +47,22 @@ func FSWatcher(watchDir string, db *sql.DB) {
 			fileSize INTEGER NOT NULL,
 			fileMode  TEXT NOT NULL,
 			fileModTime TEXT NOT NULL,
-			IsDir   INTEGER NOT NULL,
-			URIName TEXT NOT NULL,
-			Path  TEXT NOT NULL,
-			FileId TEXT NOT NULL
+			isDir   INTEGER NOT NULL,
+			uriName TEXT NOT NULL,
+			path  TEXT NOT NULL,
+			fileCode TEXT NOT NULL
 		)
 	`); err != nil {
-		log.Println("============================FSWatcher", err)
+		log.Println("[x]创建表结构:", err)
 		return
 	}
-	entries, err := os.ReadDir(watchDir)
+	entries, _ := os.ReadDir(watchDir)
 	for _, entry := range entries {
 		info, _ := entry.Info()
 		fileId := generateRandomCode(8)
-		if _, err := db.Exec(`INSERT INTO files (fileName, fileSize, fileMode, fileModTime, IsDir, URIName, Path, FileId) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-			entry.Name(), info.Size(), info.Mode().String(), info.ModTime().String(), info.IsDir(), url.PathEscape(entry.Name()), "/shared/"+url.PathEscape(entry.Name()), fileId); err != nil {
-			log.Println("============================FSWatcher", err)
+		if _, err := db.Exec(`INSERT INTO files (fileName, fileSize, fileMode, fileModTime, isDir,uriName, path, fileCode) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+			entry.Name(), info.Size(), info.Mode().String(), info.ModTime().Format("2006-01-02 15:04:05"), boolToInt(info.IsDir()), url.PathEscape(entry.Name()), "/shared/"+url.PathEscape(entry.Name()), fileId); err != nil {
+			log.Println("[x]注入文件信息失败:", err)
 			return
 		}
 	}
@@ -63,7 +70,7 @@ func FSWatcher(watchDir string, db *sql.DB) {
 	// 监听目录
 	err = watcher.Add(watchDir)
 	if err != nil {
-		log.Println("============================FSWatcher", err)
+		log.Println("[x]监听目录失败:", err)
 		return
 	}
 
@@ -88,7 +95,7 @@ func FSWatcher(watchDir string, db *sql.DB) {
 			if !ok {
 				return
 			}
-			log.Println("错误:", err)
+			log.Println("[x]监听错误:", err)
 		}
 	}
 }
