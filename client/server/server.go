@@ -1,9 +1,9 @@
 package server
 
 import (
-	"LanDrop/fsListen"
+	"LanDrop/client/db"
+	"LanDrop/client/fsListen"
 	"context"
-	"database/sql"
 	"embed"
 	"encoding/json"
 	"fmt"
@@ -37,57 +37,11 @@ func init() {
 	shutdownCtx, cancelFunc = context.WithCancel(context.Background())
 }
 
-type FileInfo struct {
-	Name    string    `json:"name"`
-	Size    int64     `json:"size"`
-	Mode    string    `json:"mode"`
-	ModTime time.Time `json:"mod_time"`
-	IsDir   bool      `json:"is_dir"`
-	URIName string    `json:"uri_name"`
-	Path    string    `json:"path"`
-	FileId  string    `json:"file_id"`
-}
-
 type Config struct {
 	AppName    string `json:"appName"`
 	Port       int    `json:"port"`
 	DefaultDir string `json:"defaultDir"`
 	Version    string `json:"version"`
-}
-
-// 创建sqllite数据库
-func initDB(dbPath string) (*sql.DB, error) {
-	// 检查目录是否存在，不存在则创建
-	dir := filepath.Dir(dbPath)
-	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		if err := os.MkdirAll(dir, 0755); err != nil {
-			return nil, fmt.Errorf("创建目录失败: %v", err)
-		}
-	}
-
-	// 打开（或创建）数据库
-	db, err := sql.Open("sqlite3", dbPath)
-	if err != nil {
-		return nil, fmt.Errorf("打开数据库失败: %v", err)
-	}
-
-	// 测试连接
-	if err := db.Ping(); err != nil {
-		return nil, fmt.Errorf("数据库连接测试失败: %v", err)
-	}
-
-	// 初始化表结构
-	if _, err := db.Exec(`
-		CREATE TABLE IF NOT EXISTS users (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			name TEXT NOT NULL,
-			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-		)
-	`); err != nil {
-		return nil, fmt.Errorf("初始化表结构失败: %v", err)
-	}
-
-	return db, nil
 }
 
 // 检查端口是否占用
@@ -113,7 +67,7 @@ func createSharedDir(appDir string) string {
 	// 检查目录是否存在
 	if _, err := os.Stat(sharedDir); os.IsNotExist(err) {
 		// 目录不存在，创建
-		err := os.Mkdir(sharedDir, os.ModePerm) // 权限 0777
+		err = os.Mkdir(sharedDir, os.ModePerm) // 权限 0777
 		if err != nil {
 			log.Println("创建 shared 目录失败:", err)
 			return ""
@@ -178,30 +132,29 @@ func SaveConfigFile(config Config) error {
 		return err
 	}
 	defer file.Close()
-
 	encoder := json.NewEncoder(file)
 	encoder.SetIndent("", "    ")
 	return encoder.Encode(config)
 }
+
+// 启动服务器
 func Run(assets embed.FS) {
 	serverMutex.Lock()
 	defer serverMutex.Unlock()
-
 	// 初始化数据库
-	db, err := initDB(filepath.Join(getAppDir(), "app.db"))
+	db, err := db.InitDB(filepath.Join(getAppDir(), "app.db"))
 	if err != nil {
-		log.Fatalf("数据库初始化失败: %v", err)
+		log.Printf("数据库初始化失败: %v", err)
 		return
 	}
-
+	// 加载配置文件
 	config, err := LoadConfigFile()
 	if err != nil {
 		log.Println(err.Error())
 		return
 	}
-	// 启动监听目录
+	// 启动监听目录【使用goroutine避免阻塞进程】
 	go fsListen.FSWatcher(config.DefaultDir, db)
-	log.Println("========================================监听目录启动成功")
 	if !isPortAvailable(config.Port) {
 		log.Println(fmt.Printf("端口 %v 已被占用，跳过 Fiber 启动", config.Port))
 		return
@@ -254,18 +207,17 @@ func Run(assets embed.FS) {
 	app.Static("/shared", config.DefaultDir)
 
 	// 启动路由组
-	startRouter(app, assets, config.DefaultDir)
+	startRouter(app, assets, config.DefaultDir, db)
 
 	// 404 处理
 	app.Use(func(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"code": 404,
-			"msg":  "This API or page does not exist.",
+			"msg":  "This page does not exist.",
 			"data": "Not found",
 		})
 	})
 
-	// 启动服务
 	// 启动服务（异步）
 	go func() {
 		log.Println(fmt.Sprintf("服务启动中，监听端口 :%v", config.Port))
@@ -287,8 +239,6 @@ func Stop() {
 		log.Println("服务未启动，无需停止")
 		return
 	}
-
-	log.Println("开始优雅关闭服务...")
 	if err := app.Shutdown(); err != nil {
 		log.Fatal("强制关闭服务失败:", err)
 	}

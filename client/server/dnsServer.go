@@ -44,11 +44,8 @@ func StartDNSServer() {
 		msg.Authoritative = true
 		currentIPv4 := GetAppIPv4() // 通过线程安全方法获取
 		currentIPv6 := GetAppIPv6()
-		log.Println("===========当前ip地址", currentIPv4, currentIPv6)
-
-		domain := r.Question[0].Name
-		qtype := r.Question[0].Qtype
-
+		domain := r.Question[0].Name // 请求的域名
+		qtype := r.Question[0].Qtype // ip类型 v4 v6
 		if domain == "landrop.go." {
 			// IPv4 (A记录)
 			if qtype == dns.TypeA {
@@ -84,7 +81,6 @@ func StartDNSServer() {
 			c := new(dns.Client)
 			resp, _, err := c.Exchange(r, "8.8.8.8:53")
 			if err != nil {
-				log.Printf("DNS查询失败: %v", err)
 				dns.HandleFailed(w, r)
 				return
 			}

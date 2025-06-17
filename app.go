@@ -1,7 +1,7 @@
 package main
 
 import (
-	"LanDrop/server"
+	"LanDrop/client/server"
 	"context"
 	"fmt"
 	"os/exec"

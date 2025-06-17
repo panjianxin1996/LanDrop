@@ -50,9 +50,10 @@ export default function AppWeb() {
     }
 
     const getRealFilePath = () => {
-        request("/getRealFilePath?fileId=" + sharedCode).then(res => {
+        request("/getRealFilePath?fileCode=" + sharedCode).then(res => {
             if (res?.code === 200) {
                 console.log(res.data)
+                setSharedCode("")
             }
         })
     }

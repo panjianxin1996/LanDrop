@@ -1,16 +1,12 @@
 package server
 
 import (
-	"crypto/rand"
+	"database/sql"
 	"embed"
 	"encoding/json"
 	"log"
-	"math/big"
 	"net/http"
-	"net/url"
-	"os"
 	"path/filepath"
-	"sync"
 	"time"
 
 	"github.com/gofiber/contrib/websocket"
@@ -25,6 +21,18 @@ type Router struct {
 	assets        embed.FS
 	sharedDirPath string
 	Reply
+	db *sql.DB
+}
+type FileInfo struct {
+	ID       int    `json:"fileId"`
+	Name     string `json:"fileName"`
+	Size     int    `json:"fileSize"`
+	Mode     string `json:"fileMode"`
+	ModTime  string `json:"fileModTime"`
+	IsDir    bool   `json:"isDir"`
+	URIName  string `json:"uriName"`
+	Path     string `json:"path"`
+	FileCode string `json:"fileCode"`
 }
 
 type Reply struct {
@@ -33,55 +41,12 @@ type Reply struct {
 	Data any    `json:"data"`
 }
 
-var pathMap sync.Map // 路径映射
-var fileMap sync.Map // 文件映射
-
-// 获取随机code码
-func generateRandomCode(length int) string {
-	const charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	code := make([]byte, length)
-	for i := range code {
-		n, err := rand.Int(rand.Reader, big.NewInt(int64(len(charset))))
-		if err != nil {
-			return "generateRandomCode_error"
-		}
-		code[i] = charset[n.Int64()]
-	}
-	return string(code)
-}
-
-// 添加映射
-func addMapping(code, realPath string) {
-	pathMap.Store(code, realPath)
-	fileMap.Store(realPath, code)
-}
-
-// 获取真实路径
-func getRealPath(code string) (string, bool) {
-	value, ok := pathMap.Load(code)
-	if !ok {
-		return "", false
-	}
-	return value.(string), true
-}
-
-func getFileCode(code string) (string, bool) {
-	value, ok := fileMap.Load(code)
-	if !ok {
-		return "", false
-	}
-	return value.(string), true
-}
-
-func createDirMap() {
-
-}
-
-func startRouter(app *fiber.App, assets embed.FS, sharedDirPath string) {
+func startRouter(app *fiber.App, assets embed.FS, sharedDirPath string, db *sql.DB) {
 	r := Router{
 		app:           app,
 		assets:        assets,
 		sharedDirPath: sharedDirPath,
+		db:            db,
 	}
 	// WebSocket 升级中间件
 	app.Use("/ws", func(c *fiber.Ctx) error {
@@ -216,47 +181,35 @@ func (r Router) uploadFile(c *fiber.Ctx) error {
 }
 
 func (r Router) getSharedDirInfo(c *fiber.Ctx) error {
-	from := c.Query("from")
-	entries, err := os.ReadDir(r.sharedDirPath)
+	rows, err := r.db.Query("SELECT * FROM files")
 	if err != nil {
 		r.Reply = Reply{
-			Code: http.StatusNotModified,
-			Msg:  "failed",
+			Code: http.StatusBadRequest,
+			Msg:  "query failed",
 			Data: nil,
 		}
 		return c.Status(r.Reply.Code).JSON(r.Reply)
 	}
-	files := []FileInfo{}
-	for _, entry := range entries {
-		info, _ := entry.Info()
-		path := "/shared/" + url.PathEscape(entry.Name())
-		if from == "client" {
-			fileId := generateRandomCode(8)
-			addMapping(fileId, "/shared/"+url.PathEscape(entry.Name()))
-			files = append(files, FileInfo{
-				Name:    entry.Name(),
-				Size:    info.Size(),
-				Mode:    info.Mode().String(),
-				ModTime: info.ModTime(),
-				IsDir:   entry.IsDir(),
-				URIName: url.PathEscape(entry.Name()),
-				Path:    "/shared/" + url.PathEscape(entry.Name()),
-				FileId:  fileId,
-			})
-		} else {
-			if fileId, ok := getFileCode(path); ok {
-				files = append(files, FileInfo{
-					Name:    entry.Name(),
-					Size:    info.Size(),
-					Mode:    info.Mode().String(),
-					ModTime: info.ModTime(),
-					IsDir:   entry.IsDir(),
-					URIName: url.PathEscape(entry.Name()),
-					Path:    "/shared/" + url.PathEscape(entry.Name()),
-					FileId:  fileId,
-				})
-			}
+	defer rows.Close()
+
+	var files []FileInfo // 假设有一个File结构体对应表结构
+	for rows.Next() {
+		var f FileInfo
+		scanErr := rows.Scan(&f.ID, &f.Name, &f.Size, &f.Mode, &f.ModTime, &f.IsDir, &f.URIName, &f.Path, &f.FileCode)
+		if scanErr != nil {
+			log.Printf("扫描行失败: %v", scanErr)
+			continue
 		}
+		files = append(files, f)
+	}
+
+	if err = rows.Err(); err != nil {
+		r.Reply = Reply{
+			Code: http.StatusBadRequest,
+			Msg:  "scan failed",
+			Data: nil,
+		}
+		return c.Status(r.Reply.Code).JSON(r.Reply)
 	}
 	r.Reply = Reply{
 		Code: http.StatusOK,
@@ -270,30 +223,19 @@ func (r Router) getSharedDirInfo(c *fiber.Ctx) error {
 }
 
 func (r Router) getRealFilePath(c *fiber.Ctx) error {
-	fileId := c.Query("fileId")
-	var pathM, fileM map[string]string
-	pathMap.Range(func(key, value interface{}) bool {
-		// fmt.Printf("Key: %v, Value: %v\n", key, value)
-		pathM[key.(string)] = value.(string)
-		return true // 继续遍历
-	})
-	fileMap.Range(func(key, value interface{}) bool {
-		fileM[key.(string)] = value.(string)
-		return true // 继续遍历
-	})
-	if path, ok := getRealPath(fileId); ok {
-		r.Reply.Code = 200
-		r.Reply.Data = path
-		r.Reply.Msg = "successed"
+	fileCode := c.Query("fileCode")
+	var f FileInfo
+	row := r.db.QueryRow("SELECT * FROM files WHERE fileCode = ?", fileCode)
+	row.Scan(&f.ID, &f.Name, &f.Size, &f.Mode, &f.ModTime, &f.IsDir, &f.URIName, &f.Path, &f.FileCode)
+	if row.Err() != nil {
+		r.Reply.Code = 199
+		r.Reply.Msg = "query failed."
 	} else {
-		r.Reply.Code = -1
-		r.Reply.Data = map[string]any{
-			"p": pathM,
-			"f": fileM,
-		}
-		r.Reply.Msg = "get real path failed"
+		r.Reply.Code = http.StatusOK
+		r.Reply.Data = f
+		r.Reply.Msg = "successed"
 	}
-	return c.Status(r.Reply.Code).JSON(r.Reply)
+	return c.Status(http.StatusOK).JSON(r.Reply)
 }
 
 func (r Router) getNetworkInfo(c *fiber.Ctx) error {
