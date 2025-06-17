@@ -83,7 +83,7 @@ func FSWatcher(watchDir string, db *sql.DB) {
 			// 处理事件类型
 			switch {
 			case event.Op&fsnotify.Create == fsnotify.Create:
-				log.Printf("创建文件: %s", event.Name)
+				log.Printf("创建文件: %s,%v", event.Name, event)
 			case event.Op&fsnotify.Write == fsnotify.Write:
 				log.Printf("修改文件: %s", event.Name)
 			case event.Op&fsnotify.Remove == fsnotify.Remove:

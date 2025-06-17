@@ -44,7 +44,7 @@ func main() {
 		},
 		Menu:     nil,
 		Logger:   nil,
-		LogLevel: logger.ERROR,
+		LogLevel: logger.DEBUG,
 		OnStartup: func(ctx context.Context) {
 			app.startup(ctx)
 			// 启动web服务
