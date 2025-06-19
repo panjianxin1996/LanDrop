@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/gofiber/contrib/websocket"
@@ -126,6 +127,7 @@ func startRouter(app *fiber.App, assets embed.FS, sharedDirPath string, db *sql.
 		// 动态设置本机ip地址信息
 		api.Post("/setIpAddress", r.setIpAddress)
 		// 在路由中使用
+		api.Post("/createUser", r.createUser)
 		// app.Get("/setSharedDir", r.setSharedDir)
 	}
 }
@@ -274,6 +276,58 @@ func (r Router) setIpAddress(c *fiber.Ctx) error {
 		SetAppIPv6(postBody["ipv6"])
 		r.Reply.Code = http.StatusOK
 		r.Reply.Msg = "set ip success."
+	}
+	return c.Status(r.Reply.Code).JSON(r.Reply)
+}
+
+func (r Router) createUser(c *fiber.Ctx) error {
+	postBody := map[string]string{}
+	clientIP := c.IP()
+	if forwardedFor := c.Get("X-Forwarded-For"); forwardedFor != "" {
+		// 如果有代理，取第一个IP（最原始客户端IP）
+		ips := strings.Split(forwardedFor, ",")
+		clientIP = strings.TrimSpace(ips[0])
+	}
+	if err := c.BodyParser(&postBody); err != nil {
+		r.Reply.Code = http.StatusBadRequest
+		r.Reply.Msg = "请验证参数正确性"
+		r.Reply.Data = err
+		return c.Status(r.Reply.Code).JSON(r.Reply)
+	}
+	if postBody["userName"] == "" {
+		r.Reply.Code = http.StatusOK
+		r.Reply.Msg = "缺少关键参数"
+		r.Reply.Data = nil
+		return c.Status(r.Reply.Code).JSON(r.Reply)
+	}
+	row := r.db.QueryRow(`SELECT COUNT(ip) as countIP FROM "users" WHERE ip = ?`, clientIP)
+	countIP := 0
+	row.Scan(&countIP)
+	if countIP >= 5 {
+		r.Reply.Code = http.StatusOK
+		r.Reply.Msg = "当前ip地址已经注册超过五台设备，请先申请解锁。"
+		r.Reply.Data = nil
+		return c.Status(r.Reply.Code).JSON(r.Reply)
+	}
+	result, err := r.db.Exec(`INSERT INTO users (name, role, ip, createdAt) VALUES (?, ?, ?, ?);`, postBody["userName"], "guest", clientIP, time.Now().Format("2006-01-02 15:04:05"))
+	if err != nil {
+		r.Reply.Code = http.StatusBadRequest
+		r.Reply.Msg = "创建失败"
+		r.Reply.Data = nil
+		return c.Status(r.Reply.Code).JSON(r.Reply)
+	}
+	insertId, _ := result.LastInsertId()
+	token, err := CreateToken(insertId, postBody["userName"])
+	if err != nil {
+		r.Reply.Code = http.StatusOK
+		r.Reply.Msg = "创建token失败"
+		r.Reply.Data = nil
+		return c.Status(r.Reply.Code).JSON(r.Reply)
+	}
+	r.Reply.Code = http.StatusOK
+	r.Reply.Msg = "完成"
+	r.Reply.Data = map[string]any{
+		"token": token,
 	}
 	return c.Status(r.Reply.Code).JSON(r.Reply)
 }

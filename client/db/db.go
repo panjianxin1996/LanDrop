@@ -29,7 +29,9 @@ func InitDB(dbPath string) (*sql.DB, error) {
 	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS users (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		name TEXT NOT NULL,
-		created_at DATETIME DEFAULT CURRENT_TIMESTAMP)`); err != nil {
+		role TEXT NOT NULL,
+		ip TEXT NOT NULL,
+		createdAt DATETIME DEFAULT CURRENT_TIMESTAMP)`); err != nil {
 		return nil, fmt.Errorf("初始化表结构失败: %v", err)
 	}
 	return db, nil
