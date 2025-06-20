@@ -3,6 +3,9 @@ import react from '@vitejs/plugin-react'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import { dirname } from 'path'
+import v8 from 'node:v8';
+
+console.log('⚠️  V8内存限制:', (v8.getHeapStatistics().heap_size_limit / 1024 / 1024).toFixed(2), 'MB');
 
 // if in ESM context
 const __filename = fileURLToPath(import.meta.url)
