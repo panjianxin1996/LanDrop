@@ -60,6 +60,31 @@ func startRouter(app *fiber.App, assets embed.FS, sharedDirPath string, db *sql.
 
 	// WebSocket 路由
 	app.Get("/ws", websocket.New(func(conn *websocket.Conn) {
+		// 从查询参数获取 Token
+		token := conn.Query("ldToken")
+		if token == "" {
+			sendData := map[string]any{
+				"type":    "error",
+				"content": "缺少token数据",
+			}
+			if sendByte, jErr := json.Marshal(sendData); jErr == nil {
+				conn.WriteMessage(websocket.TextMessage, sendByte)
+			}
+			conn.Close() // 关闭未授权的连接
+			return
+		}
+		tokenJWT, err := ParseToken(token)
+		if err != nil || tokenJWT.Role != "admin" {
+			sendData := map[string]any{
+				"type":    "error",
+				"content": "无法验证token有效性",
+			}
+			if sendByte, jErr := json.Marshal(sendData); jErr == nil {
+				conn.WriteMessage(websocket.TextMessage, sendByte)
+			}
+			conn.Close() // 关闭未授权的连接
+			return
+		}
 		defer conn.Close()
 
 		// 每隔 3 秒发送消息
@@ -70,30 +95,25 @@ func startRouter(app *fiber.App, assets embed.FS, sharedDirPath string, db *sql.
 			case <-ticker.C:
 				// 发送当前时间戳
 				sendData := map[string]any{}
+				contentData := map[string]any{}
 				sendData["type"] = "deviceRealTimeInfo"
-				sendData["time"] = time.Now().Format("2006-01-02 15:04:05")
+				contentData["time"] = time.Now().Format("2006-01-02 15:04:05")
 				// cpu利用率
 				cpuUsage, _ := cpu.Percent(time.Second, false)
-				sendData["cpuUsage"] = cpuUsage[0]
+				contentData["cpuUsage"] = cpuUsage[0]
 				// 内存利用率
 				memInfo, _ := mem.VirtualMemory()
-				sendData["memUsage"] = memInfo.UsedPercent
+				contentData["memUsage"] = memInfo.UsedPercent
 				// 网络吞吐量
 				initialStats, _ := psNet.IOCounters(true)
 				time.Sleep(1 * time.Second)
 				currentStats, _ := psNet.IOCounters(true)
-				adapterList := []map[string]string{}
 				// 计算增量
 				for i, stat := range currentStats {
 					if stat.Name == initialStats[i].Name {
 						upload := stat.BytesSent - initialStats[i].BytesSent
 						download := stat.BytesRecv - initialStats[i].BytesRecv
-						// adapterCode := fmt.Sprintf("netAdapter_%v", i)
-						adapterList = append(adapterList, map[string]string{
-							"adapterCode": stat.Name,
-							"adapterName": stat.Name,
-						})
-						sendData[stat.Name] = map[string]any{
+						contentData[stat.Name] = map[string]any{
 							"adapterCode": stat.Name,
 							"adapterName": stat.Name,
 							"upload":      upload,
@@ -101,7 +121,7 @@ func startRouter(app *fiber.App, assets embed.FS, sharedDirPath string, db *sql.
 						}
 					}
 				}
-				sendData["adapterList"] = adapterList
+				sendData["content"] = contentData
 				if sendByte, jErr := json.Marshal(sendData); jErr == nil {
 					if err := conn.WriteMessage(websocket.TextMessage, sendByte); err != nil {
 						log.Println("write:", err)
@@ -128,6 +148,8 @@ func startRouter(app *fiber.App, assets embed.FS, sharedDirPath string, db *sql.
 		api.Post("/setIpAddress", r.setIpAddress)
 		// 在路由中使用
 		api.Post("/createUser", r.createUser)
+		// 客户端登录
+		api.Post("/appLogin", r.appLogin)
 		// app.Get("/setSharedDir", r.setSharedDir)
 	}
 }
@@ -317,7 +339,7 @@ func (r Router) createUser(c *fiber.Ctx) error {
 		return c.Status(r.Reply.Code).JSON(r.Reply)
 	}
 	insertId, _ := result.LastInsertId()
-	token, err := CreateToken(insertId, postBody["userName"])
+	token, err := CreateToken("guest", insertId, postBody["userName"])
 	if err != nil {
 		r.Reply.Code = http.StatusOK
 		r.Reply.Msg = "创建token失败"
@@ -329,5 +351,38 @@ func (r Router) createUser(c *fiber.Ctx) error {
 	r.Reply.Data = map[string]any{
 		"token": token,
 	}
+	c.Cookie(&fiber.Cookie{
+		Name:     "ldtoken",
+		Value:    token,
+		Expires:  time.Now().Add(24 * time.Hour),
+		HTTPOnly: true,
+		Secure:   true,
+		SameSite: "Lax",
+	})
+	return c.Status(r.Reply.Code).JSON(r.Reply)
+}
+
+func (r Router) appLogin(c *fiber.Ctx) error {
+	token, err := CreateToken("admin", 100, "admin")
+	if err != nil {
+		r.Reply.Code = http.StatusOK
+		r.Reply.Msg = "创建token失败"
+		r.Reply.Data = nil
+		return c.Status(r.Reply.Code).JSON(r.Reply)
+	}
+	r.Reply.Code = http.StatusOK
+	r.Reply.Msg = "完成"
+	r.Reply.Data = map[string]any{
+		"token": token,
+	}
+	c.Cookie(&fiber.Cookie{
+		Name:     "ldtoken",
+		Value:    token,
+		Path:     "/",
+		Expires:  time.Now().Add(24 * time.Hour),
+		HTTPOnly: true,
+		Secure:   true,
+		// SameSite: "Lax",
+	})
 	return c.Status(r.Reply.Code).JSON(r.Reply)
 }

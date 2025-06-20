@@ -10,6 +10,7 @@ require (
 )
 
 require (
+	github.com/MicahParks/keyfunc/v2 v2.1.0 // indirect
 	github.com/andybalholm/brotli v1.1.0 // indirect
 	github.com/bep/debounce v1.2.1 // indirect
 	github.com/ebitengine/purego v0.8.2 // indirect
@@ -47,6 +48,7 @@ require (
 require (
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/go-ole/go-ole v1.3.0 // indirect
+	github.com/gofiber/contrib/jwt v1.1.2
 	github.com/gofiber/contrib/websocket v1.3.4
 	github.com/gofiber/fiber/v2 v2.52.6
 	github.com/golang-jwt/jwt/v5 v5.2.2

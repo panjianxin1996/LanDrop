@@ -11,6 +11,7 @@ export default function App() {
   const { isClient, checkIsClient, setStoreData, connectWS, closeWS, selectNetAdapter, setSelectNetAdapter } = useClientStore()
 
   useEffect(() => {
+    appLogin()
     if (checkIsClient()) {
       // 连接socket数据
       connectWS()
@@ -40,6 +41,16 @@ export default function App() {
       }
     })
   }
+
+  const appLogin = () => {
+    request("/appLogin", "POST").then(res => {
+      if (res && res.code === 200) {
+        // console.log(res)
+        localStorage.setItem("ldtoken", res.data.token)
+      }
+    })
+  }
+
   return !isClient && checkPagePath() ? <></> : (<SidebarProvider>
     {/* return (<SidebarProvider> */}
     {/* 侧边栏 */}

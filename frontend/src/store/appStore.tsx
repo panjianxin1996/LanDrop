@@ -55,13 +55,15 @@ const useClientStore = create<AppStore>()(
       deviceLogsData: [],
       wsHandle: null,
       connectWS: () => {
-        let wsHandle = new WebSocket("ws://127.0.0.1:4321/ws")
+        let wsHandle = new WebSocket("ws://127.0.0.1:4321/ws?ldToken=" + localStorage.getItem("ldtoken"))
         set({ wsHandle })
         wsHandle.onmessage = (event) => {
           const info = JSON.parse(event.data);
-          set(state => ({// 只存放24条数据
-            deviceLogsData: state.deviceLogsData.length >= 24 ? [...state.deviceLogsData.slice(-23), info] : [...state.deviceLogsData, info]
-          }))
+          if (info.type === "deviceRealTimeInfo") {
+            set(state => ({// 只存放24条数据
+              deviceLogsData: state.deviceLogsData.length >= 24 ? [...state.deviceLogsData.slice(-23), info.content] : [...state.deviceLogsData, info.content]
+            }))
+          }
         };
       },
       closeWS: () => {

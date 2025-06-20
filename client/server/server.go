@@ -19,6 +19,7 @@ import (
 	"syscall"
 	"time"
 
+	jwtware "github.com/gofiber/contrib/jwt"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/filesystem"
@@ -180,6 +181,39 @@ func Run(assets embed.FS) {
 		log.Printf("[%s] %s\n", c.Method(), c.Path())
 		return c.Next()
 	})
+
+	skipPaths := []string{"/ws", "/api/v1/createUser", "/api/v1/appLogin"}
+
+	// 先执行路径检查中间件
+	app.Use(func(c *fiber.Ctx) error {
+		for _, path := range skipPaths {
+			if c.Path() == path {
+				c.Locals("skipToken", true)
+				break
+			}
+		}
+		return c.Next()
+	})
+
+	// JWT中间件配置
+	jwtConfig := jwtware.Config{
+		SigningKey:  jwtware.SigningKey{Key: SecretKey},
+		TokenLookup: "cookie:ldtoken,header:X-Ld-Token",
+		ContextKey:  "user",
+		ErrorHandler: func(c *fiber.Ctx, err error) error {
+			if c.Locals("skipToken") == true {
+				return c.Next()
+			}
+			return c.Status(401).JSON(fiber.Map{
+				"code": -999,
+				"data": nil,
+				"msg":  "身份凭证过期或无效。请重新登录。",
+			})
+		},
+	}
+
+	// 应用JWT中间件
+	app.Use(jwtware.New(jwtConfig))
 
 	// 将wails前端资源挂载到根路径下，wails静态资源会在应用启动时候读取加载到内存中虚拟目录。
 	app.Use("/", filesystem.New(filesystem.Config{

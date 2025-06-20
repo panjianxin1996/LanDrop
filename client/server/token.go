@@ -6,18 +6,20 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-type MyCustomClaims struct {
+type tokenClaims struct {
 	UserID               int64  `json:"user_id"`
 	Username             string `json:"username"`
+	Role                 string `json:"role"`
 	jwt.RegisteredClaims        // 内嵌标准Claims（过期时间等）
 }
 
-var secretKey = []byte("KNTWcTMPxMbGPhUZskWn")
+var SecretKey = []byte("KNTWcTMPxMbGPhUZskWn")
 
-func CreateToken(userId int64, userName string) (string, error) {
-	claims := MyCustomClaims{
+func CreateToken(role string, userId int64, userName string) (string, error) {
+	claims := tokenClaims{
 		UserID:   userId,
 		Username: userName,
+		Role:     role,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)), // 过期时间
 			IssuedAt:  jwt.NewNumericDate(time.Now()),                     // 签发时间
@@ -25,7 +27,7 @@ func CreateToken(userId int64, userName string) (string, error) {
 		},
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenString, err := token.SignedString(secretKey)
+	tokenString, err := token.SignedString(SecretKey)
 	if err != nil {
 		return "", err
 	}
@@ -33,16 +35,16 @@ func CreateToken(userId int64, userName string) (string, error) {
 	return tokenString, nil
 }
 
-func ParseToken(tokenString string) (*MyCustomClaims, error) {
+func ParseToken(tokenString string) (*tokenClaims, error) {
 	token, err := jwt.ParseWithClaims(
 		tokenString,
-		&MyCustomClaims{},
+		&tokenClaims{},
 		func(token *jwt.Token) (any, error) {
-			return secretKey, nil
+			return SecretKey, nil
 		},
 	)
 
-	if claims, ok := token.Claims.(*MyCustomClaims); ok && token.Valid {
+	if claims, ok := token.Claims.(*tokenClaims); ok && token.Valid {
 		return claims, nil
 	} else {
 		return nil, err
