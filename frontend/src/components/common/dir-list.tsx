@@ -229,20 +229,20 @@ export default function DirList(props: { dirData: any, sharedDir: string, classN
                                         <DialogContent>
                                             <DialogHeader>
                                                 <DialogTitle>文件详情</DialogTitle>
-                                                <DialogDescription>
+                                                <DialogDescription asChild>
                                                     <div className="grid grid-cols-2 gap-2 mt-4">
                                                         <div>文件名</div>
-                                                        <div className="overflow-hidden overflow-ellipsis line-clamp-2">{fileInfo.name}</div>
+                                                        <div className="overflow-hidden overflow-ellipsis line-clamp-2">{fileInfo.fileName}</div>
                                                         <div>类型</div>
-                                                        <div>{fileInfo.is_dir ? '文件夹' : getFileType(fileInfo.name)}</div>
+                                                        <div>{fileInfo.is_dir ? '文件夹' : getFileType(fileInfo.fileName)}</div>
                                                         <div>大小</div>
-                                                        <div>{fileInfo.is_dir ? '-' : autoUnitCalc(fileInfo.size).Unit}</div>
+                                                        <div>{fileInfo.is_dir ? '-' : autoUnitCalc(fileInfo.fileSize).Unit}</div>
                                                         <div>修改时间</div>
-                                                        <div>{dayjs(fileInfo.mod_time).format("YYYY-MM-DD HH:mm:ss")}</div>
+                                                        <div>{dayjs(fileInfo.fileModTime).format("YYYY-MM-DD HH:mm:ss")}</div>
                                                         <div>权限</div>
-                                                        <div>{fileInfo.mode}</div>
+                                                        <div>{fileInfo.fileMode}</div>
                                                         <div>是否文件夹</div>
-                                                        <div>{fileInfo.is_dir ? '是' : '否'}</div>
+                                                        <div>{fileInfo.isDir ? '是' : '否'}</div>
                                                     </div>
                                                 </DialogDescription>
                                             </DialogHeader>
@@ -289,6 +289,5 @@ export default function DirList(props: { dirData: any, sharedDir: string, classN
                 </ContextMenuContent>
             </ContextMenu>
         </div>
-
     )
 }

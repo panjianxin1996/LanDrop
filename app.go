@@ -81,20 +81,10 @@ func (a *App) OpenDirInExplorer(dirPath string) error {
 }
 
 func (a *App) UpdateDefaultDir(dirPath string) map[string]any {
-	config, err := server.LoadConfigFile()
 	updateBack := map[string]interface{}{}
-	if err != nil {
-		updateBack["status"] = "error"
-		updateBack["newDir"] = nil
-		updateBack["msg"] = fmt.Errorf("加载配置失败: %v", err)
-		return updateBack
-	}
-
-	// 2. 更新配置项
-	config.DefaultDir = dirPath
-
+	_, err := server.UpdateDirInfo(dirPath)
 	// 3. 保存新配置
-	if err := server.SaveConfigFile(config); err != nil {
+	if err != nil {
 		updateBack["status"] = "error"
 		updateBack["newDir"] = nil
 		updateBack["msg"] = fmt.Errorf("保存配置失败: %v", err)

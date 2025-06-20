@@ -90,7 +90,7 @@ export default function AppWeb() {
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>
-        <div className="flex border-b-2">
+        <div className="flex border-b-2" style={{height: "95vh"}}>
             <div className="w-20 border-r-2 pt-10">
                 {
                     btnList.map(item => (

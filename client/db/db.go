@@ -25,14 +25,28 @@ func InitDB(dbPath string) (*sql.DB, error) {
 	if err := db.Ping(); err != nil {
 		return nil, fmt.Errorf("数据库连接测试失败: %v", err)
 	}
-	// 初始化表结构
+	// 初始化用户表结构
 	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS users (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		name TEXT NOT NULL,
 		role TEXT NOT NULL,
 		ip TEXT NOT NULL,
 		createdAt DATETIME DEFAULT CURRENT_TIMESTAMP)`); err != nil {
-		return nil, fmt.Errorf("初始化表结构失败: %v", err)
+		return nil, fmt.Errorf("初始化用户表结构失败: %v", err)
+	}
+	// 初始化客户端设置表结构
+	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS settings (
+		"sId" INTEGER PRIMARY KEY AUTOINCREMENT,
+		"name" TEXT NOT NULL,
+		"appName" TEXT,
+		"port" integer NOT NULL,
+		"sharedDir" TEXT,
+		"version" TEXT,
+		"createdAt" TEXT,
+		"modifiedAt" TEXT,
+		CONSTRAINT "name unique" UNIQUE ("name" ASC)
+		)`); err != nil {
+		return nil, fmt.Errorf("初始化客户端设置表结构失败: %v", err)
 	}
 	return db, nil
 }

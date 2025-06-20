@@ -4,8 +4,8 @@ import (
 	"LanDrop/client/db"
 	"LanDrop/client/fsListen"
 	"context"
+	"database/sql"
 	"embed"
-	"encoding/json"
 	"fmt"
 	"log"
 	"net"
@@ -26,22 +26,34 @@ import (
 )
 
 var (
-	app         *fiber.App
-	serverMutex sync.Mutex
-	shutdownCtx context.Context
-	cancelFunc  context.CancelFunc
+	app         *fiber.App         // fiber
+	serverMutex sync.Mutex         // 服务器状态锁
+	shutdownCtx context.Context    // 上下文
+	cancelFunc  context.CancelFunc // 取消函数
+	DB          *sql.DB            // sqlite数据库
+	AppDir      string             // 进程所在目录
+	AppErr      error              // 错误信息
 )
+
+// 获取当前程序所在目录
+func getAppDir() string {
+	exePath, _ := os.Executable()
+	return filepath.Dir(exePath)
+}
 
 // 初始化上下文和取消函数
 func init() {
 	shutdownCtx, cancelFunc = context.WithCancel(context.Background())
+	AppDir = getAppDir()
+	// 数据库连接
+	DB, AppErr = db.InitDB(filepath.Join(AppDir, "app.db"))
 }
 
 type Config struct {
-	AppName    string `json:"appName"`
-	Port       int    `json:"port"`
-	DefaultDir string `json:"defaultDir"`
-	Version    string `json:"version"`
+	AppName   string `json:"appName"`
+	Port      int    `json:"port"`
+	SharedDir string `json:"sharedDir"`
+	Version   string `json:"version"`
 }
 
 // 检查端口是否占用
@@ -52,12 +64,6 @@ func isPortAvailable(port int) bool {
 		return false
 	}
 	return true
-}
-
-// 获取当前程序所在目录
-func getAppDir() string {
-	exePath, _ := os.Executable()
-	return filepath.Dir(exePath)
 }
 
 // 创建共享目录
@@ -80,81 +86,43 @@ func createSharedDir(appDir string) string {
 	return sharedDir
 }
 
-// 加载配置文档
-func LoadConfigFile() (Config, error) {
-	appDir := getAppDir()
-	configFile := filepath.Join(appDir, "config.json")
-	if _, err := os.Stat(configFile); os.IsNotExist(err) { // 检查配置文件是否存在
-		defaultConfig := Config{ // 创建默认配置
-			AppName:    "LanDrop",
-			Port:       4321,
-			DefaultDir: "",
-			Version:    "0.0.1",
-		}
-		sharedDir := createSharedDir(appDir) // 创建默认分享目录
-		if sharedDir == "" {
-			return defaultConfig, fmt.Errorf("创建默认目录失败")
-		}
-		defaultConfig.DefaultDir = sharedDir
-		file, err := os.Create(configFile) // 将默认配置写入文件
-		if err != nil {
-			return defaultConfig, err
-		}
-		defer file.Close()
-		encoder := json.NewEncoder(file)
-		encoder.SetIndent("", "    ") // 设置缩进，使文件更易读
-		if err := encoder.Encode(defaultConfig); err != nil {
-			return defaultConfig, err
-		}
-		return defaultConfig, nil
-	} else {
-		var config Config
-		file, err := os.Open(configFile)
-		if err != nil {
-			return config, err
-		}
-		defer file.Close()
-		decoder := json.NewDecoder(file)
-		if err := decoder.Decode(&config); err != nil {
-			return config, err
-		}
-		return config, nil
+func GetSettingInfo() Config {
+	d := Config{ // 创建默认配置
+		AppName:   "",
+		Port:      0,
+		SharedDir: "",
+		Version:   "",
 	}
+	err := DB.QueryRow(`SELECT appName, port,sharedDir,version FROM settings WHERE name = 'config'`).Scan(&d.AppName, &d.Port, &d.SharedDir, &d.Version)
+	if err != nil && err == sql.ErrNoRows {
+		sharedDir := createSharedDir(AppDir) // 创建默认分享目录
+		d.AppName = "LanDrop"
+		d.Port = 4321
+		d.SharedDir = sharedDir
+		d.Version = "V1.0.0"
+		nowDate := time.Now().Format("2006-01-02 15:04:05")
+		DB.Exec(`INSERT INTO settings (name, appName, port, sharedDir, version, createdAt, modifiedAt) VALUES (?, ?, ?, ?, ?, ?, ?)`, "config", d.AppName, d.Port, d.SharedDir, d.Version, nowDate, nowDate)
+	}
+	return d
 }
 
-// 保存配置文档
-func SaveConfigFile(config Config) error {
-	appDir := getAppDir()
-	configFile := filepath.Join(appDir, "config.json")
-
-	file, err := os.Create(configFile)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-	encoder := json.NewEncoder(file)
-	encoder.SetIndent("", "    ")
-	return encoder.Encode(config)
+// 更新分享目录信息
+func UpdateDirInfo(newDir string) (sql.Result, error) {
+	return DB.Exec(`UPDATE settings SET sharedDir = ? WHERE name = 'config'`, newDir)
 }
 
 // 启动服务器
 func Run(assets embed.FS) {
 	serverMutex.Lock()
 	defer serverMutex.Unlock()
-	// 初始化数据库
-	db, err := db.InitDB(filepath.Join(getAppDir(), "app.db"))
-	if err != nil {
-		log.Printf("数据库初始化失败: %v", err)
+	if AppErr != nil {
+		log.Printf("数据库初始化失败: %v", AppErr)
 		return
 	}
-	// 加载配置文件
-	config, err := LoadConfigFile()
-	if err != nil {
-		log.Println(err.Error())
-		return
-	}
+	// 加载配置文件通过数据库
+	config := GetSettingInfo()
 	// 启动监听目录【使用goroutine避免阻塞进程】
-	go fsListen.FSWatcher(config.DefaultDir, db)
+	go fsListen.FSWatcher(config.SharedDir, DB)
 	if !isPortAvailable(config.Port) {
 		log.Println(fmt.Printf("端口 %v 已被占用，跳过 Fiber 启动", config.Port))
 		return
@@ -169,15 +137,30 @@ func Run(assets embed.FS) {
 	// app.Use(cors.New())
 	// 设置跨域允许
 	app.Use(cors.New(cors.Config{
-		// 在AllowOrigins之后触发，放行所有4321端口的请求
 		AllowOriginsFunc: func(origin string) bool {
-			parsed, err := url.Parse(origin)
+			if origin == "" { // 允许空origin（如本地文件请求）
+				return true
+			}
+			parsed, err := url.Parse(origin) // 解析URL
 			if err != nil {
 				return false
 			}
-			return parsed.Port() == "4321" // 仅允许4321端口
+			if parsed.Port() == "4321" { // 规则1：放行所有4321端口的请求
+				return true
+			}
+			allowedOrigins := []string{ // 规则2：放行预定义的Wails相关来源
+				"http://wails.localhost:34115",
+				"http://wails.localhost",
+				"wails://wails.localhost:34115",
+				"wails://wails",
+			}
+			for _, allowed := range allowedOrigins {
+				if origin == allowed {
+					return true
+				}
+			}
+			return false
 		},
-		AllowOrigins: "http://wails.localhost:34115,http://wails.localhost,wails://wails.localhost:34115,wails://wails", // windows协议为http://,macOS协议为wails://
 		AllowMethods: strings.Join([]string{
 			fiber.MethodGet,
 			fiber.MethodPost,
@@ -204,10 +187,10 @@ func Run(assets embed.FS) {
 		PathPrefix: "frontend/dist", // 匹配嵌入的路径
 		Browse:     true,            // 允许目录浏览（可选）
 	}))
-	app.Static("/shared", config.DefaultDir)
+	app.Static("/shared", config.SharedDir)
 
 	// 启动路由组
-	startRouter(app, assets, config.DefaultDir, db)
+	startRouter(app, assets, config.SharedDir, DB)
 
 	// 404 处理
 	app.Use(func(c *fiber.Ctx) error {
