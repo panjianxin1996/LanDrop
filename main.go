@@ -56,10 +56,10 @@ func main() {
 		OnShutdown: func(ctx context.Context) {
 			app.shutdown(ctx)
 			server.Stop()
-			go server.StopDNSServer()
+			server.StopDNSServer()
 		},
 		WindowStartState: options.Normal,
-		Bind: []interface{}{
+		Bind: []any{
 			app,
 		},
 		// Windows platform specific options

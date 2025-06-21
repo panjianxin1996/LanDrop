@@ -331,7 +331,7 @@ func (r Router) createUser(c *fiber.Ctx) error {
 		r.Reply.Data = nil
 		return c.Status(r.Reply.Code).JSON(r.Reply)
 	}
-	result, err := r.db.Exec(`INSERT INTO users (name, role, ip, createdAt) VALUES (?, ?, ?, ?);`, postBody["userName"], "guest", clientIP, time.Now().Format("2006-01-02 15:04:05"))
+	result, err := r.db.Exec(`INSERT INTO users (name, pwd, role, ip, createdAt) VALUES (?, ?, ?, ?, ?);`, postBody["userName"], postBody["userName"]+"#123", "guest", clientIP, time.Now().Format("2006-01-02 15:04:05"))
 	if err != nil {
 		r.Reply.Code = http.StatusBadRequest
 		r.Reply.Msg = "创建失败"
@@ -354,16 +354,52 @@ func (r Router) createUser(c *fiber.Ctx) error {
 	c.Cookie(&fiber.Cookie{
 		Name:     "ldtoken",
 		Value:    token,
+		Path:     "/",
 		Expires:  time.Now().Add(24 * time.Hour),
 		HTTPOnly: true,
-		Secure:   true,
+		Secure:   false,
 		SameSite: "Lax",
 	})
 	return c.Status(r.Reply.Code).JSON(r.Reply)
 }
 
 func (r Router) appLogin(c *fiber.Ctx) error {
-	token, err := CreateToken("admin", 100, "admin")
+	postBody := map[string]string{}
+	clientIP := c.IP()
+	if forwardedFor := c.Get("X-Forwarded-For"); forwardedFor != "" {
+		// 如果有代理，取第一个IP（最原始客户端IP）
+		ips := strings.Split(forwardedFor, ",")
+		clientIP = strings.TrimSpace(ips[0])
+	}
+	if err := c.BodyParser(&postBody); err != nil {
+		r.Reply.Code = http.StatusBadRequest
+		r.Reply.Msg = "请验证参数正确性"
+		r.Reply.Data = err
+		return c.Status(r.Reply.Code).JSON(r.Reply)
+	}
+	if postBody["adminName"] == "" || postBody["adminPassword"] == "" || postBody["timeStamp"] == "" {
+		r.Reply.Code = http.StatusBadRequest
+		r.Reply.Msg = "缺少必要参数"
+		r.Reply.Data = nil
+		return c.Status(r.Reply.Code).JSON(r.Reply)
+	}
+	var adminId int64
+	var adminName, adminRole string
+	err := r.db.QueryRow("SELECT id, name, role FROM users WHERE name = ? AND pwd = ?", postBody["adminName"], postBody["adminPassword"]).Scan(&adminId, &adminName, &adminRole)
+	if err != nil && err == sql.ErrNoRows {
+		result, err := r.db.Exec(`INSERT INTO users (name, pwd, role,  ip, createdAt) VALUES (?, ?, ?, ?, ?);`, postBody["adminName"], postBody["adminPassword"], "admin", clientIP, time.Now().Format("2006-01-02 15:04:05"))
+		if err != nil {
+			r.Reply.Code = http.StatusBadRequest
+			r.Reply.Msg = "创建失败"
+			r.Reply.Data = nil
+			return c.Status(r.Reply.Code).JSON(r.Reply)
+		}
+		insertId, _ := result.LastInsertId()
+		adminId = insertId
+		adminName = postBody["adminName"]
+		adminRole = "admin"
+	}
+	token, err := CreateToken(adminRole, adminId, adminName)
 	if err != nil {
 		r.Reply.Code = http.StatusOK
 		r.Reply.Msg = "创建token失败"
@@ -375,14 +411,5 @@ func (r Router) appLogin(c *fiber.Ctx) error {
 	r.Reply.Data = map[string]any{
 		"token": token,
 	}
-	c.Cookie(&fiber.Cookie{
-		Name:     "ldtoken",
-		Value:    token,
-		Path:     "/",
-		Expires:  time.Now().Add(24 * time.Hour),
-		HTTPOnly: true,
-		Secure:   true,
-		// SameSite: "Lax",
-	})
 	return c.Status(r.Reply.Code).JSON(r.Reply)
 }

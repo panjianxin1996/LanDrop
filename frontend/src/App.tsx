@@ -11,12 +11,9 @@ export default function App() {
   const { isClient, checkIsClient, setStoreData, connectWS, closeWS, selectNetAdapter, setSelectNetAdapter } = useClientStore()
 
   useEffect(() => {
-    appLogin()
     if (checkIsClient()) {
-      // 连接socket数据
-      connectWS()
-      // 获取网卡列表
-      getNetworkInfo()
+      // 客户端鉴权登录
+      appLogin()
     } else {
       if (checkPagePath()) navigate("/web", { replace: true });
     }
@@ -43,10 +40,22 @@ export default function App() {
   }
 
   const appLogin = () => {
-    request("/appLogin", "POST").then(res => {
+    let adminName = localStorage.getItem("appAdminName")
+    if (!adminName) {
+      adminName = `admin${(Math.random()*1000).toFixed(0)}`
+    }
+    localStorage.setItem("appAdminName", adminName)
+    request("/appLogin", "POST", {
+      adminName: adminName,
+      adminPassword: `landrop#${adminName}`,
+      timeStamp: new Date().getTime().toString()
+    }).then(res => {
       if (res && res.code === 200) {
-        // console.log(res)
         localStorage.setItem("ldtoken", res.data.token)
+        // 连接socket数据
+        connectWS()
+        // 获取网卡列表
+        getNetworkInfo()
       }
     })
   }

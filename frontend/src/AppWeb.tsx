@@ -15,11 +15,16 @@ import {
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import {
+    Card,
+    CardContent,
+} from "@/components/ui/card"
+import {
     InputOTP,
     InputOTPGroup,
     InputOTPSlot,
 } from "@/components/ui/input-otp"
-import { TextSearch, CloudUpload, MessageCircle } from 'lucide-react'
+import { TextSearch, CloudUpload, MessageCircle, UserPlus } from 'lucide-react'
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import useClientStore from "@/store/appStore"
 import { useEffect, useState } from "react"
 import DirList from "@/components/common/dir-list"
@@ -32,12 +37,15 @@ export default function AppWeb() {
     const [sharedData, setSharedData] = useState<any>([])
     const [sharedDir, setSharedDir] = useState<string>("")
     const [openAlert, setOpenAlert] = useState<boolean>(false)
+    const [openUserDialog, setOpenUserDialog] = useState<boolean>(true)
     const [sharedCode, setSharedCode] = useState<string>("")
+    const [userList, setUserList] = useState<any>([])
     useEffect(() => {
         // web端设置为非客户端
         checkIsClient()
         // 获取分享目录
-        getSharedDirInfo()
+        // getSharedDirInfo()
+        setUserList(['用户1', '用户2', '用户3'])
     }, [])
 
     const getSharedDirInfo = () => {
@@ -64,6 +72,39 @@ export default function AppWeb() {
         { key: 'message', name: "消息", icon: <MessageCircle size={25} />, tip: "跟好友进行聊天" },
     ]
     return <TooltipProvider>
+        <AlertDialog open={openUserDialog} onOpenChange={setOpenUserDialog}>
+            {/* <AlertDialogTrigger>Open</AlertDialogTrigger> */}
+            <AlertDialogContent className="w-1/2 h-3/5 flex flex-col justify-between gap-0">
+                <AlertDialogHeader className="h-4/5">
+                    <AlertDialogTitle className="text-center">请选择您的账户</AlertDialogTitle>
+                    <AlertDialogDescription asChild>
+                        <div className="flex flex-col justify-start h-4/5 overflow-auto p-2">
+                            {
+                                userList.map((item: any) => (
+                                    <Card className="w-full mb-5" key={item}>
+                                        <CardContent className="flex item-center p-3">
+                                            <Avatar>
+                                                <AvatarFallback>{item.slice(0,3)}</AvatarFallback>
+                                            </Avatar>
+                                            <div>{item}</div>
+                                        </CardContent>
+                                    </Card>
+                                ))
+                            }
+                            <Card className="w-full pt-6">
+                                <CardContent>
+                                    <p><UserPlus />
+                                    <span className="text-xs">新增一个用户</span></p>
+                                </CardContent>
+                            </Card>
+                        </div>
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter className="flex !flex-col-reverse !justify-center">
+                    <AlertDialogAction onClick={() => getRealFilePath()}>确认</AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
         <AlertDialog open={openAlert} onOpenChange={setOpenAlert}>
             {/* <AlertDialogTrigger>Open</AlertDialogTrigger> */}
             <AlertDialogContent>
@@ -90,7 +131,7 @@ export default function AppWeb() {
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>
-        <div className="flex border-b-2" style={{height: "95vh"}}>
+        <div className="flex border-b-2" style={{ height: "95vh" }}>
             <div className="w-20 border-r-2 pt-10">
                 {
                     btnList.map(item => (

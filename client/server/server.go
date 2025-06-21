@@ -182,12 +182,16 @@ func Run(assets embed.FS) {
 		return c.Next()
 	})
 
-	skipPaths := []string{"/ws", "/api/v1/createUser", "/api/v1/appLogin"}
+	skipPrefixes := []string{"/", "/#/", "/shared/", "/ws", "/api/v1/createUser", "/api/v1/appLogin"}
 
-	// 先执行路径检查中间件
 	app.Use(func(c *fiber.Ctx) error {
-		for _, path := range skipPaths {
-			if c.Path() == path {
+		for _, prefix := range skipPrefixes {
+			if prefix == "/" {
+				if c.Path() == "/" { // 严格匹配根路径
+					c.Locals("skipToken", true)
+					break
+				}
+			} else if strings.HasPrefix(c.Path(), prefix) {
 				c.Locals("skipToken", true)
 				break
 			}
@@ -251,7 +255,6 @@ func Run(assets embed.FS) {
 func Stop() {
 	serverMutex.Lock()
 	defer serverMutex.Unlock()
-
 	if app == nil {
 		log.Println("服务未启动，无需停止")
 		return
@@ -278,7 +281,7 @@ func handleSignals() {
 	select {
 	case sig := <-sigChan:
 		log.Printf("接收到信号: %v\n", sig)
-		Stop()
+		// Stop()
 	case <-shutdownCtx.Done():
 		return // 主动调用Stop时退出
 	}

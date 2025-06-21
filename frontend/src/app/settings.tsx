@@ -49,20 +49,16 @@ export default function Settings() {
             value={sharedDir}
             className="text-sm font-medium"
           />
-          {
-            changeDirFlag && <p className="absolute bottom-0 right-0 text-xs text-muted-foreground text-red-300">修改后需点击按钮重启服务。</p>
-          }
-        </div>
-        {
-          !changeDirFlag && <Button variant="outline" className="px-3" onClick={openDirectory}>
+          <Button variant="outline" className="px-3 absolute right-0" onClick={openDirectory}>
             <FolderOpen size={20}/>
           </Button>
-        }
-        {
-          changeDirFlag && <Button variant="destructive" className="px-3" onClick={restartServer}>
+          {
+            changeDirFlag && <p className="absolute bottom-0 right-0 text-xs text-muted-foreground text-red-300" style={{bottom: "-20px"}}>修改后需点击按钮重启服务。</p>
+          }
+        </div>
+        <Button variant="destructive" className="px-3" onClick={restartServer}>
             <RefreshCcwDot size={20} />
-          </Button>
-        }
+        </Button>
       </div>
     </div>
   )
