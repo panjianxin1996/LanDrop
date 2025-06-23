@@ -20,6 +20,9 @@ var assets embed.FS
 //go:embed build/appicon.png
 var icon []byte
 
+//go:embed build/windows/icon.ico
+var trayIcon []byte
+
 func main() {
 
 	// Create an instance of the app structure

@@ -4,8 +4,11 @@ import (
 	"LanDrop/client/server"
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"runtime"
+
+	"github.com/getlantern/systray"
 
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
@@ -15,10 +18,44 @@ type App struct {
 	ctx context.Context
 }
 
+var mQuit *systray.MenuItem
+
 // NewApp creates a new App application struct
 func NewApp() *App {
-
+	go systray.Run(onReady, nil)
 	return &App{}
+}
+
+func onReady() {
+	systray.SetIcon(trayIcon)
+	systray.SetTitle("LanDrop")
+	systray.SetTooltip("文件传输")
+
+	mQuit := systray.AddMenuItem("退出", "退出LanDrop")
+	// mShow := systray.AddMenuItem("显示窗口", "显示应用窗口")
+	// 		mHide := systray.AddMenuItem("隐藏窗口", "隐藏到托盘")
+	// 		systray.AddSeparator()
+	// 		mQuit := systray.AddMenuItem("退出", "关闭应用")
+
+	// 		// 监听菜单点击事件
+	// 		for {
+	// 			select {
+	// 			case <-mShow.ClickedCh:
+	// 				// 通知前端显示窗口（通过绑定方法）
+	// 				a.runtime.Window.Show()
+	// 			case <-mHide.ClickedCh:
+	// 				// 通知前端隐藏窗口
+	// 				a.runtime.Window.Hide()
+	// 			case <-mQuit.ClickedCh:
+	// 				// 退出应用
+	// 				systray.Quit()
+	// 				a.runtime.Quit()
+	// 			}
+	// 		}
+	go func() {
+		<-mQuit.ClickedCh
+		os.Exit(0)
+	}()
 }
 
 // startup is called at application startup
