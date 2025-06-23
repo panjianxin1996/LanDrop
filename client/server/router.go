@@ -146,8 +146,14 @@ func startRouter(app *fiber.App, assets embed.FS, sharedDirPath string, db *sql.
 		api.Get("/getNetworkInfo", r.getNetworkInfo)
 		// 动态设置本机ip地址信息
 		api.Post("/setIpAddress", r.setIpAddress)
-		// 在路由中使用
+		// 获取用户信息
+		api.Post("/getUserList", r.getUserList)
+		// 创建用户
 		api.Post("/createUser", r.createUser)
+		// 创建用户token
+		api.Post("/createToken", r.createToken)
+		// 解绑用户
+		api.Post("/unBindUser", r.unBindUser)
 		// 客户端登录
 		api.Post("/appLogin", r.appLogin)
 		// app.Get("/setSharedDir", r.setSharedDir)
@@ -302,6 +308,51 @@ func (r Router) setIpAddress(c *fiber.Ctx) error {
 	return c.Status(r.Reply.Code).JSON(r.Reply)
 }
 
+func (r Router) getUserList(c *fiber.Ctx) error {
+	postBody := map[string]string{}
+	clientIP := c.IP()
+	if forwardedFor := c.Get("X-Forwarded-For"); forwardedFor != "" {
+		// 如果有代理，取第一个IP（最原始客户端IP）
+		ips := strings.Split(forwardedFor, ",")
+		clientIP = strings.TrimSpace(ips[0])
+	}
+	if err := c.BodyParser(&postBody); err != nil {
+		r.Reply.Code = http.StatusBadRequest
+		r.Reply.Msg = "请验证参数正确性"
+		r.Reply.Data = err
+		return c.Status(r.Reply.Code).JSON(r.Reply)
+	}
+	rows, err := r.db.Query(`SELECT * FROM "users" WHERE ip = ? AND role= 'guest'`, clientIP)
+	if err != nil {
+		r.Reply.Code = http.StatusInternalServerError
+		r.Reply.Msg = "服务器错误"
+		r.Reply.Data = err
+		return c.Status(r.Reply.Code).JSON(r.Reply)
+	}
+	columns, _ := rows.Columns()
+	values := make([]any, len(columns))
+	for i := range values {
+		var v any
+		values[i] = &v
+	}
+	var userList []map[string]any
+	for rows.Next() {
+		if err := rows.Scan(values...); err != nil {
+			log.Printf("扫描行失败: %v", err)
+			continue
+		}
+		row := make(map[string]any)
+		for i, col := range columns {
+			row[col] = *(values[i].(*any))
+		}
+		userList = append(userList, row)
+	}
+	r.Reply.Code = http.StatusOK
+	r.Reply.Msg = "查询成功"
+	r.Reply.Data = userList
+	return c.Status(r.Reply.Code).JSON(r.Reply)
+}
+
 func (r Router) createUser(c *fiber.Ctx) error {
 	postBody := map[string]string{}
 	clientIP := c.IP()
@@ -322,14 +373,14 @@ func (r Router) createUser(c *fiber.Ctx) error {
 		r.Reply.Data = nil
 		return c.Status(r.Reply.Code).JSON(r.Reply)
 	}
-	row := r.db.QueryRow(`SELECT COUNT(ip) as countIP FROM "users" WHERE ip = ?`, clientIP)
+	row := r.db.QueryRow(`SELECT COUNT(ip) as countIP FROM "users" WHERE ip = ? AND role = 'guest'`, clientIP)
 	countIP := 0
 	row.Scan(&countIP)
 	if countIP >= 5 {
-		r.Reply.Code = http.StatusOK
-		r.Reply.Msg = "当前ip地址已经注册超过五台设备，请先申请解锁。"
+		r.Reply.Code = -1
+		r.Reply.Msg = "当前ip地址已经注册超过五台设备，请先解绑后进行注册。"
 		r.Reply.Data = nil
-		return c.Status(r.Reply.Code).JSON(r.Reply)
+		return c.Status(http.StatusOK).JSON(r.Reply)
 	}
 	result, err := r.db.Exec(`INSERT INTO users (name, pwd, role, ip, createdAt) VALUES (?, ?, ?, ?, ?);`, postBody["userName"], postBody["userName"]+"#123", "guest", clientIP, time.Now().Format("2006-01-02 15:04:05"))
 	if err != nil {
@@ -339,7 +390,41 @@ func (r Router) createUser(c *fiber.Ctx) error {
 		return c.Status(r.Reply.Code).JSON(r.Reply)
 	}
 	insertId, _ := result.LastInsertId()
-	token, err := CreateToken("guest", insertId, postBody["userName"])
+	r.Reply.Code = http.StatusOK
+	r.Reply.Msg = "完成"
+	r.Reply.Data = map[string]any{
+		"createId": insertId,
+	}
+	return c.Status(r.Reply.Code).JSON(r.Reply)
+}
+
+func (r Router) createToken(c *fiber.Ctx) error {
+	postBody := struct {
+		UserId   int64  `json:"userId"`
+		UserName string `json:"userName"`
+	}{}
+	if err := c.BodyParser(&postBody); err != nil {
+		r.Reply.Code = http.StatusBadRequest
+		r.Reply.Msg = "请验证参数正确性"
+		r.Reply.Data = err
+		return c.Status(r.Reply.Code).JSON(r.Reply)
+	}
+
+	if postBody.UserId == 0 || postBody.UserName == "" {
+		r.Reply.Code = http.StatusOK
+		r.Reply.Msg = "请验证参数正确性"
+		return c.Status(r.Reply.Code).JSON(r.Reply)
+	}
+	var id int64
+	var name string
+	err := r.db.QueryRow(`SELECT id, name FROM users WHERE id = ? AND name = ?`, postBody.UserId, postBody.UserName).Scan(&id, &name)
+	if err != nil && err != sql.ErrNoRows {
+		r.Reply.Code = http.StatusOK
+		r.Reply.Msg = "确保数据正确"
+		r.Reply.Data = err
+		return c.Status(r.Reply.Code).JSON(r.Reply)
+	}
+	token, err := CreateToken("guest", id, name)
 	if err != nil {
 		r.Reply.Code = http.StatusOK
 		r.Reply.Msg = "创建token失败"
@@ -360,6 +445,37 @@ func (r Router) createUser(c *fiber.Ctx) error {
 		Secure:   false,
 		SameSite: "Lax",
 	})
+	return c.Status(r.Reply.Code).JSON(r.Reply)
+}
+
+func (r Router) unBindUser(c *fiber.Ctx) error {
+	postBody := struct {
+		UserId   int64  `json:"userId"`
+		UserName string `json:"userName"`
+	}{}
+	if err := c.BodyParser(&postBody); err != nil {
+		r.Reply.Code = http.StatusBadRequest
+		r.Reply.Msg = "请验证参数正确性"
+		r.Reply.Data = err
+		return c.Status(r.Reply.Code).JSON(r.Reply)
+	}
+
+	if postBody.UserId == 0 || postBody.UserName == "" {
+		r.Reply.Code = http.StatusBadRequest
+		r.Reply.Msg = "请验证参数正确性"
+		return c.Status(r.Reply.Code).JSON(r.Reply)
+	}
+	result, err := r.db.Exec(`DELETE FROM users WHERE id = ? AND name = ?`, postBody.UserId, postBody.UserName)
+	if err != nil {
+		r.Reply.Code = http.StatusBadRequest
+		r.Reply.Msg = "出错了哦"
+		r.Reply.Data = err
+		return c.Status(r.Reply.Code).JSON(r.Reply)
+	}
+	affectedId, err := result.RowsAffected()
+	r.Reply.Code = http.StatusOK
+	r.Reply.Msg = "完成"
+	r.Reply.Data = affectedId
 	return c.Status(r.Reply.Code).JSON(r.Reply)
 }
 

@@ -38,7 +38,7 @@ export function useApiRequest() {
                     method,
                     headers: {
                         "Content-Type": "application/json",
-                        "X-Ld-Token": localStorage.getItem("ldtoken") || "",
+                        "X-Ld-Token": localStorage.getItem("ldtoken") || localStorage.getItem("userToken") || "",
                     },
                     body: body ? JSON.stringify(body) : undefined,
                 })

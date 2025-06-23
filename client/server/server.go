@@ -182,7 +182,7 @@ func Run(assets embed.FS) {
 		return c.Next()
 	})
 
-	skipPrefixes := []string{"/", "/#/", "/shared/", "/ws", "/api/v1/createUser", "/api/v1/appLogin"}
+	skipPrefixes := []string{"/", "/assets/", "/#/", "/shared/", "/ws", "/api/v1/getUserList", "/api/v1/createToken", "/api/v1/createUser", "/api/v1/appLogin"}
 
 	app.Use(func(c *fiber.Ctx) error {
 		for _, prefix := range skipPrefixes {
