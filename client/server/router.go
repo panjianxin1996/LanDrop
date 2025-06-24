@@ -472,7 +472,7 @@ func (r Router) unBindUser(c *fiber.Ctx) error {
 		r.Reply.Data = err
 		return c.Status(r.Reply.Code).JSON(r.Reply)
 	}
-	affectedId, err := result.RowsAffected()
+	affectedId, _ := result.RowsAffected()
 	r.Reply.Code = http.StatusOK
 	r.Reply.Msg = "完成"
 	r.Reply.Data = affectedId
