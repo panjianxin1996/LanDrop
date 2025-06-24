@@ -506,14 +506,19 @@ func (r Router) appLogin(c *fiber.Ctx) error {
 		result, err := r.db.Exec(`INSERT INTO users (name, pwd, role,  ip, createdAt) VALUES (?, ?, ?, ?, ?);`, postBody["adminName"], postBody["adminPassword"], "admin", clientIP, time.Now().Format("2006-01-02 15:04:05"))
 		if err != nil {
 			r.Reply.Code = http.StatusBadRequest
-			r.Reply.Msg = "创建失败"
-			r.Reply.Data = nil
+			r.Reply.Msg = "创建失败1"
+			r.Reply.Data = err
 			return c.Status(r.Reply.Code).JSON(r.Reply)
 		}
 		insertId, _ := result.LastInsertId()
 		adminId = insertId
 		adminName = postBody["adminName"]
 		adminRole = "admin"
+	} else if err != nil {
+		r.Reply.Code = http.StatusBadRequest
+		r.Reply.Msg = "创建失败2"
+		r.Reply.Data = err
+		return c.Status(r.Reply.Code).JSON(r.Reply)
 	}
 	token, err := CreateToken(adminRole, adminId, adminName)
 	if err != nil {
