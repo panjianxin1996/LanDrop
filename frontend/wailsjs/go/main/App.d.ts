@@ -10,3 +10,7 @@ export function RestartServer():Promise<void>;
 export function UpdateDefaultDir(arg1:string):Promise<Record<string, any>>;
 
 export function Version():Promise<string>;
+
+export function WindowHide():Promise<void>;
+
+export function WindowShow():Promise<void>;

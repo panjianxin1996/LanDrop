@@ -4,11 +4,10 @@ import (
 	"LanDrop/client/server"
 	"context"
 	"fmt"
-	"os"
 	"os/exec"
 	"runtime"
 
-	"github.com/getlantern/systray"
+	"github.com/panjianxin1996/systray-heighten"
 
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
@@ -22,40 +21,8 @@ var mQuit *systray.MenuItem
 
 // NewApp creates a new App application struct
 func NewApp() *App {
-	go systray.Run(onReady, nil)
+
 	return &App{}
-}
-
-func onReady() {
-	systray.SetIcon(trayIcon)
-	systray.SetTitle("LanDrop")
-	systray.SetTooltip("文件传输")
-
-	mQuit := systray.AddMenuItem("退出", "退出LanDrop")
-	// mShow := systray.AddMenuItem("显示窗口", "显示应用窗口")
-	// 		mHide := systray.AddMenuItem("隐藏窗口", "隐藏到托盘")
-	// 		systray.AddSeparator()
-	// 		mQuit := systray.AddMenuItem("退出", "关闭应用")
-
-	// 		// 监听菜单点击事件
-	// 		for {
-	// 			select {
-	// 			case <-mShow.ClickedCh:
-	// 				// 通知前端显示窗口（通过绑定方法）
-	// 				a.runtime.Window.Show()
-	// 			case <-mHide.ClickedCh:
-	// 				// 通知前端隐藏窗口
-	// 				a.runtime.Window.Hide()
-	// 			case <-mQuit.ClickedCh:
-	// 				// 退出应用
-	// 				systray.Quit()
-	// 				a.runtime.Quit()
-	// 			}
-	// 		}
-	go func() {
-		<-mQuit.ClickedCh
-		os.Exit(0)
-	}()
 }
 
 // startup is called at application startup
@@ -65,15 +32,40 @@ func (a *App) startup(ctx context.Context) {
 }
 
 // domReady is called after front-end resources have been loaded
-func (a App) domReady(ctx context.Context) {
+func (a *App) domReady(ctx context.Context) {
 	// Add your action here
+	go systray.Run(func() {
+		systray.SetIcon(trayIcon)
+		systray.SetTitle("LanDrop")
+		systray.SetTooltip("LanDrop")
+		systray.SetLeftClickHandler(func() {
+			a.WindowShow()
+		})
+		mShow := systray.AddMenuItem("显示窗口", "显示应用窗口")
+		systray.AddSeparator()
+		mQuit := systray.AddMenuItem("退出", "关闭应用")
+		for {
+			select {
+			case <-mShow.ClickedCh:
+				a.WindowShow()
+			case <-mQuit.ClickedCh:
+				server.Stop()
+				server.StopDNSServer()
+				// 退出应用
+				systray.Quit()
+				wailsRuntime.Quit(a.ctx)
+			}
+		}
+	}, nil)
 }
 
 // beforeClose is called when the application is about to quit,
 // either by clicking the window close button or calling runtime.Quit.
 // Returning true will cause the application to continue, false will continue shutdown as normal.
 func (a *App) beforeClose(ctx context.Context) (prevent bool) {
-	return false
+	// return false // 默认关闭app
+	a.WindowHide()
+	return true // 调用WindowHide隐藏
 }
 
 // shutdown is called at application termination
@@ -84,6 +76,14 @@ func (a *App) shutdown(ctx context.Context) {
 // Greet returns a greeting for the given name
 func (a *App) Version() string {
 	return "V1.0.0"
+}
+
+func (a *App) WindowHide() {
+	wailsRuntime.WindowHide(a.ctx)
+}
+
+func (a *App) WindowShow() {
+	wailsRuntime.WindowShow(a.ctx)
 }
 
 func (a *App) OpenDirectory() map[string]any {

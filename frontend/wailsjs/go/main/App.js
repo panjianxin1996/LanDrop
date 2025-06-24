@@ -21,3 +21,11 @@ export function UpdateDefaultDir(arg1) {
 export function Version() {
   return window['go']['main']['App']['Version']();
 }
+
+export function WindowHide() {
+  return window['go']['main']['App']['WindowHide']();
+}
+
+export function WindowShow() {
+  return window['go']['main']['App']['WindowShow']();
+}
