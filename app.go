@@ -17,8 +17,6 @@ type App struct {
 	ctx context.Context
 }
 
-var mQuit *systray.MenuItem
-
 // NewApp creates a new App application struct
 func NewApp() *App {
 
@@ -29,6 +27,9 @@ func NewApp() *App {
 func (a *App) startup(ctx context.Context) {
 	// Perform your setup here
 	a.ctx = ctx
+	// 启动web服务
+	server.Run(assets)
+	go server.StartDNSServer()
 }
 
 // domReady is called after front-end resources have been loaded
@@ -38,7 +39,7 @@ func (a *App) domReady(ctx context.Context) {
 		systray.SetIcon(trayIcon)
 		systray.SetTitle("LanDrop")
 		systray.SetTooltip("LanDrop")
-		systray.SetLeftClickHandler(func() {
+		systray.SetLeftClick(runtime.GOOS, func() {
 			a.WindowShow()
 		})
 		mShow := systray.AddMenuItem("显示窗口", "显示应用窗口")
@@ -49,11 +50,11 @@ func (a *App) domReady(ctx context.Context) {
 			case <-mShow.ClickedCh:
 				a.WindowShow()
 			case <-mQuit.ClickedCh:
-				server.Stop()
-				server.StopDNSServer()
+				// server.Stop()
+				// server.StopDNSServer()
 				// 退出应用
 				systray.Quit()
-				wailsRuntime.Quit(a.ctx)
+				a.shutdown(ctx)
 			}
 		}
 	}, nil)
@@ -71,6 +72,8 @@ func (a *App) beforeClose(ctx context.Context) (prevent bool) {
 // shutdown is called at application termination
 func (a *App) shutdown(ctx context.Context) {
 	// Perform your teardown here
+	server.Stop()
+	server.StopDNSServer()
 }
 
 // Greet returns a greeting for the given name

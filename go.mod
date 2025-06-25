@@ -5,7 +5,7 @@ go 1.23.0
 toolchain go1.23.9
 
 require (
-	github.com/panjianxin1996/systray-heighten v1.0.2
+	github.com/panjianxin1996/systray-heighten v1.0.3
 	github.com/shirou/gopsutil/v4 v4.25.4
 	github.com/wailsapp/wails/v2 v2.10.1
 )

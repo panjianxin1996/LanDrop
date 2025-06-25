@@ -5,6 +5,8 @@ import (
 	"context"
 	"embed"
 	"log"
+	"os"
+	"path/filepath"
 
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/logger"
@@ -24,11 +26,18 @@ var icon []byte
 var trayIcon []byte
 
 func main() {
-
+	logPath := filepath.Join(server.AppDir, "app.log")
+	fileLogger := logger.NewFileLogger(logPath)
+	logFile, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		log.Fatal("打开日志文件失败：", err)
+	}
+	defer logFile.Close()
+	log.SetOutput(logFile)
 	// Create an instance of the app structure
 	app := NewApp()
 	// Create application with options
-	err := wails.Run(&options.App{
+	err = wails.Run(&options.App{
 		Title:             "LanDrop",
 		Width:             1024,
 		Height:            568,
@@ -46,20 +55,15 @@ func main() {
 			Assets: assets,
 		},
 		Menu:     nil,
-		Logger:   nil,
-		LogLevel: logger.DEBUG,
+		Logger:   fileLogger,
+		LogLevel: logger.INFO,
 		OnStartup: func(ctx context.Context) {
 			app.startup(ctx)
-			// 启动web服务
-			server.Run(assets)
-			go server.StartDNSServer()
 		},
 		OnDomReady:    app.domReady,
 		OnBeforeClose: app.beforeClose,
 		OnShutdown: func(ctx context.Context) {
 			app.shutdown(ctx)
-			server.Stop()
-			server.StopDNSServer()
 		},
 		WindowStartState: options.Normal,
 		Bind: []any{
