@@ -76,6 +76,7 @@ require (
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-sqlite3 v1.14.28
 	github.com/miekg/dns v1.1.66
+	github.com/prometheus-community/pro-bing v0.7.0
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	golang.org/x/net v0.39.0 // indirect

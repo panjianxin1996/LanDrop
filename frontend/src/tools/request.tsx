@@ -16,7 +16,7 @@ type ErrorResponse = {
  */
 export function useApiRequest() {
     const { isClient } = useClientStore()
-    let baseHost = `http://${isClient ? "127.0.0.1:4321" : location.host}`
+    let baseHost = `http://${isClient ? `127.0.0.1:${localStorage.getItem("appPort") || "4321"}` : location.host}`
     let Host = baseHost + "/api/v1"
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState<ErrorResponse | null>(null)

@@ -8,7 +8,7 @@ import { useApiRequest } from "@/tools/request"
 export default function App() {
   const navigate = useNavigate();
   const { request } = useApiRequest()
-  const { isClient, checkIsClient, setStoreData, connectWS, closeWS, selectNetAdapter, setSelectNetAdapter } = useClientStore()
+  const { isClient, checkIsClient, setStoreData, connectWS, closeWS, selectNetAdapter, setSelectNetAdapter, adminName } = useClientStore()
 
   useEffect(() => {
     if (checkIsClient()) {
@@ -40,24 +40,35 @@ export default function App() {
   }
 
   const appLogin = () => {
-    let adminName = localStorage.getItem("appAdminName")
+    let newAdminName
     if (!adminName) {
-      adminName = `admin${(Math.random()*1000).toFixed(0)}`
+      newAdminName = `admin${(Math.random() * 1000).toFixed(0)}`
     }
-    localStorage.setItem("appAdminName", adminName)
-    request("/appLogin", "POST", {
-      adminName: adminName,
-      adminPassword: `landrop#${adminName}`,
-      timeStamp: new Date().getTime().toString()
-    }).then(res => {
-      if (res && res.code === 200) {
-        localStorage.setItem("ldtoken", res.data.token)
-        // 连接socket数据
-        connectWS()
-        // 获取网卡列表
-        getNetworkInfo()
+    setStoreData({
+      name: 'adminName', value: newAdminName, endSet: (store) => {
+        request("/appLogin", "POST", {
+          adminName: store.adminName,
+          adminPassword: `landrop#${store.adminName}`,
+          timeStamp: new Date().getTime().toString()
+        }).then(res => {
+          if (res && res.code === 200) {
+            localStorage.setItem("ldtoken", res.data.token)
+            setStoreData({
+              beforeSet: (_, set) => {
+                set({ token: res.data.token, adminName: res.data.adminName, adminId: res.data.adminId })
+              },
+              endSet: (store) => {
+                // 连接socket数据
+                connectWS(store.adminId, store.adminName, store.token)
+              }
+            })
+            // 获取网卡列表
+            getNetworkInfo()
+          }
+        })
       }
     })
+
   }
 
   return !isClient && checkPagePath() ? <></> : (<SidebarProvider>

@@ -12,6 +12,7 @@ import App from '@/App'
 import AppWeb from '@/AppWeb'
 import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from "@/components/ui/sonner"
+import { GetAppConfig } from "@clientSDK/App"
 
 // 懒加载组件
 export const LazyComponent = ({
@@ -34,11 +35,11 @@ export let navMain = [
         })
     },
     {
-        title: "数据分析",
-        path: "analytics",
+        title: "工具",
+        path: "tools",
         icon: BarChartIcon,
         element: LazyComponent({
-            component: React.lazy(() => import("@/app/analytics"))
+            component: React.lazy(() => import("@/app/tools"))
         })
     },
     {
@@ -121,8 +122,12 @@ export const appRouter = [
 ]
 
 // 路由组件
-export const AppRouterComponent = () => (
-    <>
+export const AppRouterComponent = () => {
+    GetAppConfig().then((res:any) => {
+        // console.log(res);
+        localStorage.setItem('appPort', res.port);
+    })
+    return <>
         {/* sonner toast 弹框容器 */}
         <Toaster richColors/>
         <Router>
@@ -143,7 +148,7 @@ export const AppRouterComponent = () => (
             </Routes>
         </Router>
     </>
-)
+}
 
 
 export const menuRouter = [...navMain, ...navSecondary, ...otherRouter]

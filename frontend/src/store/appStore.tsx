@@ -18,13 +18,17 @@ type AppStore = {
   setStoreData: (params: SetStoreDataParams) => void // 通用更新store数据函数
   deviceLogsData: any // 设备数据
   wsHandle: WebSocket | null // websocket实例
-  connectWS: () => void // 连接websocket
+  connectWS: (id:string, name:string, token:string) => void // 连接websocket
   closeWS: () => void // 关闭websocket
   selectNetAdapter: string // 选择的网络适配器
   setSelectNetAdapter: (selectNetAdapter: string, cb?: (store: AppStore) => void) => void // 设置选择网络适配器
   netAdapterList: Array<any> // 网卡列表
   ipv4Address: string // ipv4地址
   ipv6Address: string // ipv6地址
+  adminId: string,
+  adminName: string,
+  token: string,
+
 }
 
 // 持久化白名单
@@ -42,7 +46,7 @@ const useClientStore = create<AppStore>()(
           set({ isClient: true, clientVersion: version })
           return true
         } else {
-          set({ isClient: false})
+          set({ isClient: false })
           return false
         }
       },
@@ -54,14 +58,15 @@ const useClientStore = create<AppStore>()(
       },
       deviceLogsData: [],
       wsHandle: null,
-      connectWS: () => {
-        let wsHandle = new WebSocket("ws://127.0.0.1:4321/ws?ldToken=" + localStorage.getItem("ldtoken"))
+      connectWS: (id:string, name:string, token:string) => {
+        let wsHandle = new WebSocket(`ws://127.0.0.1:${localStorage.getItem("appPort") || "4321"}/ws?ldToken=${token}&id=${id}&name=${name}`)
         set({ wsHandle })
         wsHandle.onmessage = (event) => {
           const info = JSON.parse(event.data);
           if (info.type === "deviceRealTimeInfo") {
+            let newNetWorkLog = { ...info.content.network, ...info.content }
             set(state => ({// 只存放24条数据
-              deviceLogsData: state.deviceLogsData.length >= 24 ? [...state.deviceLogsData.slice(-23), info.content] : [...state.deviceLogsData, info.content]
+              deviceLogsData: state.deviceLogsData.length >= 24 ? [...state.deviceLogsData.slice(-23), newNetWorkLog] : [...state.deviceLogsData, newNetWorkLog]
             }))
           }
         };
@@ -74,8 +79,8 @@ const useClientStore = create<AppStore>()(
         let ipv4Address = '', ipv6Address = ''
         if (selectNetAdapter && get().netAdapterList.length > 0) {
           let ips = get().netAdapterList.find(item => item.name === selectNetAdapter)?.ips
-          ipv4Address = ips?.find((item: string) => ['8', '16', '24', '32'].includes(item.split('/')[1])).split('/')[0]
-          ipv6Address = ips?.find((item: string) => item.indexOf("/64") !== -1 || item.indexOf("/128") !== -1).split('/')[0]
+          ipv4Address = ips?.find((item: string) => ['8', '16', '24', '32'].includes(item.split('/')[1]))?.split('/')[0]
+          ipv6Address = ips?.find((item: string) => ['64', '128'].includes(item.split('/')[1]))?.split('/')[0]
         }
         set({ selectNetAdapter, ipv4Address, ipv6Address })
         callBack && callBack(get())
@@ -83,6 +88,9 @@ const useClientStore = create<AppStore>()(
       netAdapterList: [],
       ipv4Address: "",
       ipv6Address: "",
+      adminId: "",
+      adminName: "",
+      token: "",
     }),
     // 设置持久化存储名称白名单
     { name: 'client-store', partialize: (state) => Object.fromEntries(Object.entries(state).filter(([key]) => !blackList.includes(key))) }

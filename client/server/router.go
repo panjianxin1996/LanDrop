@@ -1,9 +1,9 @@
 package server
 
 import (
+	"context"
 	"database/sql"
 	"embed"
-	"encoding/json"
 	"log"
 	"net/http"
 	"path/filepath"
@@ -18,9 +18,9 @@ import (
 )
 
 type Router struct {
-	app           *fiber.App
-	assets        embed.FS
-	sharedDirPath string
+	app    *fiber.App
+	assets embed.FS
+	config Config
 	Reply
 	db *sql.DB
 }
@@ -42,12 +42,18 @@ type Reply struct {
 	Data any    `json:"data"`
 }
 
-func startRouter(app *fiber.App, assets embed.FS, sharedDirPath string, db *sql.DB) {
+// 全局WebSocket Hub实例
+var wsHub *WSHub
+
+func startRouter(app *fiber.App, assets embed.FS, config Config, db *sql.DB) {
+	ctx := context.Background()
+	wsHub = NewWSHub(ctx)
+	go wsHub.Run()
 	r := Router{
-		app:           app,
-		assets:        assets,
-		sharedDirPath: sharedDirPath,
-		db:            db,
+		app:    app,
+		assets: assets,
+		config: config,
+		db:     db,
 	}
 	// WebSocket 升级中间件
 	app.Use("/ws", func(c *fiber.Ctx) error {
@@ -60,76 +66,30 @@ func startRouter(app *fiber.App, assets embed.FS, sharedDirPath string, db *sql.
 
 	// WebSocket 路由
 	app.Get("/ws", websocket.New(func(conn *websocket.Conn) {
-		// 从查询参数获取 Token
+		// 验证token
 		token := conn.Query("ldToken")
-		if token == "" {
-			sendData := map[string]any{
-				"type":    "error",
-				"content": "缺少token数据",
-			}
-			if sendByte, jErr := json.Marshal(sendData); jErr == nil {
-				conn.WriteMessage(websocket.TextMessage, sendByte)
-			}
-			conn.Close() // 关闭未授权的连接
+		id := conn.Query("id")
+		name := conn.Query("name")
+		if token == "" || id == "" || name == "" {
+			sendErrorAndClose(conn, "缺少token数据")
 			return
 		}
+
 		tokenJWT, err := ParseToken(token)
 		if err != nil || tokenJWT.Role != "admin" {
-			sendData := map[string]any{
-				"type":    "error",
-				"content": "无法验证token有效性",
-			}
-			if sendByte, jErr := json.Marshal(sendData); jErr == nil {
-				conn.WriteMessage(websocket.TextMessage, sendByte)
-			}
-			conn.Close() // 关闭未授权的连接
+			sendErrorAndClose(conn, "无法验证token有效性")
 			return
 		}
-		defer conn.Close()
 
-		// 每隔 3 秒发送消息
-		ticker := time.NewTicker(3 * time.Second)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ticker.C:
-				// 发送当前时间戳
-				sendData := map[string]any{}
-				contentData := map[string]any{}
-				sendData["type"] = "deviceRealTimeInfo"
-				contentData["time"] = time.Now().Format("2006-01-02 15:04:05")
-				// cpu利用率
-				cpuUsage, _ := cpu.Percent(time.Second, false)
-				contentData["cpuUsage"] = cpuUsage[0]
-				// 内存利用率
-				memInfo, _ := mem.VirtualMemory()
-				contentData["memUsage"] = memInfo.UsedPercent
-				// 网络吞吐量
-				initialStats, _ := psNet.IOCounters(true)
-				time.Sleep(1 * time.Second)
-				currentStats, _ := psNet.IOCounters(true)
-				// 计算增量
-				for i, stat := range currentStats {
-					if stat.Name == initialStats[i].Name {
-						upload := stat.BytesSent - initialStats[i].BytesSent
-						download := stat.BytesRecv - initialStats[i].BytesRecv
-						contentData[stat.Name] = map[string]any{
-							"adapterCode": stat.Name,
-							"adapterName": stat.Name,
-							"upload":      upload,
-							"download":    download,
-						}
-					}
-				}
-				sendData["content"] = contentData
-				if sendByte, jErr := json.Marshal(sendData); jErr == nil {
-					if err := conn.WriteMessage(websocket.TextMessage, sendByte); err != nil {
-						log.Println("write:", err)
-						return
-					}
-				}
-			}
-		}
+		// 创建客户端
+		wsClient := NewWSClient(conn, wsHub, token, id, name)
+
+		// 注册客户端
+		wsHub.register <- wsClient
+
+		// 启动读写协程
+		go wsClient.WritePump()
+		wsClient.ReadPump() // 阻塞在这里，直到连接关闭
 	}))
 	// \server\router.go
 	api := r.app.Group("/api/v1")
@@ -156,7 +116,8 @@ func startRouter(app *fiber.App, assets embed.FS, sharedDirPath string, db *sql.
 		api.Post("/unBindUser", r.unBindUser)
 		// 客户端登录
 		api.Post("/appLogin", r.appLogin)
-		// app.Get("/setSharedDir", r.setSharedDir)
+		// websocket状态
+		api.Get("/getWSStatus", r.getWSStatus)
 	}
 }
 
@@ -191,7 +152,7 @@ func (r Router) uploadFile(c *fiber.Ctx) error {
 		}
 		return c.Status(r.Reply.Code).JSON(r.Reply)
 	}
-	if err := c.SaveFile(file, filepath.Join(r.sharedDirPath, file.Filename)); err != nil {
+	if err := c.SaveFile(file, filepath.Join(r.config.SharedDir, file.Filename)); err != nil {
 		log.Println("Save Error:", err)
 		r.Reply = Reply{
 			Code: http.StatusInternalServerError,
@@ -245,7 +206,7 @@ func (r Router) getSharedDirInfo(c *fiber.Ctx) error {
 		Code: http.StatusOK,
 		Msg:  "successed",
 		Data: map[string]any{
-			"sharedDir": r.sharedDirPath,
+			"sharedDir": r.config.SharedDir,
 			"files":     files,
 		},
 	}
@@ -530,7 +491,16 @@ func (r Router) appLogin(c *fiber.Ctx) error {
 	r.Reply.Code = http.StatusOK
 	r.Reply.Msg = "完成"
 	r.Reply.Data = map[string]any{
-		"token": token,
+		"token":     token,
+		"adminId":   adminId,
+		"adminName": adminName,
 	}
 	return c.Status(r.Reply.Code).JSON(r.Reply)
+}
+
+func (r Router) getWSStatus(c *fiber.Ctx) error {
+	return c.JSON(fiber.Map{
+		"active_connections": wsHub.GetActiveConnections(),
+		"status":             "running",
+	})
 }

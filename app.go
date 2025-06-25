@@ -2,10 +2,13 @@ package main
 
 import (
 	"LanDrop/client/server"
+	"LanDrop/client/tools"
 	"context"
 	"fmt"
+	"log"
 	"os/exec"
 	"runtime"
+	"time"
 
 	"github.com/panjianxin1996/systray-heighten"
 
@@ -14,13 +17,15 @@ import (
 
 // App struct
 type App struct {
-	ctx context.Context
+	ctx      context.Context
+	stopExit bool
 }
 
 // NewApp creates a new App application struct
 func NewApp() *App {
-
-	return &App{}
+	return &App{
+		stopExit: true,
+	}
 }
 
 // startup is called at application startup
@@ -30,17 +35,13 @@ func (a *App) startup(ctx context.Context) {
 	// 启动web服务
 	server.Run(assets)
 	go server.StartDNSServer()
-}
-
-// domReady is called after front-end resources have been loaded
-func (a *App) domReady(ctx context.Context) {
-	// Add your action here
 	go systray.Run(func() {
 		systray.SetIcon(trayIcon)
 		systray.SetTitle("LanDrop")
 		systray.SetTooltip("LanDrop")
 		systray.SetLeftClick(runtime.GOOS, func() {
 			a.WindowShow()
+			log.Println("左键埋点检测")
 		})
 		mShow := systray.AddMenuItem("显示窗口", "显示应用窗口")
 		systray.AddSeparator()
@@ -49,15 +50,19 @@ func (a *App) domReady(ctx context.Context) {
 			select {
 			case <-mShow.ClickedCh:
 				a.WindowShow()
+				log.Println("右键埋点检测1")
 			case <-mQuit.ClickedCh:
-				// server.Stop()
-				// server.StopDNSServer()
 				// 退出应用
-				systray.Quit()
-				a.shutdown(ctx)
+				log.Println("右键埋点检测2")
+				a.ExitApp()
 			}
 		}
 	}, nil)
+}
+
+// domReady is called after front-end resources have been loaded
+func (a *App) domReady(ctx context.Context) {
+	// Add your action here
 }
 
 // beforeClose is called when the application is about to quit,
@@ -65,8 +70,10 @@ func (a *App) domReady(ctx context.Context) {
 // Returning true will cause the application to continue, false will continue shutdown as normal.
 func (a *App) beforeClose(ctx context.Context) (prevent bool) {
 	// return false // 默认关闭app
-	a.WindowHide()
-	return true // 调用WindowHide隐藏
+	if a.stopExit {
+		a.WindowHide()
+	}
+	return a.stopExit
 }
 
 // shutdown is called at application termination
@@ -74,6 +81,7 @@ func (a *App) shutdown(ctx context.Context) {
 	// Perform your teardown here
 	server.Stop()
 	server.StopDNSServer()
+	systray.Quit()
 }
 
 // Greet returns a greeting for the given name
@@ -81,14 +89,24 @@ func (a *App) Version() string {
 	return "V1.0.0"
 }
 
+// 退出应用
+func (a *App) ExitApp() {
+	log.Println("退出应用")
+	a.stopExit = false
+	wailsRuntime.Quit(a.ctx)
+}
+
+// 隐藏应用窗口
 func (a *App) WindowHide() {
 	wailsRuntime.WindowHide(a.ctx)
 }
 
+// 显示应用窗口
 func (a *App) WindowShow() {
 	wailsRuntime.WindowShow(a.ctx)
 }
 
+// 打开目录选择框
 func (a *App) OpenDirectory() map[string]any {
 	dirInfo := map[string]any{}
 	selectedDir, err := wailsRuntime.OpenDirectoryDialog(a.ctx, wailsRuntime.OpenDialogOptions{
@@ -105,6 +123,7 @@ func (a *App) OpenDirectory() map[string]any {
 	return dirInfo
 }
 
+// 资源管理器打开目录
 func (a *App) OpenDirInExplorer(dirPath string) error {
 	var cmd *exec.Cmd
 	switch runtime.GOOS {
@@ -120,6 +139,7 @@ func (a *App) OpenDirInExplorer(dirPath string) error {
 	return cmd.Start()
 }
 
+// 更新默认目录
 func (a *App) UpdateDefaultDir(dirPath string) map[string]any {
 	updateBack := map[string]interface{}{}
 	_, err := server.UpdateDirInfo(dirPath)
@@ -136,7 +156,16 @@ func (a *App) UpdateDefaultDir(dirPath string) map[string]any {
 	return updateBack
 }
 
-func (a *App) RestartServer() error {
+// 重启服务
+func (a *App) RestartServer() {
 	server.Restart(assets)
-	return nil
+}
+
+// 工具类
+func (a *App) ToolsPingHost(pingId any, host string) (map[string]any, error) {
+	return tools.PingHost(pingId, host, 5, 5*time.Second)
+}
+
+func (a *App) GetAppConfig() server.Config {
+	return server.GetSettingInfo()
 }

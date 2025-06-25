@@ -2,7 +2,6 @@ package main
 
 import (
 	"LanDrop/client/server"
-	"context"
 	"embed"
 	"log"
 	"os"
@@ -54,17 +53,13 @@ func main() {
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 		},
-		Menu:     nil,
-		Logger:   fileLogger,
-		LogLevel: logger.INFO,
-		OnStartup: func(ctx context.Context) {
-			app.startup(ctx)
-		},
-		OnDomReady:    app.domReady,
-		OnBeforeClose: app.beforeClose,
-		OnShutdown: func(ctx context.Context) {
-			app.shutdown(ctx)
-		},
+		Menu:             nil,
+		Logger:           fileLogger,
+		LogLevel:         logger.INFO,
+		OnStartup:        app.startup,
+		OnDomReady:       app.domReady,
+		OnBeforeClose:    app.beforeClose,
+		OnShutdown:       app.shutdown,
 		WindowStartState: options.Normal,
 		Bind: []any{
 			app,

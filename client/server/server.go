@@ -146,7 +146,7 @@ func Run(assets embed.FS) {
 			if err != nil {
 				return false
 			}
-			if parsed.Port() == "4321" { // 规则1：放行所有4321端口的请求
+			if parsed.Port() == fmt.Sprintf("%v", config.Port) { // 规则1：放行所有4321端口的请求
 				return true
 			}
 			allowedOrigins := []string{ // 规则2：放行预定义的Wails相关来源
@@ -178,11 +178,14 @@ func Run(assets embed.FS) {
 
 	// 中间件：请求日志
 	app.Use(func(c *fiber.Ctx) error {
-		log.Printf("[%s] %s\n", c.Method(), c.Path())
+		log.Printf("[%s]-|%s | %s | %s\n", c.Method(), c.Path(), c.IP(), string(c.Request().Body()))
 		return c.Next()
 	})
 
-	skipPrefixes := []string{"/", "/assets/", "/#/", "/shared/", "/ws", "/api/v1/getUserList", "/api/v1/createToken", "/api/v1/createUser", "/api/v1/appLogin"}
+	skipPrefixes := []string{"/", "/assets/", "/#/", "/shared/",
+		"/ws", "/api/v1/getUserList", "/api/v1/createToken",
+		"/api/v1/createUser", "/api/v1/appLogin", "/api/v1/getServerPort",
+	}
 
 	app.Use(func(c *fiber.Ctx) error {
 		for _, prefix := range skipPrefixes {
@@ -228,7 +231,7 @@ func Run(assets embed.FS) {
 	app.Static("/shared", config.SharedDir)
 
 	// 启动路由组
-	startRouter(app, assets, config.SharedDir, DB)
+	startRouter(app, assets, config, DB)
 
 	// 404 处理
 	app.Use(func(c *fiber.Ctx) error {
