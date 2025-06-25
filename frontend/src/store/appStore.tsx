@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware' // 持久化存储到localStorage
+import { GetAppConfig } from "@clientSDK/App"
 
 type SetStoreDataParams = {
   name?: string // 更新storeKey
@@ -44,6 +45,9 @@ const useClientStore = create<AppStore>()(
         if ((window as any)?.go?.main?.App?.Version) {
           const version = (window as any)?.go?.main?.App?.Version();
           set({ isClient: true, clientVersion: version })
+          GetAppConfig().then((res:any) => {
+              localStorage.setItem('appPort', res.port);
+          })
           return true
         } else {
           set({ isClient: false })

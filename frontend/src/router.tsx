@@ -12,7 +12,6 @@ import App from '@/App'
 import AppWeb from '@/AppWeb'
 import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from "@/components/ui/sonner"
-import { GetAppConfig } from "@clientSDK/App"
 
 // 懒加载组件
 export const LazyComponent = ({
@@ -122,14 +121,10 @@ export const appRouter = [
 ]
 
 // 路由组件
-export const AppRouterComponent = () => {
-    GetAppConfig().then((res:any) => {
-        // console.log(res);
-        localStorage.setItem('appPort', res.port);
-    })
-    return <>
+export const AppRouterComponent = () => (
+    <>
         {/* sonner toast 弹框容器 */}
-        <Toaster richColors/>
+        <Toaster richColors />
         <Router>
             <Routes>
                 {appRouter.map(route => (
@@ -148,7 +143,7 @@ export const AppRouterComponent = () => {
             </Routes>
         </Router>
     </>
-}
+)
 
 
 export const menuRouter = [...navMain, ...navSecondary, ...otherRouter]
