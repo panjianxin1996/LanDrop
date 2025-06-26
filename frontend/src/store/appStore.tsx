@@ -26,10 +26,10 @@ type AppStore = {
   netAdapterList: Array<any> // 网卡列表
   ipv4Address: string // ipv4地址
   ipv6Address: string // ipv6地址
-  adminId: string,
-  adminName: string,
-  token: string,
-
+  adminId: string, // 管理员id
+  adminName: string, // 管理员名称
+  token: string, // token
+  uploadedFiles: Record<string, any>, // 上传的文件列表
 }
 
 // 持久化白名单
@@ -95,6 +95,7 @@ const useClientStore = create<AppStore>()(
       adminId: "",
       adminName: "",
       token: "",
+      uploadedFiles: {},
     }),
     // 设置持久化存储名称白名单
     { name: 'client-store', partialize: (state) => Object.fromEntries(Object.entries(state).filter(([key]) => !blackList.includes(key))) }

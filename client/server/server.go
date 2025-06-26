@@ -130,9 +130,9 @@ func Run(assets embed.FS) {
 	}
 	// 初始化 Fiber 应用
 	app = fiber.New(fiber.Config{
-		Prefork:      false,             // 启用多核并行处理
-		ErrorHandler: errorHandler,      // 全局错误处理
-		BodyLimit:    500 * 1024 * 1024, // 最大支持500MB
+		Prefork:      false,                  // 启用多核并行处理
+		ErrorHandler: errorHandler,           // 全局错误处理
+		BodyLimit:    5 * 1024 * 1024 * 1024, // 最大支持500MB
 	})
 	// 完全跨域允许
 	// app.Use(cors.New())
@@ -154,6 +154,8 @@ func Run(assets embed.FS) {
 				"http://wails.localhost",
 				"wails://wails.localhost:34115",
 				"wails://wails",
+				"http://localhost:5173",
+				"http://127.0.0.1:5173",
 			}
 			for _, allowed := range allowedOrigins {
 				if origin == allowed {

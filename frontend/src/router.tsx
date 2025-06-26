@@ -96,6 +96,27 @@ export const otherRouter = [
     },
 ]
 
+export const webRouter = [
+    {
+        path: "sharedDir",
+        element: LazyComponent({
+            component: React.lazy(() => import("@/app/web/shared"))
+        })
+    },
+    {
+        path: "chat",
+        element: LazyComponent({
+            component: React.lazy(() => import("@/app/web/chat"))
+        })
+    },
+    {
+        path: "toShare",
+        element: LazyComponent({
+            component: React.lazy(() => import("@/app/web/toShare"))
+        })
+    }
+]
+
 // 主路由
 export const appRouter = [
     {
@@ -113,6 +134,13 @@ export const appRouter = [
     {
         path: "/web",
         element: <AppWeb />,
+        children: [
+            {
+                path: "/web",
+                element: <Navigate to="/web/sharedDir" replace />,
+            },
+            ...webRouter
+        ],
     },
     {
         path: "/testweb",
