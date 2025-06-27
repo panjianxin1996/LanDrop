@@ -15,6 +15,12 @@ import {
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
     Card,
     CardContent,
 } from "@/components/ui/card"
@@ -26,10 +32,10 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
-import { TextSearch, CloudUpload, MessageCircle, UserPlus, CircleUserRound, UserRound,FolderOpen } from 'lucide-react'
+import { RectangleEllipsis, CloudUpload, MessageCircle, UserPlus, CircleUserRound, UserRound, FolderOpen,Menu,ChevronsUpDown } from 'lucide-react'
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import useClientStore from "@/store/appStore"
-import { useEffect, useState } from "react"
+import React,{ useEffect, useState } from "react"
 import { useApiRequest } from "@/tools/request"
 import { toast } from "sonner"
 import { Outlet, useNavigate } from 'react-router-dom'
@@ -39,9 +45,9 @@ export default function AppWeb() {
     const { request } = useApiRequest()
     const navigate = useNavigate();
     // 分享文件列表信息
-    
+
     const [openAlert, setOpenAlert] = useState<boolean>(false)
-    const [openUserDialog, setOpenUserDialog] = useState<boolean>(false)
+    const [openUserDialog, setOpenUserDialog] = useState<boolean>(true)
     const [sharedCode, setSharedCode] = useState<string>("")
     const [userList, setUserList] = useState<any>([])
     const [optForUserIndex, setOptForUserIndex] = useState<number>(-1)
@@ -50,6 +56,7 @@ export default function AppWeb() {
     const [rememberUser, setRememberUser] = useState<boolean>(false)
     const [userInfo, setUserInfo] = useState<any>({})
     const [isLogin, setIsLogin] = useState<boolean>(false)
+    const [activeMenu, setActiveMenu] = useState<string>("sharedDir")
     useEffect(() => {
         // web端设置为非客户端
         checkIsClient()
@@ -59,7 +66,7 @@ export default function AppWeb() {
         // setUserList(['用户1', '用户2', '用户3'])
     }, [])
 
-    const initData = ()=> {
+    const initData = () => {
         const token = localStorage.getItem("userToken")
         const rememberUser = localStorage.getItem("rememberUserInfo")
         setRememberUser(!!rememberUser)
@@ -137,7 +144,7 @@ export default function AppWeb() {
     }
 
     const unBindEvent = (item: any) => {
-        request("/unBindUser", 'POST', { userId: item.id, userName:item.name }).then(res=> {
+        request("/unBindUser", 'POST', { userId: item.id, userName: item.name }).then(res => {
             if (res.code === 200) {
                 toast.success("解绑成功")
                 getUserList()
@@ -157,29 +164,32 @@ export default function AppWeb() {
                 break;
             case "toShare":
                 navigate("/web/toShare")
+                setActiveMenu(key)
                 break;
             case "sharedDir":
                 navigate("/web/sharedDir")
+                setActiveMenu(key)
                 break;
             case "chat":
                 navigate("/web/chat")
+                setActiveMenu(key)
                 break;
             default:
         }
     }
 
-    const btnList = [
-        { key: 'sharedDir', name: "目录", icon: <FolderOpen size={25}/>, tip: "客户端分享总目录" },
-        { key: 'getSharedFile', name: "分享码", icon: <TextSearch size={25} />, tip: "通过分享码获取文件" },
+    const btnList:any = [
+        { key: 'sharedDir', name: "目录", icon: <FolderOpen size={25} />, tip: "客户端分享总目录" },
+        { key: 'getSharedFile', name: "分享码", icon: <RectangleEllipsis size={25} />, tip: "通过分享码获取文件" },
         { key: 'toShare', name: "我要分享", icon: <CloudUpload size={25} />, tip: "我想发起文件分享，提供给其他人使用。【需要客户端授权】" },
         { key: 'chat', name: "消息", icon: <MessageCircle size={25} />, tip: "跟好友进行聊天" },
         { key: 'userList', name: "用户", icon: <CircleUserRound size={25} />, tip: "用户设置" },
     ]
     return <TooltipProvider>
-        <div style={{height: "100vh"}}>
+        <div style={{ height: "100vh" }}>
             <AlertDialog open={openUserDialog} onOpenChange={setOpenUserDialog}>
                 {/* <AlertDialogTrigger>Open</AlertDialogTrigger> */}
-                <AlertDialogContent className="w-1/2 h-3/5 flex flex-col justify-between gap-0">
+                <AlertDialogContent className="sm:w-full md:w-1/2 h-3/5 flex flex-col justify-between gap-0">
                     <AlertDialogHeader className="h-4/5">
                         <AlertDialogTitle className="text-center">{!isLogin ? '请选择您的账户' : '修改账户信息'}</AlertDialogTitle>
                         <AlertDialogDescription asChild>
@@ -198,8 +208,8 @@ export default function AppWeb() {
                                                 </div>
                                                 {
                                                     optForUserIndex !== index && isLogin && <div className="flex">
-                                                        <Button variant={"default"} className="ml-2" onClick={() => {setOptForUserIndex(index);changeUserEvent(index);}}>切换</Button>
-                                                        <Button variant={"destructive"} className="ml-2" onClick={(e) => {e.preventDefault();e.stopPropagation();unBindEvent(item);}}>解绑</Button>
+                                                        <Button variant={"default"} className="ml-2" onClick={() => { setOptForUserIndex(index); changeUserEvent(index); }}>切换</Button>
+                                                        <Button variant={"destructive"} className="ml-2" onClick={(e) => { e.preventDefault(); e.stopPropagation(); unBindEvent(item); }}>解绑</Button>
                                                     </div>
                                                 }
                                             </CardContent>
@@ -226,12 +236,13 @@ export default function AppWeb() {
                                 </Card>
                             </div>
                         </AlertDialogDescription>
-                        <p className="text-xs flex items-center">
+
+                    </AlertDialogHeader>
+                    <AlertDialogFooter className="flex !flex-col !justify-center">
+                        <p className="text-xs flex items-center p-4">
                             <Checkbox checked={rememberUser} onCheckedChange={(val: boolean) => setRememberUser(val)} />
                             <span className="ml-4 text-gray-500">记住用户【下一次将默认选中该账户信息】</span>
                         </p>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter className="flex !flex-col-reverse !justify-center">
                         <AlertDialogAction onClick={(e) => optForUserEvent(e)}>{!isLogin ? '确认' : '关闭'}</AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
@@ -245,12 +256,12 @@ export default function AppWeb() {
                             <div className="flex justify-center py-8">
                                 <InputOTP maxLength={6} value={sharedCode} onChange={(value) => { setSharedCode(value) }}>
                                     <InputOTPGroup>
-                                        <InputOTPSlot index={0} className="h-16 w-14" />
-                                        <InputOTPSlot index={1} className="h-16 w-14" />
-                                        <InputOTPSlot index={2} className="h-16 w-14" />
-                                        <InputOTPSlot index={3} className="h-16 w-14" />
-                                        <InputOTPSlot index={4} className="h-16 w-14" />
-                                        <InputOTPSlot index={5} className="h-16 w-14" />
+                                        <InputOTPSlot index={0} className="h-16 w-14 border-2" />
+                                        <InputOTPSlot index={1} className="h-16 w-14 border-2 border-l-0 border-r-0" />
+                                        <InputOTPSlot index={2} className="h-16 w-14 border-2" />
+                                        <InputOTPSlot index={3} className="h-16 w-14 border-2 border-l-0 border-r-0" />
+                                        <InputOTPSlot index={4} className="h-16 w-14 border-2" />
+                                        <InputOTPSlot index={5} className="h-16 w-14 border-2 border-l-0" />
                                     </InputOTPGroup>
                                 </InputOTP>
                             </div>
@@ -262,10 +273,10 @@ export default function AppWeb() {
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
-            <div className="flex" style={{ height: "95vh" ,borderBottomWidth: '1px'}}>
-                <div className="w-20 pt-10" style={{borderRightWidth: '1px'}}>
+            <div className="flex" style={{ height: "95vh", borderBottomWidth: '1px' }}>
+                <div className="w-20 hidden sm:block pt-10" style={{ borderRightWidth: '1px' }}>
                     {
-                        btnList.map(item => (
+                        btnList.map((item:any) => (
                             <Tooltip key={item.key}>
                                 <TooltipTrigger asChild>
                                     <div className="flex flex-col justify-center items-center cursor-pointer hover:bg-gray-100 py-4" onClick={() => menuBtnEvent(item.key)}>
@@ -280,10 +291,29 @@ export default function AppWeb() {
                         ))
                     }
                 </div>
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <div className="w-20 block sm:hidden fixed top-2 left-2 z-10">
+                            <Button variant="outline" className="p-2">
+                                <Menu size={15}/>
+                                <span className="mx-4">{btnList.find((item:any)=> (item.key === activeMenu)).name}</span>
+                                <ChevronsUpDown size={15} />
+                                </Button>
+                        </div>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="w-32" align="start">
+                        {
+                            btnList.map((item:any) => (<DropdownMenuItem key={"dropdown-menu-" + item.key} onClick={() => menuBtnEvent(item.key)}>
+                                {React.cloneElement(item.icon, {size: 15, strokeWidth:1})}
+                                <span className="text-xs">{item.name}</span>
+                            </DropdownMenuItem>))
+                        }
+                    </DropdownMenuContent>
+                </DropdownMenu>
                 <Outlet />
             </div>
-            <div style={{height: "5vh"}}>
-                
+            <div style={{ height: "5vh" }}>
+
             </div>
         </div>
     </TooltipProvider>

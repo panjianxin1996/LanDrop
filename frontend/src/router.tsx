@@ -30,7 +30,7 @@ export let navMain = [
         path: "dashboard",
         icon: LayoutDashboardIcon,
         element: LazyComponent({
-            component: React.lazy(() => import("@/app/dashboard")),
+            component: React.lazy(() => import("@/app/main/dashboard")),
         })
     },
     {
@@ -38,7 +38,7 @@ export let navMain = [
         path: "tools",
         icon: BarChartIcon,
         element: LazyComponent({
-            component: React.lazy(() => import("@/app/tools"))
+            component: React.lazy(() => import("@/app/main/tools"))
         })
     },
     {
@@ -46,7 +46,7 @@ export let navMain = [
         path: "projects",
         icon: FolderIcon,
         element: LazyComponent({
-            component: React.lazy(() => import("@/app/projects"))
+            component: React.lazy(() => import("@/app/main/projects"))
         })
     },
     {
@@ -54,7 +54,7 @@ export let navMain = [
         path: "team",
         icon: UsersIcon,
         element: LazyComponent({
-            component: React.lazy(() => import("@/app/team"))
+            component: React.lazy(() => import("@/app/main/team"))
         })
     },
 ]
@@ -65,7 +65,7 @@ export let navSecondary = [
         path: "settings",
         icon: SettingsIcon,
         element: LazyComponent({
-            component: React.lazy(() => import("@/app/settings"))
+            component: React.lazy(() => import("@/app/main/settings"))
         })
     },
     {
@@ -73,7 +73,7 @@ export let navSecondary = [
         path: "help",
         icon: HelpCircleIcon,
         element: LazyComponent({
-            component: React.lazy(() => import("@/app/help"))
+            component: React.lazy(() => import("@/app/main/help"))
         })
     },
     {
@@ -81,7 +81,7 @@ export let navSecondary = [
         path: "search",
         icon: SearchIcon,
         element: LazyComponent({
-            component: React.lazy(() => import("@/app/search"))
+            component: React.lazy(() => import("@/app/main/search"))
         })
     },
 ]
@@ -91,7 +91,7 @@ export const otherRouter = [
         title: "当前分享",
         path: "shared",
         element: LazyComponent({
-            component: React.lazy(() => import("@/app/shared"))
+            component: React.lazy(() => import("@/app/main/shared"))
         })
     },
 ]

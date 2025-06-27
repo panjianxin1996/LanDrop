@@ -156,7 +156,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
   }, [uploadUrl]);
 
   return (
-    <div className="w-full mx-auto p-4">
+    <div className="w-full mx-auto px-4">
       <div className={`border-2 border-dashed rounded-lg p-10 text-center cursor-pointer transition-colors duration-300 ${isDragging ? 'border-[#0f172a] bg-blue-50' : 'border-gray-300 hover:border-[#0f172a]'}`}
         onDragEnter={handleDragEnter}
         onDragLeave={handleDragLeave}
@@ -175,7 +175,9 @@ const FileUpload: React.FC<FileUploadProps> = ({
         </div>
         <input type="file" ref={fileInputRef} onChange={handleFileInputChange} accept={acceptedFileTypes} multiple={multiple} className="hidden" />
       </div>
-      <Button onClick={() => setStoreData({ name: "uploadedFiles", value: {} })}>清空</Button>
+      <div className='flex justify-end'>
+        <Button className='my-2' onClick={() => setStoreData({ name: "uploadedFiles", value: {} })}>清空</Button>
+      </div>
       {/* 上传进度和结果 */}
       <div ref={containerRef} className="mt-6 space-y-4 overflow-y-scroll h-3/5 flex flex-col">
         {uploadList.map((item: any) => (
@@ -191,9 +193,6 @@ const FileUpload: React.FC<FileUploadProps> = ({
                   <span className={`text-sm ${item.status === 'err' ? "text-red-500" : "text-lime-500"}`}>{item.statusMsg}</span>
                 </div>
               )}
-              {/* {errors[fileName] && (
-                <span className="text-sm text-red-500">{errors[fileName]}</span>
-              )} */}
             </div>
             {!(item.status === "ok") && (
               <div className='w-full flex items-center mt-2'>

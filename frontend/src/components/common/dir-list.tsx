@@ -157,7 +157,7 @@ export default function DirList(props: { dirData: any, sharedDir: string, classN
                             }
                             {// 卡片模式
                                 showType !== 'list' && <>
-                                    <div style={{ transition: "all .2s ease-in" }} className={`overflow-auto ${showType === 'columns' ? 'w-3/5 border-r-2' : 'w-full'} flex flex-wrap content-start gap-2 px-2`}>
+                                    <div style={{ transition: "all .2s ease-in", borderRightWidth: showType === 'columns' ? '1px':'0px' }} className={`overflow-auto ${showType === 'columns' ? 'w-3/5' : 'w-full'} flex flex-wrap content-start gap-2 px-2`}>
                                         {
                                             props.dirData?.map((item: DirItem) => (
                                                 <ContextMenu key={item.fileName}>
