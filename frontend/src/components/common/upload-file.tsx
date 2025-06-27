@@ -6,7 +6,6 @@ import { Progress } from "@/components/ui/progress"
 import useClientStore from "@/store/appStore"
 import dayjs from 'dayjs'
 import { Button } from "@/components/ui/button"
-import { error } from 'console';
 
 interface FileUploadProps {
   uploadUrl: string;
@@ -23,12 +22,9 @@ const FileUpload: React.FC<FileUploadProps> = ({
   const { uploadedFiles, setStoreData } = useClientStore()
   const [isDragging, setIsDragging] = useState(false); // 是否正在拖拽
   const [uploadList, setUploadList] = useState<any>([])
-  // const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({}); // 上传进度
-  // const [errors, setErrors] = useState<Record<string, string>>({}); // 错误信息
   const fileInputRef = useRef<HTMLInputElement>(null); // 文件输入框引用
   const containerRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    // setUploadProgress(Object.fromEntries(Object.entries(uploadedFiles).sort((a, b) => b[1] - a[1]).map(([key]) => [key, 100])))
     setUploadList(Object.entries(uploadedFiles).sort((a, b) => b[1] - a[1]).map(([key, val]) => {
       return {
         name: key,
@@ -111,7 +107,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
     const formData = new FormData();
     files.forEach((file) => formData.append('file', file));
     try {
-      await axios.post("http://127.0.0.1:4321" + uploadUrl, formData, {
+      await axios.post(uploadUrl, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
           "X-Ld-Token": localStorage.getItem("ldtoken") || localStorage.getItem("userToken") || "",
