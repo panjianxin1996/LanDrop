@@ -128,7 +128,7 @@ export default function DirList(props: { dirData: any, sharedDir: string, classN
                                     <TableBody>
                                         {
                                             (!props.dirData || props.dirData.length === 0) && <p className="absolute w-full flex justify-center items-center text-gray-500 text-xs top-24">
-                                                <BookOpen size={15}/>
+                                                <BookOpen size={15} />
                                                 <span className="ml-2">当前分享目录下没有文件</span>
                                             </p>
                                         }
@@ -157,7 +157,7 @@ export default function DirList(props: { dirData: any, sharedDir: string, classN
                             }
                             {// 卡片模式
                                 showType !== 'list' && <>
-                                    <div style={{ transition: "all .2s ease-in", borderRightWidth: showType === 'columns' ? '1px':'0px' }} className={`overflow-auto ${showType === 'columns' ? 'w-3/5' : 'w-full'} flex flex-wrap content-start gap-2 px-2`}>
+                                    <div onTouchEnd={e=> (e.stopPropagation())} style={{ transition: "all .2s ease-in", borderRightWidth: showType === 'columns' ? '1px' : '0px' }} className={`overflow-auto ${showType === 'columns' ? 'w-3/5' : 'w-full'} flex flex-wrap content-start gap-2 px-2`}>
                                         {
                                             props.dirData?.map((item: DirItem) => (
                                                 <ContextMenu key={item.fileName}>
@@ -220,7 +220,7 @@ export default function DirList(props: { dirData: any, sharedDir: string, classN
                                         }
                                         {
                                             (!props.dirData || props.dirData.length === 0) && <p className="w-full flex justify-center items-center text-gray-500 text-xs pt-24">
-                                                <BookOpen size={15}/>
+                                                <BookOpen size={15} />
                                                 <span className="ml-2">当前分享目录下没有文件</span>
                                             </p>
                                         }
