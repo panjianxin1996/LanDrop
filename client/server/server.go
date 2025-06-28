@@ -246,7 +246,7 @@ func Run(assets embed.FS) {
 
 	// 启动服务（异步）
 	go func() {
-		log.Println(fmt.Sprintf("服务启动中，监听端口 :%v", config.Port))
+		log.Printf("服务启动中，监听端口 :%v", config.Port)
 		if err := app.Listen(fmt.Sprintf(":%v", config.Port)); err != nil {
 			log.Fatal("服务启动失败:", err)
 		}
