@@ -180,6 +180,11 @@ func Run(assets embed.FS) {
 
 	// 中间件：请求日志
 	app.Use(func(c *fiber.Ctx) error {
+		contentType := c.Get("Content-Type")
+		if strings.Contains(contentType, "multipart/form-data") { // 避免文件上传二进制被写入日志
+			log.Printf("[%s]-|%s | %s\n", c.Method(), c.Path(), c.IP())
+			return c.Next()
+		}
 		log.Printf("[%s]-|%s | %s | %s\n", c.Method(), c.Path(), c.IP(), string(c.Request().Body()))
 		return c.Next()
 	})
