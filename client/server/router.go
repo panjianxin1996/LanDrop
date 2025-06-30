@@ -76,13 +76,19 @@ func startRouter(app *fiber.App, assets embed.FS, config Config, db *sql.DB) {
 		}
 
 		tokenJWT, err := ParseToken(token)
-		if err != nil || tokenJWT.Role != "admin" {
+		if err != nil {
 			sendErrorAndClose(conn, "无法验证token有效性")
 			return
 		}
 
+		// 验证角色权限 - 修复逻辑判断
+		if tokenJWT.Role != "admin" && tokenJWT.Role != "guest" {
+			sendErrorAndClose(conn, "token角色验证失败")
+			return
+		}
+
 		// 创建客户端
-		wsClient := NewWSClient(conn, wsHub, token, id, name)
+		wsClient := NewWSClient(conn, wsHub, tokenJWT.Role, token, id, name)
 
 		// 注册客户端
 		wsHub.register <- wsClient

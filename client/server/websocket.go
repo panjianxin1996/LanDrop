@@ -22,6 +22,7 @@ type WSClient struct {
 	Send      chan []byte
 	Hub       *WSHub
 	UserToken string
+	UserType  string
 	IsActive  bool
 	LastPing  time.Time
 	mutex     sync.RWMutex
@@ -87,7 +88,7 @@ func (h *WSHub) Run() {
 			h.unregisterClient(client)
 
 		case message := <-h.broadcast:
-			h.broadcastMessage(message)
+			h.broadcastMessage(message, "admin")
 		}
 	}
 }
@@ -127,12 +128,16 @@ func (h *WSHub) unregisterClient(client *WSClient) {
 }
 
 // 广播消息给所有客户端
-func (h *WSHub) broadcastMessage(message []byte) {
+// 广播消息给所有客户端，可选的userTypeFilter参数用于过滤用户类型
+func (h *WSHub) broadcastMessage(message []byte, userTypeFilter ...string) {
 	h.mutex.RLock()
 	clients := make([]*WSClient, 0, len(h.clients))
 	for _, client := range h.clients {
 		if client.IsActive {
-			clients = append(clients, client)
+			// 如果没有过滤条件，或者用户类型匹配
+			if len(userTypeFilter) == 0 || client.UserType == userTypeFilter[0] {
+				clients = append(clients, client)
+			}
 		}
 	}
 	h.mutex.RUnlock()
@@ -272,7 +277,7 @@ func (h *WSHub) Close() {
 // 客户端方法
 
 // 创建新的WebSocket客户端
-func NewWSClient(conn *websocket.Conn, hub *WSHub, userToken string, id string, name string) *WSClient {
+func NewWSClient(conn *websocket.Conn, hub *WSHub, userType string, userToken string, id string, name string) *WSClient {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	return &WSClient{
@@ -281,6 +286,7 @@ func NewWSClient(conn *websocket.Conn, hub *WSHub, userToken string, id string, 
 		Send:      make(chan []byte, 256),
 		Hub:       hub,
 		UserToken: userToken,
+		UserType:  userType,
 		IsActive:  false,
 		LastPing:  time.Now(),
 		ctx:       ctx,
@@ -408,7 +414,12 @@ func (c *WSClient) handleMessage(msg WSMessage) {
 	case "pong":
 		// 处理pong响应
 		log.Printf("收到客户端 %s 的pong", c.ID)
-
+	case "getClientList":
+		response := WSMessage{
+			Type:    "clientList",
+			Content: c.Hub.clients,
+		}
+		c.SendMessage(response)
 	case "requestDeviceInfo":
 		// 立即发送设备信息
 		deviceInfo := c.Hub.getDeviceRealTimeInfo()

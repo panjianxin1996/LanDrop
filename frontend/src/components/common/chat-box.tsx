@@ -37,6 +37,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+// import useClientStore from "@/store/appStore"
 
 const users = [
   {
@@ -92,6 +93,20 @@ export default function ChatBox() {
   ])
   const [input, setInput] = React.useState("")
   const inputLength = input.trim().length
+  // const { adminId,adminName,token } = useClientStore()
+  const [ws, setWs ] = React.useState<WebSocket | null>(null)
+  React.useEffect(()=> {
+    let userInfo:any = localStorage.getItem("rememberUserInfo")
+    let token = localStorage.getItem("userToken")
+    userInfo = JSON.parse(userInfo)
+    setWs(new WebSocket(`ws://192.168.53.183:4321/ws?ldToken=${token}&id=${userInfo.id}&name=${userInfo.name}`))
+  },[])
+  const sendData = () => { 
+    ws?.send(JSON.stringify({
+      type: "getClientList",
+      content: "",
+    }))
+  };
 
   return (
     <>
@@ -165,7 +180,7 @@ export default function ChatBox() {
               value={input}
               onChange={(event) => setInput(event.target.value)}
             />
-            <Button type="submit" size="icon" disabled={inputLength === 0}>
+            <Button type="submit" onClick={()=> sendData()} size="icon" disabled={inputLength === 0}>
               <Send />
               <span className="sr-only">Send</span>
             </Button>
