@@ -1,6 +1,5 @@
 import * as React from "react"
 import { Check, Plus, Send } from "lucide-react"
-
 import { cn } from "@/lib/utils"
 import {
   Avatar,
@@ -101,8 +100,11 @@ export default function ChatBox() {
   };
 
   return (
-    <>
-      <Card className="h-full flex flex-col justify-between">
+    <div className="flex h-full">
+      <div className="w-2/6 min-[1025px]:w-1/5 pr-2">
+        <Card className="bg-red-400 h-full">123</Card>
+      </div>
+      <Card className="h-full flex flex-col justify-between w-4/6 min-[1025px]:w-4/5">
         <CardHeader className="flex flex-row items-center">
           <div className="flex items-center space-x-4">
             <Avatar>
@@ -271,6 +273,6 @@ export default function ChatBox() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </>
+    </div>
   )
 }

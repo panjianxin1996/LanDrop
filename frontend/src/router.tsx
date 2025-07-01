@@ -50,7 +50,7 @@ export let navMain = [
         })
     },
     {
-        title: "团队",
+        title: "私信",
         path: "team",
         icon: UsersIcon,
         element: LazyComponent({

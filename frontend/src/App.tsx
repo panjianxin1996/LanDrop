@@ -71,7 +71,7 @@ export default function App() {
 
   }
 
-  return !isClient && checkPagePath() ? <></> : (<SidebarProvider>
+  return !isClient && checkPagePath() ? <></> : (<SidebarProvider style={{height: "100vh"}}>
     {/* return (<SidebarProvider> */}
     {/* 侧边栏 */}
     <AppSidebar variant="inset" />
@@ -82,6 +82,5 @@ export default function App() {
         <Outlet />
       </main>
     </SidebarInset>
-  </SidebarProvider>
-  )
+  </SidebarProvider>)
 }
