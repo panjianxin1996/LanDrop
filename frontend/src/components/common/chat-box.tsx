@@ -37,7 +37,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-// import useClientStore from "@/store/appStore"
+import useClientStore from "@/store/appStore"
 
 const users = [
   {
@@ -70,41 +70,33 @@ const users = [
 type User = (typeof users)[number]
 
 export default function ChatBox() {
+  const { wsHandle, userInfo } = useClientStore()
   const [open, setOpen] = React.useState(false)
   const [selectedUsers, setSelectedUsers] = React.useState<User[]>([])
-
-  const [messages, setMessages] = React.useState([
-    {
-      role: "agent",
-      content: "Hi, how can I help you today?",
-    },
-    {
-      role: "user",
-      content: "Hey, I'm having trouble with my account.",
-    },
-    {
-      role: "agent",
-      content: "What seems to be the problem?",
-    },
-    {
-      role: "user",
-      content: "I can't log in.",
-    },
-  ])
+  const [receiveUser, setReceiveUser] = React.useState<any>(null)
+  const [messages, setMessages] = React.useState<any>([])
   const [input, setInput] = React.useState("")
   const inputLength = input.trim().length
-  // const { adminId,adminName,token } = useClientStore()
-  const [ws, setWs ] = React.useState<WebSocket | null>(null)
-  React.useEffect(()=> {
-    let userInfo:any = localStorage.getItem("rememberUserInfo")
-    let token = localStorage.getItem("userToken")
-    userInfo = JSON.parse(userInfo)
-    setWs(new WebSocket(`ws://192.168.53.183:4321/ws?ldToken=${token}&id=${userInfo.id}&name=${userInfo.name}`))
-  },[])
-  const sendData = () => { 
-    ws?.send(JSON.stringify({
-      type: "getClientList",
-      content: "",
+  React.useEffect(() => {
+    if (wsHandle) {
+      wsHandle.onmessage = (event) => {
+        const msg = JSON.parse(event.data);
+        if (msg.type === "chatReceiveData") {
+          console.log("收到客户端列表:", msg.content);
+          setMessages((prevMessages:any) => [...prevMessages, {user: msg.content.from, message: msg.content.message}]);
+        }
+      };
+    }
+    
+  }, [])
+  const sendData = (message:string) => {
+    wsHandle?.send(JSON.stringify({
+      type: "chatSendData",
+      content: {
+        to: receiveUser,
+        from: userInfo.name,
+        message
+      },
     }))
   };
 
@@ -118,8 +110,16 @@ export default function ChatBox() {
               <AvatarFallback>OM</AvatarFallback>
             </Avatar>
             <div>
-              <p className="text-sm font-medium leading-none">Sofia Davis</p>
-              <p className="text-sm text-muted-foreground">m@example.com</p>
+              <Input
+                id="message"
+                placeholder="请输入"
+                className="flex-1"
+                autoComplete="off"
+                value={receiveUser}
+                onChange={(event) => setReceiveUser(event.target.value)}
+              />
+              {/* <input className="text-sm font-medium leading-none">{userInfo.name}</input>
+              <p className="text-sm text-muted-foreground">{userInfo.role}</p> */}
             </div>
           </div>
           <TooltipProvider delayDuration={0}>
@@ -141,17 +141,17 @@ export default function ChatBox() {
         </CardHeader>
         <CardContent className="pb-0 mb-4 h-4/5 overflow-y-scroll">
           <div className="space-y-4">
-            {messages.map((message, index) => (
+            {messages.map((message:any, index:number) => (
               <div
                 key={index}
                 className={cn(
                   "flex w-max max-w-[75%] flex-col gap-2 rounded-lg px-3 py-2 text-sm",
-                  message.role === "user"
+                  message.user === userInfo.name
                     ? "ml-auto bg-primary text-primary-foreground"
                     : "bg-muted"
                 )}
               >
-                {message.content}
+                {message.message}
               </div>
             ))}
           </div>
@@ -164,10 +164,11 @@ export default function ChatBox() {
               setMessages([
                 ...messages,
                 {
-                  role: "user",
-                  content: input,
+                  user: userInfo.name,
+                  message: input,
                 },
               ])
+              sendData(input)
               setInput("")
             }}
             className="flex w-full items-center space-x-2"
@@ -180,7 +181,7 @@ export default function ChatBox() {
               value={input}
               onChange={(event) => setInput(event.target.value)}
             />
-            <Button type="submit" onClick={()=> sendData()} size="icon" disabled={inputLength === 0}>
+            <Button type="submit" size="icon" disabled={inputLength === 0}>
               <Send />
               <span className="sr-only">Send</span>
             </Button>

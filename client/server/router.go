@@ -391,7 +391,7 @@ func (r Router) createToken(c *fiber.Ctx) error {
 		r.Reply.Data = err
 		return c.Status(r.Reply.Code).JSON(r.Reply)
 	}
-	token, err := CreateToken("guest", id, name)
+	token, err := CreateToken("guest", id, name, 24)
 	if err != nil {
 		r.Reply.Code = http.StatusOK
 		r.Reply.Msg = "创建token失败"
@@ -487,7 +487,7 @@ func (r Router) appLogin(c *fiber.Ctx) error {
 		r.Reply.Data = err
 		return c.Status(r.Reply.Code).JSON(r.Reply)
 	}
-	token, err := CreateToken(adminRole, adminId, adminName)
+	token, err := CreateToken(adminRole, adminId, adminName, 100*365*24) // 设置app端token长期有效100年
 	if err != nil {
 		r.Reply.Code = http.StatusOK
 		r.Reply.Msg = "创建token失败"

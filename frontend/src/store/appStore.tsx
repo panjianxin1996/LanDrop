@@ -29,6 +29,7 @@ type AppStore = {
   adminId: string, // 管理员id
   adminName: string, // 管理员名称
   token: string, // token
+  userInfo: any,
   uploadedFiles: Record<string, any>, // 上传的文件列表
 }
 
@@ -95,6 +96,7 @@ const useClientStore = create<AppStore>()(
       adminId: "",
       adminName: "",
       token: "",
+      userInfo: {},
       uploadedFiles: {},
     }),
     // 设置持久化存储名称白名单

@@ -17,7 +17,9 @@ import (
 
 // WebSocket客户端结构体
 type WSClient struct {
-	ID        string
+	clientID  string
+	Id        string
+	Name      string
 	Conn      *websocket.Conn
 	Send      chan []byte
 	Hub       *WSHub
@@ -98,11 +100,11 @@ func (h *WSHub) registerClient(client *WSClient) {
 	h.mutex.Lock()
 	defer h.mutex.Unlock()
 
-	h.clients[client.ID] = client
+	h.clients[client.clientID] = client
 	client.IsActive = true
 	client.LastPing = time.Now()
 
-	log.Printf("客户端 %s 已连接，当前连接数: %d", client.ID, len(h.clients))
+	log.Printf("客户端 %s 已连接，当前连接数: %d", client.clientID, len(h.clients))
 
 	// 发送欢迎消息
 	welcomeMsg := WSMessage{
@@ -117,13 +119,13 @@ func (h *WSHub) unregisterClient(client *WSClient) {
 	h.mutex.Lock()
 	defer h.mutex.Unlock()
 
-	if _, exists := h.clients[client.ID]; exists {
-		delete(h.clients, client.ID)
+	if _, exists := h.clients[client.clientID]; exists {
+		delete(h.clients, client.clientID)
 		close(client.Send)
 		client.IsActive = false
 		client.cancel()
 
-		log.Printf("客户端 %s 已断开连接，当前连接数: %d", client.ID, len(h.clients))
+		log.Printf("客户端 %s 已断开连接，当前连接数: %d", client.clientID, len(h.clients))
 	}
 }
 
@@ -206,7 +208,7 @@ func (h *WSHub) startHealthCheck() {
 			for _, client := range clients {
 				// 检查客户端是否超时
 				if time.Since(client.LastPing) > 60*time.Second {
-					log.Printf("客户端 %s 超时，将被断开", client.ID)
+					log.Printf("客户端 %s 超时，将被断开", client.clientID)
 					h.unregister <- client
 					continue
 				}
@@ -281,7 +283,9 @@ func NewWSClient(conn *websocket.Conn, hub *WSHub, userType string, userToken st
 	ctx, cancel := context.WithCancel(context.Background())
 
 	return &WSClient{
-		ID:        fmt.Sprintf(`%s#%s`, name, id),
+		clientID:  fmt.Sprintf(`%s#%s`, name, id),
+		Id:        id,
+		Name:      name,
 		Conn:      conn,
 		Send:      make(chan []byte, 256),
 		Hub:       hub,
@@ -409,17 +413,43 @@ func (c *WSClient) handleMessage(msg WSMessage) {
 	c.mutex.Lock()
 	c.LastPing = time.Now()
 	c.mutex.Unlock()
-
+	log.Println("onMessage", msg.Type)
 	switch msg.Type {
 	case "pong":
 		// 处理pong响应
-		log.Printf("收到客户端 %s 的pong", c.ID)
+		log.Printf("收到客户端 %s 的pong", c.clientID)
 	case "getClientList":
+		clientsList := []map[string]any{}
+		for _, v := range c.Hub.clients {
+			client := map[string]any{}
+			client["name"] = v.Name
+			client["id"] = v.clientID
+			client["type"] = v.UserType
+			client["isActive"] = v.IsActive
+			clientsList = append(clientsList, client)
+		}
 		response := WSMessage{
 			Type:    "clientList",
-			Content: c.Hub.clients,
+			Content: clientsList,
 		}
-		c.SendMessage(response)
+		if err := c.SendMessage(response); err != nil {
+			log.Printf("发送消息给客户端 %s 失败: %v", c.clientID, err)
+		}
+	case "chatSendData":
+		if content, ok := msg.Content.(map[string]any); ok {
+			// from := content["from"]
+			to := content["to"].(string)
+			// message := content["message"]
+			// todo 记录数据库
+			receiveData := WSMessage{
+				Type:    "chatReceiveData",
+				Content: msg.Content,
+			}
+			// 针对特定客户端发送消息
+			log.Printf("发送消息给客户端 %s", to)
+			c.Hub.clients[to].SendMessage(receiveData)
+		}
+		log.Println(msg.Content)
 	case "requestDeviceInfo":
 		// 立即发送设备信息
 		deviceInfo := c.Hub.getDeviceRealTimeInfo()

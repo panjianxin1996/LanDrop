@@ -41,7 +41,7 @@ import { toast } from "sonner"
 import { Outlet, useNavigate } from 'react-router-dom'
 
 export default function AppWeb() {
-    const { checkIsClient } = useClientStore()
+    const { checkIsClient, setStoreData, closeWS } = useClientStore()
     const { request } = useApiRequest()
     const navigate = useNavigate();
     // 分享文件列表信息
@@ -66,16 +66,27 @@ export default function AppWeb() {
         // setUserList(['用户1', '用户2', '用户3'])
     }, [])
 
+    const connectWSServer = () => {
+        let userInfo:any = localStorage.getItem("rememberUserInfo")
+        let token = localStorage.getItem("userToken")
+        if (!token || !userInfo) return
+        closeWS() // 关闭socket连接
+        userInfo = JSON.parse(userInfo)
+        let wsHandle = new WebSocket(`ws://192.168.53.183:4321/ws?ldToken=${token}&id=${userInfo.id}&name=${userInfo.name}`)
+        setStoreData({name: "wsHandle", value: wsHandle})
+    }
     const initData = () => {
         const token = localStorage.getItem("userToken")
         const rememberUser = localStorage.getItem("rememberUserInfo")
-        setRememberUser(!!rememberUser)
-        if (token && rememberUser) {
+        const rememberUserInfoFlag = localStorage.getItem("rememberUserInfoFlag")
+        console.log("rememberUserInfoFlag",!!rememberUserInfoFlag)
+        setRememberUser(!!rememberUserInfoFlag)
+        if (token && rememberUser && !!rememberUserInfoFlag) {
             document.cookie = `ldtoken=${token}; path=/;`
             setOpenUserDialog(false)
-            // getSharedDirInfo()
             setUserInfo(JSON.parse(rememberUser))
             setIsLogin(true)
+            connectWSServer()
         }
         getUserList()
     }
@@ -83,11 +94,7 @@ export default function AppWeb() {
         request("/getUserList", 'POST', {}).then(res => {
             if (res?.code === 200) !!res.data && setUserList(res.data)
         })
-
     }
-
-
-
     const getRealFilePath = () => {
         request("/getRealFilePath?fileCode=" + sharedCode).then(res => {
             if (res?.code === 200) {
@@ -110,37 +117,39 @@ export default function AppWeb() {
         })
     }
 
-    const getUserToken = async (userId: number, userName: string) => {
-        const res = await request("/createToken", 'POST', { userId, userName })
-        localStorage.setItem("userToken", res.data.token)
-        // getSharedDirInfo()
+    const getUserToken = (userId: number, userName: string) => {
+        return request("/createToken", 'POST', { userId, userName })
     }
     // 选择用户
     const optForUserEvent = (e: any) => {
-        if (isLogin) {
+        if (isLogin) { // 已经登录过的关闭弹框清空数据
             setOpenUserDialog(false)
             setAddNewUser(false)
             setNewUserName("")
             return
         }
+        // 未登录的情况
         if (optForUserIndex === -1) {
             toast.error("请选择用户")
             e.preventDefault();
         } else {
             changeUserEvent(optForUserIndex)
         }
-
     }
 
-    const changeUserEvent = (index: number) => {
+    // 更换用户
+    const changeUserEvent = async (index: number) => {
         let userItem = userList[index]
-        getUserToken(userItem.id, userItem.name)
+        setUserInfo(userItem)
+        setStoreData({name: "userInfo", value: userItem})
+        localStorage.setItem("rememberUserInfo", JSON.stringify(userItem))
+        const tokenRes = await getUserToken(userItem.id, userItem.name) // 选择用户获取token
+        localStorage.setItem("userToken", tokenRes.data.token)
+        connectWSServer() // ws连接、重连
         if (rememberUser) {
-            localStorage.setItem("rememberUserInfo", JSON.stringify(userItem))
-            setUserInfo(userItem)
-            setIsLogin(true)
+            localStorage.setItem("rememberUserInfoFlag", "1")
         }
-
+        setIsLogin(true) // 设置保持登录（已登录）
     }
 
     const unBindEvent = (item: any) => {
@@ -310,10 +319,9 @@ export default function AppWeb() {
                         }
                     </DropdownMenuContent>
                 </DropdownMenu>
-                <Outlet />
+                <Outlet/>
             </div>
             <div style={{ height: "5vh" }}>
-
             </div>
         </div>
     </TooltipProvider>

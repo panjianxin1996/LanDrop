@@ -49,5 +49,16 @@ func InitDB(dbPath string) (*sql.DB, error) {
 		)`); err != nil {
 		return nil, fmt.Errorf("初始化客户端设置表结构失败: %v", err)
 	}
+	// 初始化客户端设置表结构
+	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS chat_records (
+		"cId" INTEGER PRIMARY KEY AUTOINCREMENT,
+		"to" TEXT NOT NULL,
+		"from" TEXT NOT NULL,
+		"isRead" TEXT,
+		"message" TEXT,
+		"time" integer NOT NULL
+		)`); err != nil {
+		return nil, fmt.Errorf("初始化聊天记录表结构失败: %v", err)
+	}
 	return db, nil
 }
