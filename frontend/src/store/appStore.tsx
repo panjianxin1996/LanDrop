@@ -14,7 +14,7 @@ type SetStoreDataParams = {
 
 type AppStore = {
   isClient: boolean // 是否客户端【区分为客户端app和用户端web】
-  checkIsClient: () => boolean
+  checkIsClient: () => Promise<boolean>
   clientVersion: string
   setStoreData: (params: SetStoreDataParams) => void // 通用更新store数据函数
   deviceLogsData: any // 设备数据
@@ -40,15 +40,12 @@ const useClientStore = create<AppStore>()(
   persist(
     (set, get) => ({
       isClient: false,
-      checkIsClient: () => {
-        // set({ isClient: true})
-        // return true
+      checkIsClient: async () => {
         if ((window as any)?.go?.main?.App?.Version) {
           const version = (window as any)?.go?.main?.App?.Version();
           set({ isClient: true, clientVersion: version })
-          GetAppConfig().then((res:any) => {
-              localStorage.setItem('appPort', res.port);
-          })
+          const res:any = await GetAppConfig()
+          localStorage.setItem('appPort', res.port);
           return true
         } else {
           set({ isClient: false })

@@ -11,12 +11,14 @@ export default function App() {
   const { isClient, checkIsClient, setStoreData, connectWS, closeWS, selectNetAdapter, setSelectNetAdapter, adminName } = useClientStore()
 
   useEffect(() => {
-    if (checkIsClient()) {
-      // 客户端鉴权登录
-      appLogin()
-    } else {
-      if (checkPagePath()) navigate("/web", { replace: true });
-    }
+    checkIsClient().then(res => {
+      if (res) {
+        // 客户端鉴权登录
+        appLogin()
+      } else {
+        if (checkPagePath()) navigate("/web", { replace: true });
+      }
+    })
     return () => {
       closeWS()
     }
@@ -71,7 +73,7 @@ export default function App() {
 
   }
 
-  return !isClient && checkPagePath() ? <></> : (<SidebarProvider style={{height: "100vh"}}>
+  return !isClient && checkPagePath() ? <></> : (<SidebarProvider style={{ height: "100vh" }}>
     {/* return (<SidebarProvider> */}
     {/* 侧边栏 */}
     <AppSidebar variant="inset" />

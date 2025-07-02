@@ -105,8 +105,12 @@ func GetSettingInfo() Config {
 		d.Version = "V1.0.0"
 		d.TokenExpiryTime = 24
 		nowDate := time.Now().Format("2006-01-02 15:04:05")
-		DB.Exec(`INSERT INTO settings (name, appName, port, sharedDir, version, tokenExpiryTime, createdAt, modifiedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, "config", d.AppName, d.Port, d.SharedDir, d.Version, d.TokenExpiryTime, nowDate, nowDate)
+		if _, err := DB.Exec(`INSERT INTO settings (name, appName, port, sharedDir, version, tokenExpiryTime, createdAt, modifiedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, "config", d.AppName, d.Port, d.SharedDir, d.Version, d.TokenExpiryTime, nowDate, nowDate); err != nil {
+			log.Println("插入配置失败", err)
+		}
+		log.Println("没有数据插入数据", d)
 	}
+	log.Println("最终数据", d)
 	return d
 }
 
