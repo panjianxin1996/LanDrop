@@ -14,7 +14,7 @@ export function RestartServer():Promise<void>;
 
 export function ToolsPingHost(arg1:any,arg2:string):Promise<Record<string, any>>;
 
-export function UpdateDefaultDir(arg1:string):Promise<Record<string, any>>;
+export function UpdateConfigData(arg1:Record<string, any>):Promise<Record<string, any>>;
 
 export function Version():Promise<string>;
 

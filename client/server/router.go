@@ -88,7 +88,7 @@ func startRouter(app *fiber.App, assets embed.FS, config Config, db *sql.DB) {
 		}
 
 		// 创建客户端
-		wsClient := NewWSClient(conn, wsHub, tokenJWT.Role, token, id, name)
+		wsClient := NewWSClient(conn, wsHub, db, tokenJWT.Role, token, id, name)
 
 		// 注册客户端
 		wsHub.register <- wsClient
@@ -124,6 +124,8 @@ func startRouter(app *fiber.App, assets embed.FS, config Config, db *sql.DB) {
 		api.Post("/appLogin", r.appLogin)
 		// websocket状态
 		api.Get("/getWSStatus", r.getWSStatus)
+		// 获取配置信息
+		api.Get("/getConfigData", r.getConfigData)
 	}
 }
 
@@ -391,7 +393,7 @@ func (r Router) createToken(c *fiber.Ctx) error {
 		r.Reply.Data = err
 		return c.Status(r.Reply.Code).JSON(r.Reply)
 	}
-	token, err := CreateToken("guest", id, name, 24)
+	token, err := CreateToken("guest", id, name, r.config.TokenExpiryTime)
 	if err != nil {
 		r.Reply.Code = http.StatusOK
 		r.Reply.Msg = "创建token失败"
@@ -407,7 +409,7 @@ func (r Router) createToken(c *fiber.Ctx) error {
 		Name:     "ldtoken",
 		Value:    token,
 		Path:     "/",
-		Expires:  time.Now().Add(24 * time.Hour),
+		Expires:  time.Now().Add(time.Duration(r.config.TokenExpiryTime) * time.Hour),
 		HTTPOnly: true,
 		Secure:   false,
 		SameSite: "Lax",
@@ -509,4 +511,11 @@ func (r Router) getWSStatus(c *fiber.Ctx) error {
 		"active_connections": wsHub.GetActiveConnections(),
 		"status":             "running",
 	})
+}
+
+func (r Router) getConfigData(c *fiber.Ctx) error {
+	r.Reply.Code = http.StatusOK
+	r.Reply.Msg = "successed"
+	r.Reply.Data = r.config
+	return c.Status(r.Reply.Code).JSON(r.Reply)
 }

@@ -140,18 +140,37 @@ func (a *App) OpenDirInExplorer(dirPath string) error {
 }
 
 // 更新默认目录
-func (a *App) UpdateDefaultDir(dirPath string) map[string]any {
-	updateBack := map[string]interface{}{}
-	_, err := server.UpdateDirInfo(dirPath)
+func (a *App) UpdateConfigData(updateData map[string]any) map[string]any {
+	updateBack := map[string]any{}
+	if len(updateData) == 0 {
+		updateBack["status"] = "error"
+		updateBack["msg"] = "缺少关键参数"
+		return updateBack
+	}
+	// 避免注入风险
+	validColumns := map[string]bool{
+		"sharedDir":       true,
+		"tokenExpiryTime": true,
+	}
+	updateFields := []string{}
+	updateValues := []any{}
+	for k, v := range updateData {
+		if !validColumns[k] {
+			updateBack["status"] = "error"
+			updateBack["msg"] = "存在不允许更新的字段"
+			return updateBack
+		}
+		updateFields = append(updateFields, k+"=?")
+		updateValues = append(updateValues, v)
+	}
+	_, err := server.UpdateDirInfo(updateFields, updateValues)
 	// 3. 保存新配置
 	if err != nil {
 		updateBack["status"] = "error"
-		updateBack["newDir"] = nil
 		updateBack["msg"] = fmt.Errorf("保存配置失败: %v", err)
 		return updateBack
 	}
 	updateBack["status"] = "success"
-	updateBack["newDir"] = dirPath
 	updateBack["msg"] = "保存成功"
 	return updateBack
 }

@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -21,6 +22,7 @@ type WSClient struct {
 	Id        string
 	Name      string
 	Conn      *websocket.Conn
+	DB        *sql.DB
 	Send      chan []byte
 	Hub       *WSHub
 	UserToken string
@@ -64,7 +66,7 @@ func NewWSHub(ctx context.Context) *WSHub {
 		clients:    make(map[string]*WSClient),
 		register:   make(chan *WSClient),
 		unregister: make(chan *WSClient),
-		broadcast:  make(chan []byte, 256),
+		broadcast:  make(chan []byte, 1024*1024),
 		ctx:        hubCtx,
 		cancel:     cancel,
 	}
@@ -279,7 +281,7 @@ func (h *WSHub) Close() {
 // 客户端方法
 
 // 创建新的WebSocket客户端
-func NewWSClient(conn *websocket.Conn, hub *WSHub, userType string, userToken string, id string, name string) *WSClient {
+func NewWSClient(conn *websocket.Conn, hub *WSHub, db *sql.DB, userType string, userToken string, id string, name string) *WSClient {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	return &WSClient{
@@ -287,7 +289,8 @@ func NewWSClient(conn *websocket.Conn, hub *WSHub, userType string, userToken st
 		Id:        id,
 		Name:      name,
 		Conn:      conn,
-		Send:      make(chan []byte, 256),
+		DB:        db,
+		Send:      make(chan []byte, 1024*1024), // 支持10MB的聊天内容
 		Hub:       hub,
 		UserToken: userToken,
 		UserType:  userType,
@@ -305,7 +308,7 @@ func (c *WSClient) ReadPump() {
 		c.Conn.Close()
 	}()
 	// 设置读取限制和超时
-	c.Conn.SetReadLimit(512)
+	c.Conn.SetReadLimit(1024 * 1024 * 10) // 设置读15MB
 	c.Conn.SetReadDeadline(time.Now().Add(60 * time.Second))
 	c.Conn.SetPongHandler(func(string) error {
 		c.mutex.Lock()
@@ -422,8 +425,9 @@ func (c *WSClient) handleMessage(msg WSMessage) {
 		clientsList := []map[string]any{}
 		for _, v := range c.Hub.clients {
 			client := map[string]any{}
+			client["clientID"] = v.clientID
 			client["name"] = v.Name
-			client["id"] = v.clientID
+			client["id"] = v.Id
 			client["type"] = v.UserType
 			client["isActive"] = v.IsActive
 			clientsList = append(clientsList, client)
@@ -445,9 +449,12 @@ func (c *WSClient) handleMessage(msg WSMessage) {
 				Type:    "chatReceiveData",
 				Content: msg.Content,
 			}
+			c.DB.Exec(`INSERT INTO chat_records ("to", "from", "message", "isRead", "time") VALUES ('?, ?, ?, ?, ?)`, content["to"], content["from"], content["message"], "n", time.Now().Unix())
 			// 针对特定客户端发送消息
 			log.Printf("发送消息给客户端 %s", to)
-			c.Hub.clients[to].SendMessage(receiveData)
+			if err := c.Hub.clients[to].SendMessage(receiveData); err != nil {
+				log.Printf("发送消息给客户端 %s 失败: %v", c.clientID, err)
+			}
 		}
 		log.Println(msg.Content)
 	case "requestDeviceInfo":

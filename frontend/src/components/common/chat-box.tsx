@@ -3,8 +3,7 @@ import { Check, Plus, Send } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
   Avatar,
-  AvatarFallback,
-  AvatarImage,
+  AvatarFallback
 } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import {
@@ -38,51 +37,25 @@ import {
 } from "@/components/ui/tooltip"
 import useClientStore from "@/store/appStore"
 
-const users = [
-  {
-    name: "Olivia Martin",
-    email: "m@example.com",
-    avatar: "/avatars/01.png",
-  },
-  {
-    name: "Isabella Nguyen",
-    email: "isabella.nguyen@email.com",
-    avatar: "/avatars/03.png",
-  },
-  {
-    name: "Emma Wilson",
-    email: "emma@example.com",
-    avatar: "/avatars/05.png",
-  },
-  {
-    name: "Jackson Lee",
-    email: "lee@example.com",
-    avatar: "/avatars/02.png",
-  },
-  {
-    name: "William Kim",
-    email: "will@email.com",
-    avatar: "/avatars/04.png",
-  },
-] as const
-
-type User = (typeof users)[number]
-
 export default function ChatBox() {
   const { wsHandle, userInfo } = useClientStore()
   const [open, setOpen] = React.useState(false)
-  const [selectedUsers, setSelectedUsers] = React.useState<User[]>([])
-  const [receiveUser, setReceiveUser] = React.useState<any>(null)
+  const [selectedUsers, setSelectedUsers] = React.useState<any>([])
+  const [chatUser, setChatUser] = React.useState<any>(null)
+  const [chatUserList, setChatUserList] = React.useState<any>([])
   const [messages, setMessages] = React.useState<any>([])
   const [input, setInput] = React.useState("")
+  const [users, setUsers] = React.useState<any>([])
   const inputLength = input.trim().length
   React.useEffect(() => {
     if (wsHandle) {
       wsHandle.onmessage = (event) => {
         const msg = JSON.parse(event.data);
         if (msg.type === "chatReceiveData") {
-          console.log("收到客户端列表:", msg.content);
           setMessages((prevMessages:any) => [...prevMessages, {user: msg.content.from, message: msg.content.message}]);
+        } else if (msg.type === "clientList") {
+          console.log("msg.content",msg.content)
+          setUsers(msg.content)
         }
       };
     }
@@ -92,36 +65,42 @@ export default function ChatBox() {
     wsHandle?.send(JSON.stringify({
       type: "chatSendData",
       content: {
-        to: receiveUser,
+        to: chatUser?.clientID,
         from: userInfo.name,
         message
       },
     }))
   };
+  const getClientList = ()=> {
+    wsHandle?.send(JSON.stringify({
+      type: "getClientList",
+      content: null,
+    }))
+  }
 
   return (
     <div className="flex h-full">
       <div className="w-2/6 min-[1025px]:w-1/5 pr-2">
-        <Card className="bg-red-400 h-full">123</Card>
+        <Card className=" h-full">
+          {
+            chatUserList.map((item:any)=> {
+              return <div className="p-4">
+                {item.name}
+              </div>
+            })
+          }
+        </Card>
       </div>
       <Card className="h-full flex flex-col justify-between w-4/6 min-[1025px]:w-4/5">
         <CardHeader className="flex flex-row items-center">
           <div className="flex items-center space-x-4">
             <Avatar>
               {/* <AvatarImage src="/avatars/01.png" alt="Image" /> */}
-              <AvatarFallback>OM</AvatarFallback>
+              <AvatarFallback>{chatUser?.name.slice(0,2)}</AvatarFallback>
             </Avatar>
             <div>
-              <Input
-                id="message"
-                placeholder="请输入"
-                className="flex-1"
-                autoComplete="off"
-                value={receiveUser}
-                onChange={(event) => setReceiveUser(event.target.value)}
-              />
-              {/* <input className="text-sm font-medium leading-none">{userInfo.name}</input>
-              <p className="text-sm text-muted-foreground">{userInfo.role}</p> */}
+              <p className="text-sm font-medium leading-none">{chatUser?.name}</p>
+              <p className="text-sm text-muted-foreground">{chatUser?.type}</p>
             </div>
           </div>
           <TooltipProvider delayDuration={0}>
@@ -131,10 +110,9 @@ export default function ChatBox() {
                   size="icon"
                   variant="outline"
                   className="ml-auto rounded-full"
-                  onClick={() => setOpen(true)}
+                  onClick={() => {getClientList();setOpen(true);}}
                 >
                   <Plus />
-                  <span className="sr-only">New message</span>
                 </Button>
               </TooltipTrigger>
               <TooltipContent sideOffset={10}>New message</TooltipContent>
@@ -147,7 +125,7 @@ export default function ChatBox() {
               <div
                 key={index}
                 className={cn(
-                  "flex w-max max-w-[75%] flex-col gap-2 rounded-lg px-3 py-2 text-sm",
+                  "flex max-w-[75%] flex-col gap-2 rounded-lg px-3 py-2 text-sm",
                   message.user === userInfo.name
                     ? "ml-auto bg-primary text-primary-foreground"
                     : "bg-muted"
@@ -185,7 +163,6 @@ export default function ChatBox() {
             />
             <Button type="submit" size="icon" disabled={inputLength === 0}>
               <Send />
-              <span className="sr-only">Send</span>
             </Button>
           </form>
         </CardFooter>
@@ -193,30 +170,26 @@ export default function ChatBox() {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="gap-0 p-0 outline-none">
           <DialogHeader className="px-4 pb-4 pt-5">
-            <DialogTitle>New message</DialogTitle>
-            <DialogDescription>
-              Invite a user to this thread. This will create a new group
-              message.
-            </DialogDescription>
+            <DialogTitle>查询在线用户</DialogTitle>
+            <DialogDescription>您可以选择用户进行聊天</DialogDescription>
           </DialogHeader>
           <Command className="overflow-hidden rounded-t-none border-t bg-transparent">
-            <CommandInput placeholder="Search user..." />
+            <CommandInput placeholder="搜索用户..." />
             <CommandList>
-              <CommandEmpty>No users found.</CommandEmpty>
+              <CommandEmpty>当前没有活跃用户。</CommandEmpty>
               <CommandGroup className="p-2">
-                {users.map((user) => (
+                {users.map((user:any) => (
                   <CommandItem
-                    key={user.email}
+                    key={user.id}
                     className="flex items-center px-2"
                     onSelect={() => {
                       if (selectedUsers.includes(user)) {
                         return setSelectedUsers(
                           selectedUsers.filter(
-                            (selectedUser) => selectedUser !== user
+                            (selectedUser:any) => selectedUser !== user
                           )
                         )
                       }
-
                       return setSelectedUsers(
                         [...users].filter((u) =>
                           [...selectedUsers, user].includes(u)
@@ -225,7 +198,6 @@ export default function ChatBox() {
                     }}
                   >
                     <Avatar>
-                      <AvatarImage src={user.avatar} alt="Image" />
                       <AvatarFallback>{user.name[0]}</AvatarFallback>
                     </Avatar>
                     <div className="ml-2">
@@ -233,7 +205,7 @@ export default function ChatBox() {
                         {user.name}
                       </p>
                       <p className="text-sm text-muted-foreground">
-                        {user.email}
+                        {user.type === 'admin' ? "管理员": "普通用户"}
                       </p>
                     </div>
                     {selectedUsers.includes(user) ? (
@@ -244,32 +216,30 @@ export default function ChatBox() {
               </CommandGroup>
             </CommandList>
           </Command>
-          <DialogFooter className="flex items-center border-t p-4 sm:justify-between">
+          <DialogFooter className="flex items-center border-t p-4 !flex-row justify-between">
             {selectedUsers.length > 0 ? (
               <div className="flex -space-x-2 overflow-hidden">
-                {selectedUsers.map((user) => (
+                {selectedUsers.map((user:any) => (
                   <Avatar
-                    key={user.email}
+                    key={user.id}
                     className="inline-block border-2 border-background"
                   >
-                    <AvatarImage src={user.avatar} />
                     <AvatarFallback>{user.name[0]}</AvatarFallback>
                   </Avatar>
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground">
-                Select users to add to this thread.
-              </p>
+              <p className="text-sm text-muted-foreground">请选择需要发送私信的用户。（目前只支持单聊）</p>
             )}
             <Button
-              disabled={selectedUsers.length < 2}
+              disabled={selectedUsers.length !== 1}
               onClick={() => {
                 setOpen(false)
+                // console.log(selectedUsers)
+                setChatUser(selectedUsers[0])
+                setChatUserList([...chatUserList, ...selectedUsers])
               }}
-            >
-              Continue
-            </Button>
+            >确定</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

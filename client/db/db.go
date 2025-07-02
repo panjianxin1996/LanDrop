@@ -41,6 +41,7 @@ func InitDB(dbPath string) (*sql.DB, error) {
 		"name" TEXT NOT NULL,
 		"appName" TEXT,
 		"port" integer NOT NULL,
+		"tokenExpiryTime" integer NOT NULL,
 		"sharedDir" TEXT,
 		"version" TEXT,
 		"createdAt" TEXT,

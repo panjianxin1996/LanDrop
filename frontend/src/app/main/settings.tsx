@@ -10,16 +10,19 @@ import {
   PopoverTrigger
 } from "@/components/ui/popover"
 import { Label } from "@/components/ui/label"
-import { OpenDirectory, UpdateDefaultDir, RestartServer, ExitApp } from "@clientSDK/App"
+import { OpenDirectory, UpdateConfigData, RestartServer, ExitApp } from "@clientSDK/App"
 export default function Settings() {
   const { request } = useApiRequest()
   const [sharedDir, setSharedDir] = React.useState<string>("")
+  const [tokenExpiryTime, setTokenExpiryTime] = React.useState<number>(24)
+  const [needUpdateConfig, setNeedUpdateConfig] = React.useState<any>({})
   const [changeDirFlag, setChangeDirFlag] = React.useState<boolean>(false)
   const [popoverOpen, setPopoverOpen] = React.useState(false)
   const openDirectory = () => {
     OpenDirectory().then(res => {
       if (res.dir) {
         setSharedDir(res.dir)
+        setNeedUpdateConfig({...needUpdateConfig, sharedDir: res.dir})
         setChangeDirFlag(true)
       }
     }).catch(err => {
@@ -27,7 +30,8 @@ export default function Settings() {
     })
   }
   const restartServer = () => {
-    UpdateDefaultDir(sharedDir).then(res => {
+    console.log( "needUpdateConfig", needUpdateConfig)
+    UpdateConfigData(needUpdateConfig).then(res => {
       console.log("UpdateDefaultDir", res)
       if (res.status === "success") {
         RestartServer()
@@ -37,19 +41,22 @@ export default function Settings() {
     })
   }
 
-  const getSharedDirInfo = () => {
-    request("/getSharedDirInfo").then(res => {
-      if (res?.code === 200) setSharedDir(res.data.sharedDir)
+  const getConfigData = () => {
+    request("/getConfigData").then(res => {
+      if (res?.code === 200) {
+        setSharedDir(res.data.sharedDir)
+        setTokenExpiryTime(res.data.tokenExpiryTime)
+      }
     })
   }
 
   React.useEffect(() => {
-    getSharedDirInfo()
+    getConfigData()
   }, [])
   return (
     <div className="flex flex-col items-start justify-center gap-4 p-6">
-      <div className="flex items-center space-x-2">
-        <Label htmlFor="setSharedDir">设置分享目录</Label>
+      <div className="flex items-center space-x-2 w-full mb-4">
+        <Label htmlFor="setSharedDir" className="w-32">设置分享目录</Label>
         <div className="relative grid flex-1 gap-2 w-96">
           <Input
             readOnly
@@ -60,16 +67,30 @@ export default function Settings() {
             <FolderOpen size={20} />
           </Button>
           {
-            changeDirFlag && <p className="absolute bottom-0 right-0 text-xs text-muted-foreground text-red-300" style={{ bottom: "-20px" }}>修改后需点击按钮重启服务。</p>
+            changeDirFlag && <p className="absolute bottom-0 left-0 text-xs text-muted-foreground text-red-300" style={{ bottom: "-20px" }}>修改后需点击按钮重启服务。</p>
           }
         </div>
-        <Button className="px-6" onClick={restartServer}>
+        <Button className="px-3" onClick={restartServer}>
           <RefreshCcwDot size={20} />
-          重启服务
+          保存重启服务
         </Button>
       </div>
-      <div className="flex items-center space-x-2">
-        <Label htmlFor="exitApp">退出LanDrop</Label>
+      <div className="flex items-center space-x-2 relative w-full mb-4">
+        <Label htmlFor="tokenExpTime" className="w-32">用户身份过期时间（小时）</Label>
+        <Input
+          value={tokenExpiryTime ?? 24}
+          type="number"
+          className="text-sm font-medium w-52"
+          onChange={(e) => {
+            let time = parseInt(e.target.value) || 24
+            setTokenExpiryTime(time)
+            setNeedUpdateConfig({...needUpdateConfig, tokenExpiryTime: time})
+          }}
+        />
+        <p className="absolute bottom-0 left-0 text-xs text-muted-foreground text-red-300" style={{ bottom: "-20px" }}>设置用户身份过期后，原先授权的用户不会受影响。（设置后请重启服务）</p>
+      </div>
+      <div className="flex items-center space-x-2 w-full mb-4">
+        <Label htmlFor="exitApp" className="w-32">退出LanDrop</Label>
         <Popover open={popoverOpen}>
           <PopoverTrigger asChild> 
             <Button variant="destructive" className="px-6" onClick={() => setPopoverOpen(true)}>

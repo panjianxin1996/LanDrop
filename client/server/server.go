@@ -51,10 +51,11 @@ func init() {
 }
 
 type Config struct {
-	AppName   string `json:"appName"`
-	Port      int    `json:"port"`
-	SharedDir string `json:"sharedDir"`
-	Version   string `json:"version"`
+	AppName         string `json:"appName"`
+	Port            int    `json:"port"`
+	SharedDir       string `json:"sharedDir"`
+	Version         string `json:"version"`
+	TokenExpiryTime int    `json:"tokenExpiryTime"`
 }
 
 // 检查端口是否占用
@@ -89,27 +90,29 @@ func createSharedDir(appDir string) string {
 
 func GetSettingInfo() Config {
 	d := Config{ // 创建默认配置
-		AppName:   "",
-		Port:      0,
-		SharedDir: "",
-		Version:   "",
+		AppName:         "",
+		Port:            0,
+		SharedDir:       "",
+		Version:         "",
+		TokenExpiryTime: 0,
 	}
-	err := DB.QueryRow(`SELECT appName, port,sharedDir,version FROM settings WHERE name = 'config'`).Scan(&d.AppName, &d.Port, &d.SharedDir, &d.Version)
+	err := DB.QueryRow(`SELECT appName, port,sharedDir ,version, tokenExpiryTime FROM settings WHERE name = 'config'`).Scan(&d.AppName, &d.Port, &d.SharedDir, &d.Version, &d.TokenExpiryTime)
 	if err != nil && err == sql.ErrNoRows {
 		sharedDir := createSharedDir(AppDir) // 创建默认分享目录
 		d.AppName = "LanDrop"
 		d.Port = 4321
 		d.SharedDir = sharedDir
 		d.Version = "V1.0.0"
+		d.TokenExpiryTime = 24
 		nowDate := time.Now().Format("2006-01-02 15:04:05")
-		DB.Exec(`INSERT INTO settings (name, appName, port, sharedDir, version, createdAt, modifiedAt) VALUES (?, ?, ?, ?, ?, ?, ?)`, "config", d.AppName, d.Port, d.SharedDir, d.Version, nowDate, nowDate)
+		DB.Exec(`INSERT INTO settings (name, appName, port, sharedDir, version, tokenExpiryTime, createdAt, modifiedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, "config", d.AppName, d.Port, d.SharedDir, d.Version, d.TokenExpiryTime, nowDate, nowDate)
 	}
 	return d
 }
 
 // 更新分享目录信息
-func UpdateDirInfo(newDir string) (sql.Result, error) {
-	return DB.Exec(`UPDATE settings SET sharedDir = ? WHERE name = 'config'`, newDir)
+func UpdateDirInfo(updateFields []string, updateValues []any) (sql.Result, error) {
+	return DB.Exec(fmt.Sprintf(`UPDATE settings SET %v WHERE name = 'config'`, strings.Join(updateFields, ",")), updateValues...)
 }
 
 // 启动服务器

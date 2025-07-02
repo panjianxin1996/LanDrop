@@ -5,6 +5,7 @@ export namespace server {
 	    port: number;
 	    sharedDir: string;
 	    version: string;
+	    tokenExpiryTime: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new Config(source);
@@ -16,6 +17,7 @@ export namespace server {
 	        this.port = source["port"];
 	        this.sharedDir = source["sharedDir"];
 	        this.version = source["version"];
+	        this.tokenExpiryTime = source["tokenExpiryTime"];
 	    }
 	}
 

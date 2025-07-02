@@ -26,8 +26,8 @@ export function ToolsPingHost(arg1, arg2) {
   return window['go']['main']['App']['ToolsPingHost'](arg1, arg2);
 }
 
-export function UpdateDefaultDir(arg1) {
-  return window['go']['main']['App']['UpdateDefaultDir'](arg1);
+export function UpdateConfigData(arg1) {
+  return window['go']['main']['App']['UpdateConfigData'](arg1);
 }
 
 export function Version() {
