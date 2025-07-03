@@ -7,23 +7,30 @@ import (
 	"path/filepath"
 )
 
+type SqlliteDB struct {
+	DB *sql.DB
+}
+
 // 创建sqllite数据库
-func InitDB(dbPath string) (*sql.DB, error) {
+func InitDB(dbPath string) (SqlliteDB, error) {
+	sdb := SqlliteDB{
+		DB: nil,
+	}
 	// 检查目录是否存在，不存在则创建
 	dir := filepath.Dir(dbPath)
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
 		if err := os.MkdirAll(dir, 0755); err != nil {
-			return nil, fmt.Errorf("创建目录失败: %v", err)
+			return sdb, fmt.Errorf("创建目录失败: %v", err)
 		}
 	}
 	// 打开（或创建）数据库
 	db, err := sql.Open("sqlite3", dbPath)
 	if err != nil {
-		return nil, fmt.Errorf("打开数据库失败: %v", err)
+		return sdb, fmt.Errorf("打开数据库失败: %v", err)
 	}
 	// 测试连接
 	if err := db.Ping(); err != nil {
-		return nil, fmt.Errorf("数据库连接测试失败: %v", err)
+		return sdb, fmt.Errorf("数据库连接测试失败: %v", err)
 	}
 	// 初始化用户表结构
 	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS users (
@@ -34,7 +41,7 @@ func InitDB(dbPath string) (*sql.DB, error) {
 		ip TEXT NOT NULL,
 		createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
 	)`); err != nil {
-		return nil, fmt.Errorf("初始化用户表结构失败: %v", err)
+		return sdb, fmt.Errorf("初始化用户表结构失败: %v", err)
 	}
 	// 初始化客户端设置表结构
 	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS settings (
@@ -49,7 +56,7 @@ func InitDB(dbPath string) (*sql.DB, error) {
 		"modifiedAt" TEXT,
 		CONSTRAINT "name unique" UNIQUE ("name" ASC)
 	)`); err != nil {
-		return nil, fmt.Errorf("初始化客户端设置表结构失败: %v", err)
+		return sdb, fmt.Errorf("初始化客户端设置表结构失败: %v", err)
 	}
 	// 初始化聊天记录表结构
 	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS chat_records (
@@ -61,7 +68,7 @@ func InitDB(dbPath string) (*sql.DB, error) {
 		"message" TEXT,
 		"time" integer NOT NULL
 	)`); err != nil {
-		return nil, fmt.Errorf("初始化聊天记录表结构失败: %v", err)
+		return sdb, fmt.Errorf("初始化聊天记录表结构失败: %v", err)
 	}
 	// 初始化好友表结构
 	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS friendships (
@@ -75,7 +82,33 @@ func InitDB(dbPath string) (*sql.DB, error) {
 		CONSTRAINT "friendId" FOREIGN KEY ("friendId") REFERENCES "users" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION
 	);
 	CREATE INDEX IF NOT EXISTS idx_friendships_status ON friendships(status);`); err != nil {
-		return nil, fmt.Errorf("初始化好友表结构失败: %v", err)
+		return sdb, fmt.Errorf("初始化好友表结构失败: %v", err)
 	}
-	return db, nil
+	sdb.DB = db
+	return sdb, nil
+}
+
+func (s SqlliteDB) QueryList(queryStr string, args ...any) ([]map[string]any, error) {
+	rows, err := s.DB.Query(queryStr, args...)
+	if err != nil {
+		return nil, err
+	}
+	columns, _ := rows.Columns()
+	values := make([]any, len(columns))
+	for i := range values {
+		var v any
+		values[i] = &v
+	}
+	var userList []map[string]any
+	for rows.Next() {
+		if err := rows.Scan(values...); err != nil {
+			continue
+		}
+		row := make(map[string]any)
+		for i, col := range columns {
+			row[col] = *(values[i].(*any))
+		}
+		userList = append(userList, row)
+	}
+	return userList, nil
 }

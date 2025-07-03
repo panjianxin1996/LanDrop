@@ -69,15 +69,17 @@ export default function ChatBox() {
       type: "chatSendData",
       content: {
         to: chatUser?.clientID,
-        from: userInfo.name,
+        from: userInfo.userName,
         message
       },
     }))
   };
   const getClientList = () => {
     wsHandle?.send(JSON.stringify({
-      type: "getClientList",
-      content: null,
+      type: "queryClients",
+      content: {
+        userId: userInfo.userId
+      },
     }))
   }
 
@@ -140,7 +142,7 @@ export default function ChatBox() {
                 key={index}
                 className={cn(
                   "flex max-w-[75%] flex-col gap-2 rounded-lg px-3 py-2 text-sm",
-                  message.user === userInfo.name
+                  message.user === userInfo.userName
                     ? "ml-auto bg-primary text-primary-foreground"
                     : "bg-muted"
                 )}
@@ -158,7 +160,7 @@ export default function ChatBox() {
               setMessages([
                 ...messages,
                 {
-                  user: userInfo.name,
+                  user: userInfo.userName,
                   message: input,
                 },
               ])

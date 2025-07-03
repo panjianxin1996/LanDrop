@@ -1,6 +1,7 @@
 package server
 
 import (
+	"LanDrop/client/db"
 	"context"
 	"database/sql"
 	"embed"
@@ -45,7 +46,7 @@ type Reply struct {
 // 全局WebSocket Hub实例
 var wsHub *WSHub
 
-func startRouter(app *fiber.App, assets embed.FS, config Config, db *sql.DB) {
+func startRouter(app *fiber.App, assets embed.FS, config Config, sldb db.SqlliteDB) {
 	ctx := context.Background()
 	wsHub = NewWSHub(ctx)
 	go wsHub.Run()
@@ -53,7 +54,7 @@ func startRouter(app *fiber.App, assets embed.FS, config Config, db *sql.DB) {
 		app:    app,
 		assets: assets,
 		config: config,
-		db:     db,
+		db:     sldb.DB,
 	}
 	// WebSocket 升级中间件
 	app.Use("/ws", func(c *fiber.Ctx) error {
@@ -88,7 +89,7 @@ func startRouter(app *fiber.App, assets embed.FS, config Config, db *sql.DB) {
 		}
 
 		// 创建客户端
-		wsClient := NewWSClient(conn, wsHub, db, tokenJWT.Role, token, id, name)
+		wsClient := NewWSClient(conn, wsHub, sldb, tokenJWT.Role, token, id, name)
 
 		// 注册客户端
 		wsHub.register <- wsClient

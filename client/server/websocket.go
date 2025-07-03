@@ -1,8 +1,8 @@
 package server
 
 import (
+	"LanDrop/client/db"
 	"context"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -22,7 +22,7 @@ type WSClient struct {
 	Id        string
 	Name      string
 	Conn      *websocket.Conn
-	DB        *sql.DB
+	SLDB      db.SqlliteDB
 	Send      chan []byte
 	Hub       *WSHub
 	UserToken string
@@ -36,8 +36,8 @@ type WSClient struct {
 
 // WebSocket消息结构体
 type WSMessage struct {
-	Type    string      `json:"type"`
-	Content interface{} `json:"content"`
+	Type    string `json:"type"`
+	Content any    `json:"content"`
 }
 
 // 设备实时信息结构体
@@ -281,7 +281,7 @@ func (h *WSHub) Close() {
 // 客户端方法
 
 // 创建新的WebSocket客户端
-func NewWSClient(conn *websocket.Conn, hub *WSHub, db *sql.DB, userType string, userToken string, id string, name string) *WSClient {
+func NewWSClient(conn *websocket.Conn, hub *WSHub, db db.SqlliteDB, userType string, userToken string, id string, name string) *WSClient {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	return &WSClient{
@@ -289,7 +289,7 @@ func NewWSClient(conn *websocket.Conn, hub *WSHub, db *sql.DB, userType string, 
 		Id:        id,
 		Name:      name,
 		Conn:      conn,
-		DB:        db,
+		SLDB:      db,
 		Send:      make(chan []byte, 1024*1024), // 支持10MB的聊天内容
 		Hub:       hub,
 		UserToken: userToken,
@@ -416,47 +416,44 @@ func (c *WSClient) handleMessage(msg WSMessage) {
 	c.mutex.Lock()
 	c.LastPing = time.Now()
 	c.mutex.Unlock()
-	log.Println("onMessage", msg.Type)
+	log.Println("handle", msg.Content)
 	switch msg.Type {
 	case "pong":
 		// 处理pong响应
 		log.Printf("收到客户端 %s 的pong", c.clientID)
-	case "getClientList":
-		clientsList := []map[string]any{}
-		for _, v := range c.Hub.clients {
-			client := map[string]any{}
-			client["clientID"] = v.clientID
-			client["name"] = v.Name
-			client["id"] = v.Id
-			client["type"] = v.UserType
-			client["isActive"] = v.IsActive
-			clientsList = append(clientsList, client)
-		}
-		response := WSMessage{
-			Type:    "clientList",
-			Content: clientsList,
-		}
-		if err := c.SendMessage(response); err != nil {
-			log.Printf("发送消息给客户端 %s 失败: %v", c.clientID, err)
-		}
+	case "queryClients":
+		queryClients(c, msg)
+		// clientsList := []map[string]any{}
+		// for _, v := range c.Hub.clients {
+		// 	client := map[string]any{}
+		// 	client["clientID"] = v.clientID
+		// 	client["name"] = v.Name
+		// 	client["id"] = v.Id
+		// 	client["type"] = v.UserType
+		// 	client["isActive"] = v.IsActive
+		// 	clientsList = append(clientsList, client)
+		// }
+		// response := WSMessage{
+		// 	Type:    "clientList",
+		// 	Content: clientsList,
+		// }
+		// if err := c.SendMessage(response); err != nil {
+		// 	log.Printf("发送消息给客户端 %s 失败: %v", c.clientID, err)
+		// }
 	case "chatSendData":
 		if content, ok := msg.Content.(map[string]any); ok {
-			// from := content["from"]
 			to := content["to"].(string)
-			// message := content["message"]
-			// todo 记录数据库
 			receiveData := WSMessage{
 				Type:    "chatReceiveData",
 				Content: msg.Content,
 			}
-			c.DB.Exec(`INSERT INTO chat_records ("to", "from", "message", "isRead", "time") VALUES ('?, ?, ?, ?, ?)`, content["to"], content["from"], content["message"], "n", time.Now().Unix())
+			c.SLDB.DB.Exec(`INSERT INTO chat_records ("to", "from", "message", "isRead", "time") VALUES ('?, ?, ?, ?, ?)`, content["to"], content["from"], content["message"], "n", time.Now().Unix())
 			// 针对特定客户端发送消息
 			log.Printf("发送消息给客户端 %s", to)
 			if err := c.Hub.clients[to].SendMessage(receiveData); err != nil {
 				log.Printf("发送消息给客户端 %s 失败: %v", c.clientID, err)
 			}
 		}
-		log.Println(msg.Content)
 	case "requestDeviceInfo":
 		// 立即发送设备信息
 		deviceInfo := c.Hub.getDeviceRealTimeInfo()
@@ -482,4 +479,42 @@ func sendErrorAndClose(conn *websocket.Conn, errorMsg string) {
 		conn.WriteMessage(websocket.TextMessage, sendByte)
 	}
 	conn.Close()
+}
+
+// 消息接收
+func queryClients(c *WSClient, msg WSMessage) {
+	// clientsList := []map[string]any{}
+	log.Println("msg.Content", msg.Content)
+	if content, ok := msg.Content.(map[string]any); ok {
+		uId, _ := content["userId"].(int)
+		dataList, err := c.SLDB.QueryList(`SELECT * FROM users 
+		WHERE id != ? 
+		AND NOT EXISTS (
+			SELECT 1 FROM friendships 
+			WHERE userId = ? AND friendId = users.id
+		)`, uId, uId)
+		if err != nil {
+			log.Println("错误", err)
+		}
+		log.Println("dataList:", dataList)
+		// for _, v := range c.Hub.clients {
+		// 	client := map[string]any{}
+		// 	client["clientID"] = v.clientID
+		// 	client["name"] = v.Name
+		// 	client["id"] = v.Id
+		// 	client["type"] = v.UserType
+		// 	client["isActive"] = v.IsActive
+		// 	clientsList = append(clientsList, client)
+		// }
+		response := WSMessage{
+			Type: "clientList",
+			Content: map[string]any{
+				"clients": dataList,
+			},
+		}
+		if err := c.SendMessage(response); err != nil {
+			log.Printf("发送消息给客户端 %s 失败: %v", c.clientID, err)
+		}
+	}
+
 }

@@ -141,7 +141,11 @@ export default function AppWeb() {
     const changeUserEvent = async (index: number) => {
         let userItem = userList[index]
         setUserInfo(userItem)
-        setStoreData({name: "userInfo", value: userItem})
+        setStoreData({name: "userInfo", value: {
+            userId: userItem.id,
+            userName: userItem.name,
+            // userItem
+        }})
         localStorage.setItem("rememberUserInfo", JSON.stringify(userItem))
         const tokenRes = await getUserToken(userItem.id, userItem.name) // 选择用户获取token
         localStorage.setItem("userToken", tokenRes.data.token)

@@ -31,7 +31,7 @@ var (
 	serverMutex sync.Mutex         // 服务器状态锁
 	shutdownCtx context.Context    // 上下文
 	cancelFunc  context.CancelFunc // 取消函数
-	DB          *sql.DB            // sqlite数据库
+	slDB        db.SqlliteDB       // sqlite数据库
 	AppDir      string             // 进程所在目录
 	AppErr      error              // 错误信息
 )
@@ -47,7 +47,7 @@ func init() {
 	shutdownCtx, cancelFunc = context.WithCancel(context.Background())
 	AppDir = getAppDir()
 	// 数据库连接
-	DB, AppErr = db.InitDB(filepath.Join(AppDir, "app.db"))
+	slDB, AppErr = db.InitDB(filepath.Join(AppDir, "app.db"))
 }
 
 type Config struct {
@@ -96,7 +96,7 @@ func GetSettingInfo() Config {
 		Version:         "",
 		TokenExpiryTime: 0,
 	}
-	err := DB.QueryRow(`SELECT appName, port,sharedDir ,version, tokenExpiryTime FROM settings WHERE name = 'config'`).Scan(&d.AppName, &d.Port, &d.SharedDir, &d.Version, &d.TokenExpiryTime)
+	err := slDB.DB.QueryRow(`SELECT appName, port,sharedDir ,version, tokenExpiryTime FROM settings WHERE name = 'config'`).Scan(&d.AppName, &d.Port, &d.SharedDir, &d.Version, &d.TokenExpiryTime)
 	if err != nil && err == sql.ErrNoRows {
 		sharedDir := createSharedDir(AppDir) // 创建默认分享目录
 		d.AppName = "LanDrop"
@@ -105,7 +105,7 @@ func GetSettingInfo() Config {
 		d.Version = "V1.0.0"
 		d.TokenExpiryTime = 24
 		nowDate := time.Now().Format("2006-01-02 15:04:05")
-		if _, err := DB.Exec(`INSERT INTO settings (name, appName, port, sharedDir, version, tokenExpiryTime, createdAt, modifiedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, "config", d.AppName, d.Port, d.SharedDir, d.Version, d.TokenExpiryTime, nowDate, nowDate); err != nil {
+		if _, err := slDB.DB.Exec(`INSERT INTO settings (name, appName, port, sharedDir, version, tokenExpiryTime, createdAt, modifiedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, "config", d.AppName, d.Port, d.SharedDir, d.Version, d.TokenExpiryTime, nowDate, nowDate); err != nil {
 			log.Println("插入配置失败", err)
 		}
 		log.Println("没有数据插入数据", d)
@@ -116,7 +116,7 @@ func GetSettingInfo() Config {
 
 // 更新分享目录信息
 func UpdateDirInfo(updateFields []string, updateValues []any) (sql.Result, error) {
-	return DB.Exec(fmt.Sprintf(`UPDATE settings SET %v WHERE name = 'config'`, strings.Join(updateFields, ",")), updateValues...)
+	return slDB.DB.Exec(fmt.Sprintf(`UPDATE settings SET %v WHERE name = 'config'`, strings.Join(updateFields, ",")), updateValues...)
 }
 
 // 启动服务器
@@ -130,7 +130,7 @@ func Run(assets embed.FS) {
 	// 加载配置文件通过数据库
 	config := GetSettingInfo()
 	// 启动监听目录【使用goroutine避免阻塞进程】
-	go fsListen.FSWatcher(config.SharedDir, DB)
+	go fsListen.FSWatcher(config.SharedDir, slDB.DB)
 	if !isPortAvailable(config.Port) {
 		log.Println(fmt.Printf("端口 %v 已被占用，跳过 Fiber 启动", config.Port))
 		return
@@ -245,7 +245,7 @@ func Run(assets embed.FS) {
 	app.Static("/shared", config.SharedDir)
 
 	// 启动路由组
-	startRouter(app, assets, config, DB)
+	startRouter(app, assets, config, slDB)
 
 	// 404 处理
 	app.Use(func(c *fiber.Ctx) error {

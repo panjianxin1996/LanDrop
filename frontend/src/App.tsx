@@ -8,7 +8,7 @@ import { useApiRequest } from "@/tools/request"
 export default function App() {
   const navigate = useNavigate();
   const { request } = useApiRequest()
-  const { isClient, checkIsClient, setStoreData, connectWS, closeWS, selectNetAdapter, setSelectNetAdapter, adminName } = useClientStore()
+  const { isClient, checkIsClient, setStoreData, connectWS, closeWS, selectNetAdapter, setSelectNetAdapter, userInfo } = useClientStore()
 
   useEffect(() => {
     checkIsClient().then(res => {
@@ -42,26 +42,32 @@ export default function App() {
   }
 
   const appLogin = () => {
-    let newAdminName
-    if (!adminName) {
-      newAdminName = `admin${(Math.random() * 1000).toFixed(0)}`
-    }
+    let uName
+    if (!userInfo.userName)  uName = `admin${(Math.random() * 1000).toFixed(0)}` 
+    else  uName = userInfo.userName
     setStoreData({
-      name: 'adminName', value: newAdminName, endSet: (store) => {
+      name: 'userInfo', value: {...userInfo, userName: uName}, endSet: (store) => {
+        console.log(store,"store")
         request("/appLogin", "POST", {
-          adminName: store.adminName,
-          adminPassword: `landrop#${store.adminName}`,
+          adminName: store.userInfo.userName,
+          adminPassword: `landrop#${store.userInfo.userName}`,
           timeStamp: new Date().getTime().toString()
         }).then(res => {
           if (res && res.code === 200) {
             localStorage.setItem("ldtoken", res.data.token)
             setStoreData({
               beforeSet: (_, set) => {
-                set({ token: res.data.token, adminName: res.data.adminName, adminId: res.data.adminId })
+                set({ 
+                  userInfo: {
+                    token: res.data.token,
+                    userName: res.data.adminName,
+                    userId: res.data.adminId,
+                  }
+                })
               },
               endSet: (store) => {
                 // 连接socket数据
-                connectWS(store.adminId, store.adminName, store.token)
+                connectWS(store.userInfo.userId, store.userInfo.userName, store.userInfo.token)
               }
             })
             // 获取网卡列表
@@ -70,7 +76,6 @@ export default function App() {
         })
       }
     })
-
   }
 
   return !isClient && checkPagePath() ? <></> : (<SidebarProvider style={{ height: "100vh" }}>
