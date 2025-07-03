@@ -1,5 +1,5 @@
 import * as React from "react"
-import { Check, Plus, Send } from "lucide-react"
+import { Check, Send, Bell, UserRoundPlus } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
   Avatar,
@@ -29,12 +29,14 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+
 import useClientStore from "@/store/appStore"
 
 export default function ChatBox() {
@@ -52,16 +54,17 @@ export default function ChatBox() {
       wsHandle.onmessage = (event) => {
         const msg = JSON.parse(event.data);
         if (msg.type === "chatReceiveData") {
-          setMessages((prevMessages:any) => [...prevMessages, {user: msg.content.from, message: msg.content.message}]);
+          setMessages((prevMessages: any) => [...prevMessages, { user: msg.content.from, message: msg.content.message }]);
         } else if (msg.type === "clientList") {
-          console.log("msg.content",msg.content)
+          console.log("msg.content", msg.content)
           setUsers(msg.content)
+        } else if (msg.type === "userData") {
+          console.log("获取初始化数据")
         }
       };
     }
-    
   }, [])
-  const sendData = (message:string) => {
+  const sendData = (message: string) => {
     wsHandle?.send(JSON.stringify({
       type: "chatSendData",
       content: {
@@ -71,7 +74,7 @@ export default function ChatBox() {
       },
     }))
   };
-  const getClientList = ()=> {
+  const getClientList = () => {
     wsHandle?.send(JSON.stringify({
       type: "getClientList",
       content: null,
@@ -80,48 +83,59 @@ export default function ChatBox() {
 
   return (
     <div className="flex h-full">
-      <div className="w-2/6 min-[1025px]:w-1/5 pr-2">
-        <Card className=" h-full">
-          {
-            chatUserList.map((item:any)=> {
-              return <div className="p-4">
-                {item.name}
-              </div>
-            })
-          }
+      <div className="w-64">
+        <Card className="p-2 h-full border-0 rounded-none">
+          <div className="flex gap-2 justify-end">
+            <TooltipProvider delayDuration={0}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button size="sm" variant="ghost" className="relative px-0" onClick={() => { getClientList(); setOpen(true); }}>
+                    <Bell />
+                    <p className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded"></p>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent sideOffset={10}>通知</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <TooltipProvider delayDuration={0}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button size="sm" variant="ghost" className="relative px-0" onClick={() => { getClientList(); setOpen(true); }}>
+                    <UserRoundPlus />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent sideOffset={10}>添加用户</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+          <Input className="my-2" placeholder="搜索我的好友"></Input>
+          <div>
+            {
+              chatUserList.map((item: any) => {
+                return <div className="p-4">
+                  {item.name}
+                </div>
+              })
+            }
+          </div>
         </Card>
       </div>
-      <Card className="h-full flex flex-col justify-between w-4/6 min-[1025px]:w-4/5">
-        <CardHeader className="flex flex-row items-center">
+      <Card className="h-full flex flex-col justify-between border-0 rounded-none border-l-[1px]" style={{width: "calc(100% - 16rem)"}}>
+        <CardHeader className="flex flex-row items-center h-14 p-2">
           <div className="flex items-center space-x-4">
             <Avatar>
-              {/* <AvatarImage src="/avatars/01.png" alt="Image" /> */}
-              <AvatarFallback>{chatUser?.name.slice(0,2)}</AvatarFallback>
+              <AvatarFallback>{chatUser?.name.slice(0, 2)}</AvatarFallback>
             </Avatar>
             <div>
               <p className="text-sm font-medium leading-none">{chatUser?.name}</p>
               <p className="text-sm text-muted-foreground">{chatUser?.type}</p>
             </div>
           </div>
-          <TooltipProvider delayDuration={0}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  size="icon"
-                  variant="outline"
-                  className="ml-auto rounded-full"
-                  onClick={() => {getClientList();setOpen(true);}}
-                >
-                  <Plus />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent sideOffset={10}>New message</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+
         </CardHeader>
-        <CardContent className="pb-0 mb-4 h-4/5 overflow-y-scroll">
+        <CardContent className="pb-0 mb-4 overflow-y-auto max-h-[310px] ">
           <div className="space-y-4">
-            {messages.map((message:any, index:number) => (
+            {messages.map((message: any, index: number) => (
               <div
                 key={index}
                 className={cn(
@@ -136,7 +150,7 @@ export default function ChatBox() {
             ))}
           </div>
         </CardContent>
-        <CardFooter>
+        <CardFooter className="p-2 pt-0 pb-4">
           <form
             onSubmit={(event) => {
               event.preventDefault()
@@ -153,10 +167,9 @@ export default function ChatBox() {
             }}
             className="flex w-full items-center space-x-2"
           >
-            <Input
+            <Textarea
               id="message"
-              placeholder="Type your message..."
-              className="flex-1"
+              className="flex-1 resize-none"
               autoComplete="off"
               value={input}
               onChange={(event) => setInput(event.target.value)}
@@ -178,7 +191,7 @@ export default function ChatBox() {
             <CommandList>
               <CommandEmpty>当前没有活跃用户。</CommandEmpty>
               <CommandGroup className="p-2">
-                {users.map((user:any) => (
+                {users.map((user: any) => (
                   <CommandItem
                     key={user.id}
                     className="flex items-center px-2"
@@ -186,7 +199,7 @@ export default function ChatBox() {
                       if (selectedUsers.includes(user)) {
                         return setSelectedUsers(
                           selectedUsers.filter(
-                            (selectedUser:any) => selectedUser !== user
+                            (selectedUser: any) => selectedUser !== user
                           )
                         )
                       }
@@ -205,7 +218,7 @@ export default function ChatBox() {
                         {user.name}
                       </p>
                       <p className="text-sm text-muted-foreground">
-                        {user.type === 'admin' ? "管理员": "普通用户"}
+                        {user.type === 'admin' ? "管理员" : "普通用户"}
                       </p>
                     </div>
                     {selectedUsers.includes(user) ? (
@@ -219,7 +232,7 @@ export default function ChatBox() {
           <DialogFooter className="flex items-center border-t p-4 !flex-row justify-between">
             {selectedUsers.length > 0 ? (
               <div className="flex -space-x-2 overflow-hidden">
-                {selectedUsers.map((user:any) => (
+                {selectedUsers.map((user: any) => (
                   <Avatar
                     key={user.id}
                     className="inline-block border-2 border-background"
@@ -239,7 +252,7 @@ export default function ChatBox() {
                 setChatUser(selectedUsers[0])
                 setChatUserList([...chatUserList, ...selectedUsers])
               }}
-            >确定</Button>
+            >添加为好友</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

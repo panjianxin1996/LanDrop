@@ -86,8 +86,8 @@ export default function AppWeb() {
             setOpenUserDialog(false)
             setUserInfo(JSON.parse(rememberUser))
             setIsLogin(true)
-            connectWSServer()
         }
+        connectWSServer()
         getUserList()
     }
     const getUserList = () => {

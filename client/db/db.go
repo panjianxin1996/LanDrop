@@ -32,7 +32,8 @@ func InitDB(dbPath string) (*sql.DB, error) {
 		pwd TEXT NOT NULL,
 		role TEXT NOT NULL,
 		ip TEXT NOT NULL,
-		createdAt DATETIME DEFAULT CURRENT_TIMESTAMP)`); err != nil {
+		createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
 		return nil, fmt.Errorf("初始化用户表结构失败: %v", err)
 	}
 	// 初始化客户端设置表结构
@@ -47,19 +48,34 @@ func InitDB(dbPath string) (*sql.DB, error) {
 		"createdAt" TEXT,
 		"modifiedAt" TEXT,
 		CONSTRAINT "name unique" UNIQUE ("name" ASC)
-		)`); err != nil {
+	)`); err != nil {
 		return nil, fmt.Errorf("初始化客户端设置表结构失败: %v", err)
 	}
-	// 初始化客户端设置表结构
+	// 初始化聊天记录表结构
 	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS chat_records (
 		"cId" INTEGER PRIMARY KEY AUTOINCREMENT,
 		"to" TEXT NOT NULL,
 		"from" TEXT NOT NULL,
 		"isRead" TEXT,
+		"type" TEXT,
 		"message" TEXT,
 		"time" integer NOT NULL
-		)`); err != nil {
+	)`); err != nil {
 		return nil, fmt.Errorf("初始化聊天记录表结构失败: %v", err)
+	}
+	// 初始化好友表结构
+	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS friendships (
+		"fId" INTEGER PRIMARY KEY AUTOINCREMENT,
+		"userId" INTEGER NOT NULL,
+		"friendId" INTEGER NOT NULL,
+		"status" TEXT,
+		"lastMessage" TEXT,
+		"createTime" TEXT,
+		CONSTRAINT "userId" FOREIGN KEY ("userId") REFERENCES "users" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION,
+		CONSTRAINT "friendId" FOREIGN KEY ("friendId") REFERENCES "users" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION
+	);
+	CREATE INDEX IF NOT EXISTS idx_friendships_status ON friendships(status);`); err != nil {
+		return nil, fmt.Errorf("初始化好友表结构失败: %v", err)
 	}
 	return db, nil
 }

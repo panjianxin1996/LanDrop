@@ -78,7 +78,7 @@ export default function App() {
     {/* 侧边栏 */}
     <AppSidebar variant="inset" />
     {/* 主体 */}
-    <SidebarInset className="overflow-auto !w-3/5">
+    <SidebarInset className="overflow-auto !w-3/5 !m-0 !rounded-none h-full ">
       <SiteHeader />
       <main className=" flex flex-1 flex-col">
         <Outlet />
