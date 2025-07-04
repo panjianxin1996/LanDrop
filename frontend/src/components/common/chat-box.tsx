@@ -36,51 +36,87 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import { Badge } from "@/components/ui/badge"
 import useClientStore from "@/store/appStore"
 
 export default function ChatBox() {
   const { wsHandle, userInfo } = useClientStore()
+  const [clientData, setClientData] = React.useState<any>({}) // 当前设备ID
   const [open, setOpen] = React.useState(false)
   const [selectedUsers, setSelectedUsers] = React.useState<any>([])
-  const [chatUser, setChatUser] = React.useState<any>(null)
-  const [chatUserList, setChatUserList] = React.useState<any>([])
+  // @ts-ignore
+  const [chatUser, setChatUser] = React.useState<any>(null) // 聊天中的好友
+  // @ts-ignore
+  const [chatUserList, setChatUserList] = React.useState<any>([]) //左侧好友列表
   const [messages, setMessages] = React.useState<any>([])
   const [input, setInput] = React.useState("")
   const [users, setUsers] = React.useState<any>([])
+  const [notifyList, setNotifyList] = React.useState<any>([])
   const inputLength = input.trim().length
   React.useEffect(() => {
     if (wsHandle) {
+      sendMessage("pullData") // 获取初始数据
       wsHandle.onmessage = (event) => {
-        const msg = JSON.parse(event.data);
-        if (msg.type === "chatReceiveData") {
-          setMessages((prevMessages: any) => [...prevMessages, { user: msg.content.from, message: msg.content.message }]);
-        } else if (msg.type === "clientList") {
-          console.log("msg.content", msg.content)
-          setUsers(msg.content)
-        } else if (msg.type === "userData") {
-          console.log("获取初始化数据")
+        const m = JSON.parse(event.data);
+        if (m.type === "chatReceiveData") {
+          setMessages((prevMessages: any) => [...prevMessages, { user: m.content.from, message: m.content.message }]);
+        } else if (m.type === "clientList") {
+          console.log("msg.content", m.content)
+          if (m.content.data) {
+            setUsers(m.content.data)
+          }
+        }else if (m.type === "checkAddFriends") { // 用户被添加好友监听
+          setNotifyList([...notifyList, m.content])
+          // setChatUserList([...chatUserList, ...selectedUsers])
+        } else if (m.type === "initData") { // 获取初始化数据,包含当前设备信息以及设备待处理的数据,消息,通知等数据
+          setClientData(m.content)
+        } else if (m.type === 'ping') {
+          sendMessage("pong")
         }
       };
     }
   }, [])
+
+  const sendMessage = (type: string, sendData?: any) => {
+    wsHandle?.send(JSON.stringify({ type, sendData, content: {}, user: { userId: userInfo.userId, userName: userInfo.userName } }))
+  }
   const sendData = (message: string) => {
-    wsHandle?.send(JSON.stringify({
-      type: "chatSendData",
-      content: {
-        to: chatUser?.clientID,
-        from: userInfo.userName,
-        message
-      },
-    }))
+    sendMessage("chatSendData", {
+      to: chatUser.clientID,
+      toId: chatUser.id,
+      from: userInfo.userName,
+      fromId: userInfo.userId,
+      message
+    })
   };
   const getClientList = () => {
-    wsHandle?.send(JSON.stringify({
-      type: "queryClients",
-      content: {
-        userId: userInfo.userId
-      },
-    }))
+    sendMessage("queryClients")
+  }
+
+  const dealWithFriendsRequest = (status:string, item:any) => {
+    sendMessage("dealWithFriendsRequest", { 
+      status,
+      ...item
+    })
+  }
+
+  const addFriends = () => {
+    // console.log(selectedUsers,"selectedUsers")
+    let friend = selectedUsers[0]
+    sendMessage("addFriends", {
+      to: friend.clientID,
+      toId: friend.id,
+      toName: friend.name,
+      from: clientData.clientID,
+      fromId: clientData.id,
+      fromName: clientData.name,
+
+    })
   }
 
   return (
@@ -88,17 +124,39 @@ export default function ChatBox() {
       <div className="w-64">
         <Card className="p-2 h-full border-0 rounded-none">
           <div className="flex gap-2 justify-end">
-            <TooltipProvider delayDuration={0}>
+
+            {/* <TooltipProvider delayDuration={0}>
               <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button size="sm" variant="ghost" className="relative px-0" onClick={() => { getClientList(); setOpen(true); }}>
-                    <Bell />
-                    <p className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded"></p>
-                  </Button>
-                </TooltipTrigger>
+                <TooltipTrigger asChild> */}
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button size="sm" variant="ghost" className="relative px-0">
+                        <Bell />
+                        {
+                          notifyList.length > 0 && <p className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded"></p>
+                        }                 
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent>
+                      {
+                        notifyList.map((item: any) => (
+                          <div key={item.id} className="flex items-center justify-between p-2">
+                            {
+                              item.fromName
+                            }
+                            <Button onClick={()=>dealWithFriendsRequest("accept", item)}>接受</Button>
+                            <Button onClick={()=>dealWithFriendsRequest("reject", item)}>拒绝</Button>
+                          </div>
+                        ))
+                      }
+                    </PopoverContent>
+                  </Popover>
+
+                {/* </TooltipTrigger>
                 <TooltipContent sideOffset={10}>通知</TooltipContent>
               </Tooltip>
-            </TooltipProvider>
+            </TooltipProvider> */}
+
             <TooltipProvider delayDuration={0}>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -114,7 +172,7 @@ export default function ChatBox() {
           <div>
             {
               chatUserList.map((item: any) => {
-                return <div className="p-4">
+                return <div className="p-4" key={item.id}>
                   {item.name}
                 </div>
               })
@@ -122,7 +180,7 @@ export default function ChatBox() {
           </div>
         </Card>
       </div>
-      <Card className="h-full flex flex-col justify-between border-0 rounded-none border-l-[1px]" style={{width: "calc(100% - 16rem)"}}>
+      <Card className="h-full flex flex-col justify-between border-0 rounded-none border-l-[1px]" style={{ width: "calc(100% - 16rem)" }}>
         <CardHeader className="flex flex-row items-center h-14 p-2">
           <div className="flex items-center space-x-4">
             <Avatar>
@@ -221,6 +279,9 @@ export default function ChatBox() {
                       </p>
                       <p className="text-sm text-muted-foreground">
                         {user.type === 'admin' ? "管理员" : "普通用户"}
+                        {
+                          user.isActive && <Badge variant="secondary">在线</Badge>
+                        }
                       </p>
                     </div>
                     {selectedUsers.includes(user) ? (
@@ -250,9 +311,10 @@ export default function ChatBox() {
               disabled={selectedUsers.length !== 1}
               onClick={() => {
                 setOpen(false)
+                addFriends()
                 // console.log(selectedUsers)
-                setChatUser(selectedUsers[0])
-                setChatUserList([...chatUserList, ...selectedUsers])
+                // setChatUser(selectedUsers[0])
+                // setChatUserList([...chatUserList, ...selectedUsers])
               }}
             >添加为好友</Button>
           </DialogFooter>

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math/rand"
 	"sync"
 	"time"
 
@@ -33,11 +34,23 @@ type WSClient struct {
 	ctx       context.Context
 	cancel    context.CancelFunc
 }
+type WSMsg struct { // WebSocket通用消息结构体
+	ReqID      string `json:"reqId"`      // 请求ID
+	Type       string `json:"type"`       // 类型
+	Content    any    `json:"content"`    // 内容
+	ClientType string `json:"clientType"` // 客户端类型: LD_WEB / LD_APP
+	TimeStamp  int64  `json:"timeStamp"`  // 消息时间戳
+}
 
-// WebSocket消息结构体
-type WSMessage struct {
-	Type    string `json:"type"`
-	Content any    `json:"content"`
+type WebMsg struct { // web客户端传来的消息结构体
+	WSMsg
+	User     UserInfo       `json:"user"`
+	SendData map[string]any `json:"sendData"`
+}
+
+type UserInfo struct { // 用户信息
+	UserId   int64  `json:"userId"`
+	UserName string `json:"userName"`
 }
 
 // 设备实时信息结构体
@@ -57,6 +70,10 @@ type WSHub struct {
 	mutex      sync.RWMutex
 	ctx        context.Context
 	cancel     context.CancelFunc
+}
+
+func init() {
+	rand.Seed(time.Now().UnixNano())
 }
 
 // 创建新的WSHub
@@ -109,7 +126,7 @@ func (h *WSHub) registerClient(client *WSClient) {
 	log.Printf("客户端 %s 已连接，当前连接数: %d", client.clientID, len(h.clients))
 
 	// 发送欢迎消息
-	welcomeMsg := WSMessage{
+	welcomeMsg := WSMsg{
 		Type:    "welcome",
 		Content: "连接成功",
 	}
@@ -122,12 +139,24 @@ func (h *WSHub) unregisterClient(client *WSClient) {
 	defer h.mutex.Unlock()
 
 	if _, exists := h.clients[client.clientID]; exists {
+		// 1. 从Hub中移除
 		delete(h.clients, client.clientID)
+
+		// 2. 关闭发送通道
 		close(client.Send)
-		client.IsActive = false
+
+		// 3. 取消上下文
 		client.cancel()
 
-		log.Printf("客户端 %s 已断开连接，当前连接数: %d", client.clientID, len(h.clients))
+		// 4. 关闭连接
+		if client.Conn != nil {
+			client.Conn.WriteMessage(websocket.CloseMessage, nil)
+			client.Conn.Close()
+		}
+
+		log.Printf("客户端 %s 已完全断开，当前连接数: %d", client.clientID, len(h.clients))
+	} else {
+		log.Printf("注销客户端失败: 客户端 %s 不在连接列表中", client.clientID)
 	}
 }
 
@@ -175,7 +204,7 @@ func (h *WSHub) startDeviceInfoBroadcast() {
 
 		case <-ticker.C:
 			deviceInfo := h.getDeviceRealTimeInfo()
-			message := WSMessage{
+			message := WSMsg{
 				Type:    "deviceRealTimeInfo",
 				Content: deviceInfo,
 			}
@@ -191,14 +220,13 @@ func (h *WSHub) startDeviceInfoBroadcast() {
 
 // 启动连接健康检查
 func (h *WSHub) startHealthCheck() {
-	ticker := time.NewTicker(30 * time.Second)
+	ticker := time.NewTicker(15 * time.Second) // 改为15秒
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-h.ctx.Done():
 			return
-
 		case <-ticker.C:
 			h.mutex.RLock()
 			clients := make([]*WSClient, 0, len(h.clients))
@@ -208,15 +236,15 @@ func (h *WSHub) startHealthCheck() {
 			h.mutex.RUnlock()
 
 			for _, client := range clients {
-				// 检查客户端是否超时
-				if time.Since(client.LastPing) > 60*time.Second {
+				// 超时时间改为30秒
+				if time.Since(client.LastPing) > 30*time.Second {
 					log.Printf("客户端 %s 超时，将被断开", client.clientID)
 					h.unregister <- client
 					continue
 				}
 
 				// 发送ping消息
-				pingMsg := WSMessage{
+				pingMsg := WSMsg{
 					Type:    "ping",
 					Content: time.Now().Unix(),
 				}
@@ -302,11 +330,14 @@ func NewWSClient(conn *websocket.Conn, hub *WSHub, db db.SqlliteDB, userType str
 }
 
 // 客户端读取消息
+// 客户端读取消息
 func (c *WSClient) ReadPump() {
 	defer func() {
 		c.Hub.unregister <- c
 		c.Conn.Close()
 	}()
+	log.Printf("客户端 %s 开始读取消息", c.clientID)
+
 	// 设置读取限制和超时
 	c.Conn.SetReadLimit(1024 * 1024 * 10) // 设置读15MB
 	c.Conn.SetReadDeadline(time.Now().Add(60 * time.Second))
@@ -317,62 +348,59 @@ func (c *WSClient) ReadPump() {
 		c.Conn.SetReadDeadline(time.Now().Add(60 * time.Second))
 		return nil
 	})
+
 	for {
 		select {
 		case <-c.ctx.Done():
+			log.Printf("客户端 %s 已关闭读取循环", c.clientID)
 			return
 		default:
-			var msg WSMessage
+			var msg WebMsg
 			err := c.Conn.ReadJSON(&msg)
 			if err != nil {
-				if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-					log.Printf("WebSocket读取错误: %v", err)
-				}
+				log.Printf("WebSocket读取错误: %v，客户端 %s", err, c.clientID)
 				return
 			}
+			log.Printf("收到来自客户端 %s 的消息: %+v", c.clientID, msg)
 			c.handleMessage(msg)
 		}
 	}
 }
 
 // 客户端写入消息
+// 客户端写入消息
 func (c *WSClient) WritePump() {
-	ticker := time.NewTicker(54 * time.Second)
+	ticker := time.NewTicker(15 * time.Second) // 改为15秒
 	defer func() {
 		ticker.Stop()
+		c.Hub.unregister <- c // 确保退出时注销
 		c.Conn.Close()
 	}()
+	log.Printf("客户端 %s 开始写入消息", c.clientID)
 
 	for {
 		select {
 		case <-c.ctx.Done():
+			log.Printf("客户端 %s 已关闭写入循环", c.clientID)
 			return
 
 		case message, ok := <-c.Send:
-			c.Conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
 			if !ok {
-				c.Conn.WriteMessage(websocket.CloseMessage, []byte{})
+				// 通道已关闭
+				log.Printf("客户端 %s 发送通道已关闭", c.clientID)
 				return
 			}
 
+			c.Conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
 			if err := c.safeWriteMessage(websocket.TextMessage, message); err != nil {
-				log.Printf("发送消息失败: %v", err)
+				log.Printf("客户端 %s 发送消息失败: %v", c.clientID, err)
 				return
-			}
-
-			// 批量发送队列中的其他消息
-			n := len(c.Send)
-			for i := 0; i < n; i++ {
-				if err := c.safeWriteMessage(websocket.TextMessage, <-c.Send); err != nil {
-					log.Printf("批量发送消息失败: %v", err)
-					return
-				}
 			}
 
 		case <-ticker.C:
 			c.Conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
 			if err := c.Conn.WriteMessage(websocket.PingMessage, nil); err != nil {
-				log.Printf("发送ping失败: %v", err)
+				log.Printf("客户端 %s 发送ping失败: %v", c.clientID, err)
 				return
 			}
 		}
@@ -392,7 +420,7 @@ func (c *WSClient) safeWriteMessage(messageType int, data []byte) error {
 }
 
 // 发送消息给客户端
-func (c *WSClient) SendMessage(msg WSMessage) error {
+func (c *WSClient) SendMessage(msg WSMsg) error {
 	if !c.IsActive {
 		return nil
 	}
@@ -411,53 +439,37 @@ func (c *WSClient) SendMessage(msg WSMessage) error {
 	}
 }
 
+func generateClientID() string {
+	return fmt.Sprintf("LD_%d_%d", time.Now().UnixMilli(), rand.Intn(100000))
+}
+
 // 处理客户端消息
-func (c *WSClient) handleMessage(msg WSMessage) {
+func (c *WSClient) handleMessage(msg WebMsg) {
 	c.mutex.Lock()
 	c.LastPing = time.Now()
 	c.mutex.Unlock()
-	log.Println("handle", msg.Content)
+	if msg.ReqID == "" {
+		msg.ReqID = generateClientID()
+	}
 	switch msg.Type {
 	case "pong":
 		// 处理pong响应
 		log.Printf("收到客户端 %s 的pong", c.clientID)
+	case "pullData":
+		pullData(c, msg)
 	case "queryClients":
 		queryClients(c, msg)
-		// clientsList := []map[string]any{}
-		// for _, v := range c.Hub.clients {
-		// 	client := map[string]any{}
-		// 	client["clientID"] = v.clientID
-		// 	client["name"] = v.Name
-		// 	client["id"] = v.Id
-		// 	client["type"] = v.UserType
-		// 	client["isActive"] = v.IsActive
-		// 	clientsList = append(clientsList, client)
-		// }
-		// response := WSMessage{
-		// 	Type:    "clientList",
-		// 	Content: clientsList,
-		// }
-		// if err := c.SendMessage(response); err != nil {
-		// 	log.Printf("发送消息给客户端 %s 失败: %v", c.clientID, err)
-		// }
+	case "addFriends":
+		addFriends(c, msg)
+	case "dealWithFriendsRequest":
+		dealWithFriendsRequest(c, msg)
 	case "chatSendData":
-		if content, ok := msg.Content.(map[string]any); ok {
-			to := content["to"].(string)
-			receiveData := WSMessage{
-				Type:    "chatReceiveData",
-				Content: msg.Content,
-			}
-			c.SLDB.DB.Exec(`INSERT INTO chat_records ("to", "from", "message", "isRead", "time") VALUES ('?, ?, ?, ?, ?)`, content["to"], content["from"], content["message"], "n", time.Now().Unix())
-			// 针对特定客户端发送消息
-			log.Printf("发送消息给客户端 %s", to)
-			if err := c.Hub.clients[to].SendMessage(receiveData); err != nil {
-				log.Printf("发送消息给客户端 %s 失败: %v", c.clientID, err)
-			}
-		}
+		chatSendData(c, msg)
+
 	case "requestDeviceInfo":
 		// 立即发送设备信息
 		deviceInfo := c.Hub.getDeviceRealTimeInfo()
-		response := WSMessage{
+		response := WSMsg{
 			Type:    "deviceRealTimeInfo",
 			Content: deviceInfo,
 		}
@@ -482,39 +494,126 @@ func sendErrorAndClose(conn *websocket.Conn, errorMsg string) {
 }
 
 // 消息接收
-func queryClients(c *WSClient, msg WSMessage) {
-	// clientsList := []map[string]any{}
-	log.Println("msg.Content", msg.Content)
-	if content, ok := msg.Content.(map[string]any); ok {
-		uId, _ := content["userId"].(int)
-		dataList, err := c.SLDB.QueryList(`SELECT * FROM users 
-		WHERE id != ? 
-		AND NOT EXISTS (
-			SELECT 1 FROM friendships 
-			WHERE userId = ? AND friendId = users.id
-		)`, uId, uId)
-		if err != nil {
-			log.Println("错误", err)
+
+func pullData(c *WSClient, msg WebMsg) {
+	response := WSMsg{
+		ReqID:      msg.ReqID,
+		Type:       "initData",
+		ClientType: "LD_APP",
+		Content: map[string]any{
+			"clientID":    c.clientID,
+			"id":          c.Id,
+			"name":        c.Name,
+			"notifyList":  nil,
+			"messageList": nil,
+		},
+		TimeStamp: time.Now().UnixMilli(),
+	}
+	if err := c.SendMessage(response); err != nil {
+		log.Printf("reqID: %v|发送消息给客户端 %s 失败: %v", msg.ReqID, c.clientID, err)
+	}
+}
+func queryClients(c *WSClient, msg WebMsg) {
+	content := map[string]any{}
+	if msg.User.UserId == 0 {
+		content["code"] = -1
+		content["error"] = "缺少用户信息,拒绝访问"
+	} else {
+		dataList := c.SLDB.QueryList(`SELECT * FROM users 
+			WHERE id != ? AND id > 999
+			AND NOT EXISTS (
+				SELECT 1 FROM friendships 
+				WHERE userId = ? AND friendId = users.id AND status != 'reject'
+			)`, msg.User.UserId, msg.User.UserId)
+		for _, item := range dataList {
+			clientID := fmt.Sprintf(`%v#%v`, item["name"], item["id"])
+			cItem, ok := c.Hub.clients[clientID]
+			if ok {
+				item["clientID"] = clientID
+				item["isActive"] = cItem.IsActive
+			} else {
+				item["clientID"] = ""
+				item["isActive"] = false
+			}
 		}
-		log.Println("dataList:", dataList)
-		// for _, v := range c.Hub.clients {
-		// 	client := map[string]any{}
-		// 	client["clientID"] = v.clientID
-		// 	client["name"] = v.Name
-		// 	client["id"] = v.Id
-		// 	client["type"] = v.UserType
-		// 	client["isActive"] = v.IsActive
-		// 	clientsList = append(clientsList, client)
-		// }
-		response := WSMessage{
-			Type: "clientList",
+		content["code"] = 0
+		content["error"] = nil
+		content["data"] = dataList
+	}
+	response := WSMsg{
+		ReqID:      msg.ReqID,
+		Type:       "clientList",
+		ClientType: "LD_APP",
+		Content:    content,
+		TimeStamp:  time.Now().UnixMilli(),
+	}
+	if err := c.SendMessage(response); err != nil {
+		log.Printf("reqID: %v|发送消息给客户端 %s 失败: %v", msg.ReqID, c.clientID, err)
+	}
+}
+
+func addFriends(c *WSClient, m WebMsg) {
+	to := m.SendData["to"].(string)
+	result, _ := c.SLDB.Exec(`INSERT INTO friendships ("userId", "friendId", "status", "createTime") VALUES (?, ?, 'pending', ?)`,
+		m.SendData["fromId"], m.SendData["toId"], time.Now().UnixMilli())
+	fId, _ := result.LastInsertId()
+	m.SendData["fId"] = fId // 注入fId
+	receiveData := WSMsg{
+		Type:    "checkAddFriends",
+		Content: m.SendData,
+	}
+	// 针对特定客户端发送消息
+	if targetClient, ok := c.Hub.clients[to]; ok {
+		if err := targetClient.SendMessage(receiveData); err != nil {
+			log.Printf("reqID: %v|发送消息给客户端 %s 失败: %v", m.ReqID, c.clientID, err)
+		}
+	} else {
+		log.Println("目标客户端未在线", to, m.ReqID)
+	}
+}
+
+func dealWithFriendsRequest(c *WSClient, m WebMsg) {
+	status, ok := m.SendData["status"].(string)
+	if ok && m.SendData["fId"] != nil {
+		dataList := c.SLDB.QueryList(`SELECT * FROM friendships WHERE fId = ?`, m.SendData["fId"])
+		if len(dataList) == 1 {
+			if status == "accept" {
+				c.SLDB.Exec(`INSERT INTO friendships ("userId", "friendId", "status", "createTime") VALUES (?, ?, ?, ?)`,
+					dataList[0]["friendId"], dataList[0]["userId"], status, time.Now().UnixMilli())
+			}
+			c.SLDB.Exec(`UPDATE friendships SET status = ? WHERE fId = ?`, status, m.SendData["fId"])
+		}
+
+	}
+}
+
+func chatSendData(c *WSClient, m WebMsg) {
+	to := m.SendData["to"].(string)
+	receiveData := WSMsg{
+		Type:    "chatReceiveData",
+		Content: m.Content,
+	}
+	list := c.SLDB.QueryList(`SELECT * FROM friendships WHERE userId = ? AND friendId = ?`, m.SendData["fromId"], m.SendData["toId"])
+	if len(list) == 0 {
+		info := fmt.Sprintf("不存在的好友关系不能发送消息:%v=>%v", m.SendData["fromId"], m.SendData["toId"])
+		commonError := WSMsg{
+			Type: "commonError",
 			Content: map[string]any{
-				"clients": dataList,
+				"error": info,
 			},
 		}
-		if err := c.SendMessage(response); err != nil {
-			log.Printf("发送消息给客户端 %s 失败: %v", c.clientID, err)
+		if err := c.SendMessage(commonError); err != nil {
+			log.Printf("reqID: %v|发送消息给客户端 %s 失败: %v", m.ReqID, c.clientID, err)
 		}
+		return
 	}
-
+	c.SLDB.Exec(`INSERT INTO chat_records ("to", "from", "message", "isRead", "time") VALUES ('?, ?, ?, ?, ?)`, m.SendData["to"], m.SendData["from"], m.SendData["message"], "n", time.Now().Unix())
+	// 针对特定客户端发送消息
+	if targetClient, ok := c.Hub.clients[to]; ok {
+		if err := targetClient.SendMessage(receiveData); err != nil {
+			log.Printf("reqID: %v|发送消息给客户端 %s 失败: %v", m.ReqID, c.clientID, err)
+		}
+	} else {
+		log.Println("目标客户端未在线", to, m.ReqID)
+	}
 }

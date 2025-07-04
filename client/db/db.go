@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 type SqlliteDB struct {
@@ -43,6 +44,8 @@ func InitDB(dbPath string) (SqlliteDB, error) {
 	)`); err != nil {
 		return sdb, fmt.Errorf("初始化用户表结构失败: %v", err)
 	}
+	// 默认添加超级管理员999账户
+	db.Exec(`INSERT INTO users (id, name, pwd, role, ip, createdAt) VALUES (999 , "admin", "admin@123", "admin+", "127.0.0.1", ?)`, time.Now().Format("2006-01-02 15:04:05"))
 	// 初始化客户端设置表结构
 	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS settings (
 		"sId" INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -88,10 +91,11 @@ func InitDB(dbPath string) (SqlliteDB, error) {
 	return sdb, nil
 }
 
-func (s SqlliteDB) QueryList(queryStr string, args ...any) ([]map[string]any, error) {
+func (s SqlliteDB) QueryList(queryStr string, args ...any) []map[string]any {
+	var userList []map[string]any
 	rows, err := s.DB.Query(queryStr, args...)
 	if err != nil {
-		return nil, err
+		return userList
 	}
 	columns, _ := rows.Columns()
 	values := make([]any, len(columns))
@@ -99,7 +103,7 @@ func (s SqlliteDB) QueryList(queryStr string, args ...any) ([]map[string]any, er
 		var v any
 		values[i] = &v
 	}
-	var userList []map[string]any
+
 	for rows.Next() {
 		if err := rows.Scan(values...); err != nil {
 			continue
@@ -110,5 +114,9 @@ func (s SqlliteDB) QueryList(queryStr string, args ...any) ([]map[string]any, er
 		}
 		userList = append(userList, row)
 	}
-	return userList, nil
+	return userList
+}
+
+func (s SqlliteDB) Exec(queryStr string, args ...any) (sql.Result, error) {
+	return s.DB.Exec(queryStr, args...)
 }
