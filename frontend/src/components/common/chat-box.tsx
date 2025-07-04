@@ -71,6 +71,7 @@ export default function ChatBox() {
             setUsers(m.content.data)
           }
         }else if (m.type === "checkAddFriends") { // 用户被添加好友监听
+          console.log(m.content)
           setNotifyList([...notifyList, m.content])
           // setChatUserList([...chatUserList, ...selectedUsers])
         } else if (m.type === "initData") { // 获取初始化数据,包含当前设备信息以及设备待处理的数据,消息,通知等数据

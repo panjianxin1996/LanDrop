@@ -64,15 +64,17 @@ export default function AppWeb() {
         // 获取分享目录
         // getSharedDirInfo()
         // setUserList(['用户1', '用户2', '用户3'])
+        return ()=> {
+            closeWS() // 关闭socket连接
+        }
     }, [])
 
     const connectWSServer = () => {
         let userInfo:any = localStorage.getItem("rememberUserInfo")
         let token = localStorage.getItem("userToken")
         if (!token || !userInfo) return
-        closeWS() // 关闭socket连接
         userInfo = JSON.parse(userInfo)
-        let wsHandle = new WebSocket(`ws://192.168.53.183:4321/ws?ldToken=${token}&id=${userInfo.id}&name=${userInfo.name}`)
+        let wsHandle = new WebSocket(`ws://192.168.3.145:4321/ws?ldToken=${token}&id=${userInfo.id}&name=${userInfo.name}`)
         setStoreData({name: "wsHandle", value: wsHandle})
     }
     const initData = () => {

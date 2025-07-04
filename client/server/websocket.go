@@ -333,10 +333,11 @@ func NewWSClient(conn *websocket.Conn, hub *WSHub, db db.SqlliteDB, userType str
 // 客户端读取消息
 func (c *WSClient) ReadPump() {
 	defer func() {
+		log.Println("排查意外退出问题111111111111")
 		c.Hub.unregister <- c
 		c.Conn.Close()
 	}()
-	log.Printf("客户端 %s 开始读取消息", c.clientID)
+	// log.Printf("客户端 %s 开始读取消息", c.clientID)
 
 	// 设置读取限制和超时
 	c.Conn.SetReadLimit(1024 * 1024 * 10) // 设置读15MB
@@ -361,7 +362,7 @@ func (c *WSClient) ReadPump() {
 				log.Printf("WebSocket读取错误: %v，客户端 %s", err, c.clientID)
 				return
 			}
-			log.Printf("收到来自客户端 %s 的消息: %+v", c.clientID, msg)
+			// log.Printf("收到来自客户端 %s 的消息: %+v", c.clientID, msg)
 			c.handleMessage(msg)
 		}
 	}
@@ -372,11 +373,12 @@ func (c *WSClient) ReadPump() {
 func (c *WSClient) WritePump() {
 	ticker := time.NewTicker(15 * time.Second) // 改为15秒
 	defer func() {
+		log.Println("排查意外退出问题222222222222222222")
 		ticker.Stop()
 		c.Hub.unregister <- c // 确保退出时注销
 		c.Conn.Close()
 	}()
-	log.Printf("客户端 %s 开始写入消息", c.clientID)
+	// log.Printf("客户端 %s 开始写入消息", c.clientID)
 
 	for {
 		select {
@@ -454,7 +456,7 @@ func (c *WSClient) handleMessage(msg WebMsg) {
 	switch msg.Type {
 	case "pong":
 		// 处理pong响应
-		log.Printf("收到客户端 %s 的pong", c.clientID)
+		// log.Printf("收到客户端 %s 的pong", c.clientID)
 	case "pullData":
 		pullData(c, msg)
 	case "queryClients":
