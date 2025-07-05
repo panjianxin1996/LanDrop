@@ -74,14 +74,13 @@ export default function AppWeb() {
         let token = localStorage.getItem("userToken")
         if (!token || !userInfo) return
         userInfo = JSON.parse(userInfo)
-        let wsHandle = new WebSocket(`ws://192.168.3.145:4321/ws?ldToken=${token}&id=${userInfo.id}&name=${userInfo.name}`)
+        let wsHandle = new WebSocket(`ws://${location.hostname}:4321/ws?ldToken=${token}&id=${userInfo.id}&name=${userInfo.name}`)
         setStoreData({name: "wsHandle", value: wsHandle})
     }
     const initData = () => {
         const token = localStorage.getItem("userToken")
         const rememberUser = localStorage.getItem("rememberUserInfo")
         const rememberUserInfoFlag = localStorage.getItem("rememberUserInfoFlag")
-        console.log("rememberUserInfoFlag",!!rememberUserInfoFlag)
         setRememberUser(!!rememberUserInfoFlag)
         if (token && rememberUser && !!rememberUserInfoFlag) {
             document.cookie = `ldtoken=${token}; path=/;`
@@ -140,8 +139,9 @@ export default function AppWeb() {
     }
 
     // 更换用户
-    const changeUserEvent = async (index: number) => {
-        let userItem = userList[index]
+    const changeUserEvent = async (checkId: number) => {
+        closeWS()
+        let userItem = userList.find((item:any) => item.id === checkId)
         setUserInfo(userItem)
         setStoreData({name: "userInfo", value: {
             userId: userItem.id,
@@ -173,8 +173,8 @@ export default function AppWeb() {
                 setOpenAlert(true)
                 break;
             case "userList":
-                const currentUserIndex = userList.findIndex((item: any) => item.id === userInfo.id)
-                setOptForUserIndex(currentUserIndex)
+                const currentUser = userList.find((item: any) => item.id === userInfo.id)
+                setOptForUserIndex(currentUser.id)
                 setOpenUserDialog(true)
                 break;
             case "toShare":
@@ -211,7 +211,7 @@ export default function AppWeb() {
                             <div className="flex flex-col justify-start h-4/5 overflow-auto p-2">
                                 {
                                     userList.map((item: any, index: number) => (
-                                        <Card className={`w-full mb-2 cursor-pointer border-2 ${optForUserIndex === index && 'border-[#0f172a] bg-gray-200'}`} key={`${item.id}-${item.name}`} onClick={() => !isLogin && setOptForUserIndex(index)}>
+                                        <Card className={`w-full mb-2 cursor-pointer border-2 ${optForUserIndex === index && 'border-[#0f172a] bg-gray-200'}`} key={`${item.id}-${item.name}`} onClick={() => !isLogin && setOptForUserIndex(item.id)}>
                                             <CardContent className="flex item-center justify-between p-3">
                                                 <div className="flex item-center">
                                                     <Avatar>
@@ -223,7 +223,7 @@ export default function AppWeb() {
                                                 </div>
                                                 {
                                                     optForUserIndex !== index && isLogin && <div className="flex">
-                                                        <Button variant={"default"} className="ml-2" onClick={() => { setOptForUserIndex(index); changeUserEvent(index); }}>切换</Button>
+                                                        <Button variant={"default"} className="ml-2" onClick={() => { setOptForUserIndex(item.id); changeUserEvent(item.id); }}>切换</Button>
                                                         <Button variant={"destructive"} className="ml-2" onClick={(e) => { e.preventDefault(); e.stopPropagation(); unBindEvent(item); }}>解绑</Button>
                                                     </div>
                                                 }

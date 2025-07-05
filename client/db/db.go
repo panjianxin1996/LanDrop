@@ -64,12 +64,14 @@ func InitDB(dbPath string) (SqlliteDB, error) {
 	// 初始化聊天记录表结构
 	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS chat_records (
 		"cId" INTEGER PRIMARY KEY AUTOINCREMENT,
-		"to" TEXT NOT NULL,
-		"from" TEXT NOT NULL,
+		"toId" INTEGER NOT NULL,
+		"fromId" INTEGER NOT NULL,
 		"isRead" TEXT,
 		"type" TEXT,
 		"message" TEXT,
-		"time" integer NOT NULL
+		"time" integer NOT NULL,
+		CONSTRAINT "toId" FOREIGN KEY ("toId") REFERENCES "users" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION,
+		CONSTRAINT "fromId" FOREIGN KEY ("fromId") REFERENCES "users" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION
 	)`); err != nil {
 		return sdb, fmt.Errorf("初始化聊天记录表结构失败: %v", err)
 	}
