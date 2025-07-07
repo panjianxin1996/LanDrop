@@ -1,46 +1,15 @@
 import * as React from "react"
 import { Check, Send, Bell, UserRoundPlus, CircleCheck, CircleX } from "lucide-react"
 import { cn } from "@/lib/utils"
-import {
-  Avatar,
-  AvatarFallback
-} from "@/components/ui/avatar"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardFooter,
-  CardHeader,
-} from "@/components/ui/card"
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
+import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, } from "@/components/ui/command"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, } from "@/components/ui/tooltip"
+import { Popover, PopoverContent, PopoverTrigger, } from "@/components/ui/popover"
 import { Badge } from "@/components/ui/badge"
 import useClientStore from "@/store/appStore"
 
@@ -120,7 +89,7 @@ type Message = {
   type: string | null
 }
 
-export default function ChatBox() {
+export default function ChatBox(props: {userId: number}) {
   const { wsHandle, userInfo } = useClientStore()
   const [clientData, setClientData] = React.useState<ClientData>({ // 当前设备数据，包含了设备信息以及离线情况设备消息、通知
     clientID: "",
@@ -143,6 +112,7 @@ export default function ChatBox() {
     chatUserRef.current = chatUser;
   }, [chatUser]);
   React.useEffect(() => {
+    initData()
     if (wsHandle) {
       sendMessage({ type: "pullData" }) // 获取初始数据
       queryFriendList() // 查询好友列表
@@ -155,7 +125,7 @@ export default function ChatBox() {
         }
       };
     }
-  }, [])
+  }, [props.userId])
 
   const OnMessageOperation: Record<string, Function> = {
     // 处理通用错误数据
@@ -238,6 +208,20 @@ export default function ChatBox() {
     let initContent = content || {}
     let webSendData = { sId: sId || `LD_${timeStamp}`, type, sendData, content: initContent, user: initUser, timeStamp, clientType }
     wsHandle.send(JSON.stringify(webSendData))
+  }
+  const initData = () => { // 初始化数据
+    setClientData({
+      clientID: "",
+      id: "",
+      name: "",
+      notifyList: [],
+      messageList: null,
+    })
+    setSelectedUsers([])
+    setChatUser(null)
+    setChatUserList([])
+    setMessages({})
+    setNotifyList([])
   }
   const chatSendData = (message: string) => { // 发送聊天信息
     let clientID = `${chatUser?.friendName}#${chatUser?.friendId}`
@@ -373,7 +357,7 @@ export default function ChatBox() {
           <div>
             {
               chatUserList.map((item: ChatUserItem) => {
-                return <div className={`relative flex items-center space-x-4 mb-2 cursor-pointer p-[4px] hover:bg-slate-100 ${chatUser?.friendId === item.friendId ? 'bg-slate-200':''}`} key={item.friendId} onClick={() => { changeChatUser(item) }}>
+                return <div className={`relative flex items-center space-x-4 mb-2 cursor-pointer p-[4px] hover:bg-slate-100 ${chatUser?.friendId === item.friendId ? 'bg-slate-200' : ''}`} key={item.friendId} onClick={() => { changeChatUser(item) }}>
                   <Avatar>
                     <AvatarFallback>{item.friendName.slice(0, 2)}</AvatarFallback>
                   </Avatar>

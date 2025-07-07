@@ -32,10 +32,10 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
-import { RectangleEllipsis, CloudUpload, MessageCircle, UserPlus, CircleUserRound, UserRound, FolderOpen,Menu,ChevronsUpDown } from 'lucide-react'
+import { RectangleEllipsis, CloudUpload, MessageCircle, UserPlus, CircleUserRound, UserRound, FolderOpen, Menu, ChevronsUpDown } from 'lucide-react'
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import useClientStore from "@/store/appStore"
-import React,{ useEffect, useState } from "react"
+import React, { useEffect, useState } from "react"
 import { useApiRequest } from "@/tools/request"
 import { toast } from "sonner"
 import { Outlet, useNavigate } from 'react-router-dom'
@@ -61,21 +61,18 @@ export default function AppWeb() {
         // web端设置为非客户端
         checkIsClient()
         initData()
-        // 获取分享目录
-        // getSharedDirInfo()
-        // setUserList(['用户1', '用户2', '用户3'])
-        return ()=> {
+        return () => {
             closeWS() // 关闭socket连接
         }
     }, [])
 
     const connectWSServer = () => {
-        let userInfo:any = localStorage.getItem("rememberUserInfo")
+        let userInfo: any = localStorage.getItem("rememberUserInfo")
         let token = localStorage.getItem("userToken")
         if (!token || !userInfo) return
         userInfo = JSON.parse(userInfo)
         let wsHandle = new WebSocket(`ws://${location.hostname}:4321/ws?ldToken=${token}&id=${userInfo.id}&name=${userInfo.name}`)
-        setStoreData({name: "wsHandle", value: wsHandle})
+        setStoreData({ name: "wsHandle", value: wsHandle })
     }
     const initData = () => {
         const token = localStorage.getItem("userToken")
@@ -140,14 +137,15 @@ export default function AppWeb() {
 
     // 更换用户
     const changeUserEvent = async (checkId: number) => {
-        closeWS()
-        let userItem = userList.find((item:any) => item.id === checkId)
+        let userItem = userList.find((item: any) => item.id === checkId)
         setUserInfo(userItem)
-        setStoreData({name: "userInfo", value: {
-            userId: userItem.id,
-            userName: userItem.name,
-            // userItem
-        }})
+        setStoreData({
+            name: "userInfo", value: {
+                userId: userItem.id,
+                userName: userItem.name,
+                // userItem
+            }
+        })
         localStorage.setItem("rememberUserInfo", JSON.stringify(userItem))
         const tokenRes = await getUserToken(userItem.id, userItem.name) // 选择用户获取token
         localStorage.setItem("userToken", tokenRes.data.token)
@@ -193,7 +191,7 @@ export default function AppWeb() {
         }
     }
 
-    const btnList:any = [
+    const btnList: any = [
         { key: 'sharedDir', name: "目录", icon: <FolderOpen size={25} />, tip: "客户端分享总目录" },
         { key: 'getSharedFile', name: "分享码", icon: <RectangleEllipsis size={25} />, tip: "通过分享码获取文件" },
         { key: 'toShare', name: "我要分享", icon: <CloudUpload size={25} />, tip: "我想发起文件分享，提供给其他人使用。【需要客户端授权】" },
@@ -291,7 +289,7 @@ export default function AppWeb() {
             <div className="flex" style={{ height: "95vh", borderBottomWidth: '1px' }}>
                 <div className="w-20 h-[95vh] fixed left-0 top-0 hidden sm:block pt-10" style={{ borderRightWidth: '1px' }}>
                     {
-                        btnList.map((item:any) => (
+                        btnList.map((item: any) => (
                             <Tooltip key={item.key}>
                                 <TooltipTrigger asChild>
                                     <div className="flex flex-col justify-center items-center cursor-pointer hover:bg-gray-100 py-4" onClick={() => menuBtnEvent(item.key)}>
@@ -310,22 +308,22 @@ export default function AppWeb() {
                     <DropdownMenuTrigger asChild>
                         <div className="w-20 block sm:hidden fixed top-2 left-2 z-10">
                             <Button variant="outline" className="p-2">
-                                <Menu size={15}/>
-                                <span className="mx-4">{btnList.find((item:any)=> (item.key === activeMenu)).name}</span>
+                                <Menu size={15} />
+                                <span className="mx-4">{btnList.find((item: any) => (item.key === activeMenu)).name}</span>
                                 <ChevronsUpDown size={15} />
-                                </Button>
+                            </Button>
                         </div>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent className="w-32" align="start">
                         {
-                            btnList.map((item:any) => (<DropdownMenuItem key={"dropdown-menu-" + item.key} onClick={() => menuBtnEvent(item.key)}>
-                                {React.cloneElement(item.icon, {size: 15, strokeWidth:1})}
+                            btnList.map((item: any) => (<DropdownMenuItem key={"dropdown-menu-" + item.key} onClick={() => menuBtnEvent(item.key)}>
+                                {React.cloneElement(item.icon, { size: 15, strokeWidth: 1 })}
                                 <span className="text-xs">{item.name}</span>
                             </DropdownMenuItem>))
                         }
                     </DropdownMenuContent>
                 </DropdownMenu>
-                <Outlet key={optForUserIndex}/>
+                <Outlet context={{ userId: optForUserIndex }} />
             </div>
             <div style={{ height: "5vh" }}>
             </div>

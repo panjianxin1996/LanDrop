@@ -19,8 +19,8 @@ type AppStore = {
   setStoreData: (params: SetStoreDataParams) => void // 通用更新store数据函数
   deviceLogsData: any // 设备数据
   wsHandle: WebSocket | null // websocket实例
-  connectWS: (id:string, name:string, token:string) => void // 连接websocket
-  closeWS: () => void // 关闭websocket
+  connectWS: (id: string, name: string, token: string) => void // 连接websocket
+  closeWS: (callBack?: ()=> void) => void // 关闭websocket
   selectNetAdapter: string // 选择的网络适配器
   setSelectNetAdapter: (selectNetAdapter: string, cb?: (store: AppStore) => void) => void // 设置选择网络适配器
   netAdapterList: Array<any> // 网卡列表
@@ -48,7 +48,7 @@ const useClientStore = create<AppStore>()(
         if ((window as any)?.go?.main?.App?.Version) {
           const version = (window as any)?.go?.main?.App?.Version();
           set({ isClient: true, clientVersion: version })
-          const res:any = await GetAppConfig()
+          const res: any = await GetAppConfig()
           localStorage.setItem('appPort', res.port);
           return true
         } else {
@@ -64,7 +64,7 @@ const useClientStore = create<AppStore>()(
       },
       deviceLogsData: [],
       wsHandle: null,
-      connectWS: (id:string, name:string, token:string) => {
+      connectWS: (id: string, name: string, token: string) => {
         let wsHandle = new WebSocket(`ws://127.0.0.1:${localStorage.getItem("appPort") || "4321"}/ws?ldToken=${token}&id=${id}&name=${name}`)
         set({ wsHandle })
         wsHandle.onmessage = (event) => {
@@ -77,8 +77,16 @@ const useClientStore = create<AppStore>()(
           }
         };
       },
-      closeWS: () => {
-        get().wsHandle?.close()
+      closeWS: (callBack?: ()=> void) => {
+        const ws = get().wsHandle
+        if (!ws) {
+          callBack?.()
+          return
+        }
+        ws.close()
+        ws.onclose = () => {
+          callBack?.()
+        }
       },
       selectNetAdapter: "",
       setSelectNetAdapter: (selectNetAdapter, callBack) => {
