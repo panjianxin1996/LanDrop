@@ -1,6 +1,7 @@
 package db
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"os"
@@ -36,6 +37,7 @@ func InitDB(dbPath string) (SqlliteDB, error) {
 	// 初始化用户表结构
 	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS users (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		avatar TEXT,
 		name TEXT NOT NULL,
 		pwd TEXT NOT NULL,
 		role TEXT NOT NULL,
@@ -81,7 +83,7 @@ func InitDB(dbPath string) (SqlliteDB, error) {
 		"userId" INTEGER NOT NULL,
 		"friendId" INTEGER NOT NULL,
 		"status" TEXT,
-		"lastMessage" TEXT,
+		"lastChatId" INTEGER,
 		"createTime" TEXT,
 		CONSTRAINT "userId" FOREIGN KEY ("userId") REFERENCES "users" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION,
 		CONSTRAINT "friendId" FOREIGN KEY ("friendId") REFERENCES "users" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION
@@ -105,7 +107,31 @@ func (s SqlliteDB) QueryList(queryStr string, args ...any) []map[string]any {
 		var v any
 		values[i] = &v
 	}
+	for rows.Next() {
+		if err := rows.Scan(values...); err != nil {
+			continue
+		}
+		row := make(map[string]any)
+		for i, col := range columns {
+			row[col] = *(values[i].(*any))
+		}
+		userList = append(userList, row)
+	}
+	return userList
+}
 
+func (s SqlliteDB) QueryListTx(tx *sql.Tx, queryStr string, args ...any) []map[string]any {
+	var userList []map[string]any
+	rows, err := tx.Query(queryStr, args...)
+	if err != nil {
+		return userList
+	}
+	columns, _ := rows.Columns()
+	values := make([]any, len(columns))
+	for i := range values {
+		var v any
+		values[i] = &v
+	}
 	for rows.Next() {
 		if err := rows.Scan(values...); err != nil {
 			continue
@@ -121,4 +147,35 @@ func (s SqlliteDB) QueryList(queryStr string, args ...any) []map[string]any {
 
 func (s SqlliteDB) Exec(queryStr string, args ...any) (sql.Result, error) {
 	return s.DB.Exec(queryStr, args...)
+}
+
+func (s SqlliteDB) ExecTx(tx *sql.Tx, queryStr string, args ...any) (sql.Result, error) {
+	return tx.Exec(queryStr, args...)
+}
+
+// 事务处理数据库
+func (s SqlliteDB) Transaction(opts *sql.TxOptions, fn func(*sql.Tx) error) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second) // 设置事务60s超时
+	defer cancel()                                                           // 确保释放资源
+	tx, err := s.DB.BeginTx(ctx, opts)
+	if err != nil {
+		return fmt.Errorf("启动事务失败：%v", err)
+	}
+	// 使用命名返回值来捕获defer中的错误
+	var txErr error
+	defer func() {
+		if p := recover(); p != nil {
+			tx.Rollback() // 回滚事务并抛出错误
+			txErr = fmt.Errorf("[-9999]出现严重错误%v", p)
+		} else if txErr != nil {
+			if rbErr := tx.Rollback(); rbErr != nil { // 如果函数返回错误，回滚事务
+				txErr = fmt.Errorf("事务操作失败: %v, 事务回滚失败: %w", txErr, rbErr)
+			}
+		} else {
+			txErr = tx.Commit() // 提交事务
+		}
+	}()
+	// 执行事务操作
+	txErr = fn(tx)
+	return txErr
 }

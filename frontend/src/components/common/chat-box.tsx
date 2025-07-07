@@ -44,6 +44,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import useClientStore from "@/store/appStore"
 
+// 发送ws服务器数据结构
 type WebMsg = {
   sId?: string,
   type: string,
@@ -52,71 +53,174 @@ type WebMsg = {
   sendData?: any,
 }
 
+// 客户端数据
+type ClientData = {
+  clientID: string,
+  id: string,
+  name: string,
+  notifyList: Array<NotifyItem>,
+  messageList: any
+}
+
+// 通知
+type NotifyItem = {
+  createTime: string
+  fId: number
+  friendId: number
+  fromId: number
+  fromIp: string
+  fromName: string
+  fromRole: string
+  lastChatId: string | null
+  status: string
+  toId: number
+  toIp: string
+  toName: string
+  toRole: string
+  userId: number
+}
+
+// 聊天好友
+type ChatUserItem = {
+  createTime: string
+  fId: number
+  friendId: number
+  friendIp: string
+  friendName: string
+  friendRole: string
+  lastChatId: string | null
+  lastMsg: string | null
+  msgType: string | null
+  msgTime: string | null
+  status: string
+  userId: number
+  unreadCount: number
+}
+// 用户信息
+type UserItem = {
+  clientID: string
+  createdAt: string
+  id: number
+  ip: string
+  isActive: boolean
+  name: string
+  pwd: string
+  role: string
+}
+// 消息
+type Message = {
+  cId: number | null
+  fromId: number
+  fromName: string
+  isRead: string | null
+  message: string
+  time: number | null
+  toId: number | null
+  toName: string | null
+  type: string | null
+}
+
 export default function ChatBox() {
   const { wsHandle, userInfo } = useClientStore()
-  const [clientData, setClientData] = React.useState<any>({}) // 当前设备数据，包含了设备信息以及离线情况设备消息、通知
+  const [clientData, setClientData] = React.useState<ClientData>({ // 当前设备数据，包含了设备信息以及离线情况设备消息、通知
+    clientID: "",
+    id: "",
+    name: "",
+    notifyList: [],
+    messageList: null,
+  })
   const [open, setOpen] = React.useState(false)
-  const [selectedUsers, setSelectedUsers] = React.useState<any>([])
-  // @ts-ignore
-  const [chatUser, setChatUser] = React.useState<any>(null) // 聊天中的好友
-  const [chatUserList, setChatUserList] = React.useState<any>([]) //左侧好友列表
-  const [messages, setMessages] = React.useState<any>({})
+  const [selectedUsers, setSelectedUsers] = React.useState<Array<UserItem>>([])
+  const [chatUser, setChatUser] = React.useState<ChatUserItem | null>(null) // 聊天中的好友
+  const [chatUserList, setChatUserList] = React.useState<Array<ChatUserItem>>([]) //左侧好友列表
+  const [messages, setMessages] = React.useState<Record<string, Array<Message>>>({})
   const [input, setInput] = React.useState("")
-  const [users, setUsers] = React.useState<any>([])
-  const [notifyList, setNotifyList] = React.useState<any>([])
+  const [users, setUsers] = React.useState<Array<UserItem>>([])
+  const [notifyList, setNotifyList] = React.useState<Array<NotifyItem>>([])
   const chatUserRef = React.useRef(chatUser) // 为了方便onMessage中获取最新的chatUser
   const inputLength = input.trim().length
-  React.useEffect(() => {
+  React.useEffect(() => { // 监听chatUser切换
     chatUserRef.current = chatUser;
   }, [chatUser]);
   React.useEffect(() => {
     if (wsHandle) {
       sendMessage({ type: "pullData" }) // 获取初始数据
-      queryFriendList()
+      queryFriendList() // 查询好友列表
       wsHandle.onmessage = (event) => {
-        const m = JSON.parse(event.data);
-        const ty = m.type;
-        const content = m.content;
-        if (ty === "replyChatReceiveData") { // 接受聊天数据
-          if (content.code === 1 && !!content.data) {
-            receiveChatRecords(content.data)
-          }
-        } else if (ty === "replyClientList") { // 获取用户列表
-          if (content.data) setUsers(content.data)
-        } else if (ty === "replyAddFriends") { // 用户被添加好友监听
-          if (content.code === 1) setNotifyList([...notifyList, content.data])
-        } else if (ty === "replyPullData") { // 获取初始化数据,包含当前设备信息以及设备待处理的数据,消息,通知等数据
-          setClientData(content)
-          if (content.notifyList && Array.isArray(content.notifyList)) {
-            setNotifyList(content.notifyList)
-          }
-        } else if (ty === "replyDealWithFriends") { // 处理好友请求
-          if (content.code === 1 && content.fId) {
-            setNotifyList(notifyList.filter((item: any) => item.fId === content.fId))
-            queryFriendList()
-          }
-        } else if (ty === "replyFriendList") { // 好友列表
-          if (content.code === 1 && content.data) {
-            setChatUserList(content.data)
-            let messageList: any = {}
-            content.data.forEach((item: any) => (messageList[`${item.friendName}#${item.friendId}`] = []))
-            setMessages(messageList)
-          }
-        } else if (ty === "replyChatRecords") { // 聊天记录
-          if (content.code === 1 && content.data) {
-            const chatUser = chatUserRef.current;
-            let clientID = `${chatUser.friendName}#${chatUser.friendId}`
-            setMessages((prev: any) => ({
-              ...prev,
-              [clientID]: content.data
-            }))
-          }
-        } else if (ty === "commonError") { // 监听错误
-          console.warn("监听到ws处理错误", content.error)
+        const m = JSON.parse(event.data)
+        if (m.type && OnMessageOperation[m.type]) {
+          OnMessageOperation[m.type](m.content)
+        } else {
+          // console.warn("未获取到socket类型", m.type, m.content)
         }
       };
     }
   }, [])
+
+  const OnMessageOperation: Record<string, Function> = {
+    // 处理通用错误数据
+    "commonError": (content: any) => {
+      console.warn("监听到ws处理错误", content.error)
+    },
+    // 获取整体数据包含当前客户端信息以及离线数据通知、消息
+    "replyPullData": (content: any) => {
+      let rData = content.data
+      setClientData(rData)
+      if (rData.notifyList && Array.isArray(rData.notifyList)) {
+        setNotifyList(rData.notifyList)
+      }
+    },
+    // 接收聊天数据（需要为好友关系）[@送达方会接收回调]
+    "replyChatReceiveData": (content: any) => {
+      if (content.code === 1 && !!content.data) {
+        let msg = content.data[0]
+        let clientID = `${msg.fromName}#${msg.fromId}`
+        if (chatUserRef.current?.friendId === msg.fromId) { // 如果当前选中了好友就是聊天推送的数据,
+          setChatRecordStatus("single", +msg.cId)
+        }
+        setMessages((prev: Record<string, Array<Message>>) => ({
+          ...prev,
+          [clientID]: [...prev[clientID], msg]
+        }))
+      }
+    },
+    // 客户端列表，用于添加好友
+    "replyClientList": (content: any) => {
+      if (content.data) setUsers(content.data)
+    },
+    // 添加好友回调，[@送达方会接收回调]
+    "replyAddFriends": (content: any) => {
+      if (content.code === 1) setNotifyList([...notifyList, ...content.data])
+    },
+    // 处理好友请求回调
+    "replyDealWithFriends": (content: any) => {
+      if (content.code === 1 && content.fId) {
+        setNotifyList(notifyList.filter((item: NotifyItem) => item.fId === content.fId))
+        queryFriendList()
+      }
+    },
+    // 好友列表数据
+    "replyFriendList": (content: any) => {
+      if (content.code === 1 && content.data) {
+        setChatUserList(content.data)
+        // 初始化用户的聊天记录数据
+        let messageList: Record<string, Array<Message>> = {}
+        content.data.forEach((item: ChatUserItem) => (messageList[`${item.friendName}#${item.friendId}`] = []))
+        setMessages(messageList)
+      }
+    },
+    // 聊天记录数据 需要传递好友clientID
+    "replyChatRecords": (content: any) => {
+      if (content.code === 1 && content.data) {
+        const chatUser = chatUserRef.current;
+        let clientID = `${chatUser?.friendName}#${chatUser?.friendId}`
+        setMessages((prev: Record<string, Array<Message>>) => ({
+          ...prev,
+          [clientID]: content.data
+        }))
+      }
+    },
+  }
 
   const sendMessage = (webMsg: WebMsg) => { // 封装socket发送
     if (!userInfo.userId || !userInfo.userName) {
@@ -135,17 +239,28 @@ export default function ChatBox() {
     let webSendData = { sId: sId || `LD_${timeStamp}`, type, sendData, content: initContent, user: initUser, timeStamp, clientType }
     wsHandle.send(JSON.stringify(webSendData))
   }
-  const sendData = (message: string) => { // 发送聊天信息
-    let clientID = `${chatUser.friendName}#${chatUser.friendId}`
-    setMessages((prev: any) => ({
+  const chatSendData = (message: string) => { // 发送聊天信息
+    let clientID = `${chatUser?.friendName}#${chatUser?.friendId}`
+    let newMsg: Message = {
+      cId: null,
+      fromName: userInfo.userName,
+      isRead: null,
+      time: null,
+      toId: chatUser && chatUser.friendId,
+      toName: chatUser && chatUser.friendName,
+      type: null,
+      fromId: +userInfo.userId, message
+    }
+    // 用户下的messages追加数据
+    setMessages((prev: Record<string, Array<Message>>) => ({
       ...prev,
-      [clientID]: [...prev[clientID], { fromId: userInfo.userId, message }]
+      [clientID]: [...prev[clientID], newMsg]
     }))
     sendMessage({
       type: "chatSendData",
       sendData: {
         to: clientID,
-        toId: chatUser.friendId,
+        toId: chatUser?.friendId,
         from: userInfo.userName,
         fromId: userInfo.userId,
         message
@@ -156,7 +271,7 @@ export default function ChatBox() {
     sendMessage({ type: "queryClients" })
   }
 
-  const dealWithFriendsRequest = (status: string, nItem: any) => { // 处理好友请求
+  const dealWithFriendsRequest = (status: string, nItem: NotifyItem) => { // 处理好友请求
     sendMessage({
       type: "dealWithFriendsRequest", sendData: {
         ...nItem,
@@ -166,7 +281,7 @@ export default function ChatBox() {
   }
 
   const addFriends = () => { // 添加好友
-    let friend = selectedUsers[0] // 只能当选默认第一条
+    let friend = selectedUsers && selectedUsers[0] // 只能当选默认第一条
     sendMessage({
       type: "addFriends", sendData: {
         to: friend.clientID,
@@ -183,25 +298,13 @@ export default function ChatBox() {
     sendMessage({ type: "queryFriendList" })
   }
 
-  const receiveChatRecords = (data: any) => {
-    let msg = data[0]
-    let clientID = `${msg.fromName}#${msg.fromId}`
-    if (chatUserRef.current?.friendId === msg.fromId) { // 如果当前选中了好友就是聊天推送的数据,
-      setChatRecordStatus("single",msg.cId)
-    }
-    setMessages((prev: any) => ({
-      ...prev,
-      [clientID]: [...prev[clientID], msg]
-    }))
-  }
-  const changeChatUser = (item:any)=> {
-    console.log(chatUser)
-    setChatUser(item); 
-    queryChatRecords(item);
-    setChatRecordStatus("all", item.friendId)
+  const changeChatUser = (chatUser: ChatUserItem) => { // 切换好友
+    setChatUser(chatUser);
+    queryChatRecords(chatUser);
+    setChatRecordStatus("all", chatUser.friendId)
   }
 
-  const queryChatRecords = (chatUser: any) => { // 查询聊天记录
+  const queryChatRecords = (chatUser: ChatUserItem) => { // 查询聊天记录
     sendMessage({
       type: "queryChatRecords", sendData: {
         friendId: chatUser.friendId
@@ -209,8 +312,8 @@ export default function ChatBox() {
     })
   }
 
-  // type single/all
-  const setChatRecordStatus = (type: string , cId: any) => {
+  // type single/all 改变聊天记录的状态
+  const setChatRecordStatus = (type: string, cId: number) => {
     sendMessage({
       type: "changeChatRecordsStatus", sendData: {
         type,
@@ -238,7 +341,7 @@ export default function ChatBox() {
                   !notifyList || (Array.isArray(notifyList) && notifyList.length === 0) && <div className="text-center text-xs text-neutral-800">没有通知信息</div>
                 }
                 {
-                  notifyList.map((item: any) => (
+                  notifyList.map((item: NotifyItem) => (
                     <div key={item.fId} className="flex items-center justify-between">
                       <div className="flex items-center text-xs text-neutral-800 pr-4">
                         <Bell size={15} />
@@ -269,9 +372,15 @@ export default function ChatBox() {
           <Input className="my-2" placeholder="搜索我的好友"></Input>
           <div>
             {
-              chatUserList.map((item: any) => {
-                return <div className="p-4" key={item.friendId} onClick={() => { changeChatUser(item) }}>
-                  {item.friendName}
+              chatUserList.map((item: ChatUserItem) => {
+                return <div className={`relative flex items-center space-x-4 mb-2 cursor-pointer p-[4px] hover:bg-slate-100 ${chatUser?.friendId === item.friendId ? 'bg-slate-200':''}`} key={item.friendId} onClick={() => { changeChatUser(item) }}>
+                  <Avatar>
+                    <AvatarFallback>{item.friendName.slice(0, 2)}</AvatarFallback>
+                  </Avatar>
+                  <div className="w-3/5 flex flex-col justify-between">
+                    <p className="text-sm font-medium leading-none whitespace-nowrap overflow-visible truncate">{item.friendName}</p>
+                    <p className="text-xs text-muted-foreground whitespace-nowrap overflow-visible truncate mt-2">{item.lastMsg}</p>
+                  </div>
                 </div>
               })
             }
@@ -280,26 +389,15 @@ export default function ChatBox() {
       </div>
       {
         chatUser?.friendId && <Card className="h-full flex flex-col justify-between border-0 rounded-none border-l-[1px]" style={{ width: "calc(100% - 16rem)" }}>
-          <CardHeader className="flex flex-row items-center h-14 p-2">
-            <div className="flex items-center space-x-4">
-              <Avatar>
-                <AvatarFallback>{chatUser?.friendName.slice(0, 2)}</AvatarFallback>
-              </Avatar>
-              <div>
-                <p className="text-sm font-medium leading-none">{chatUser?.friendName}</p>
-                <p className="text-sm text-muted-foreground">{chatUser?.friendRole}</p>
-              </div>
-            </div>
-
-          </CardHeader>
+          <CardHeader className="flex flex-row items-center h-10 p-2 text-lg font-medium leading-none border-b-[1px] pl-4">{chatUser?.friendName}</CardHeader>
           <CardContent className="flex-1 overflow-y-auto p-4">
             <div className="space-y-4">
-              {messages[`${chatUser.friendName}#${chatUser.friendId}`]?.map((message: any, index: number) => (
+              {messages[`${chatUser.friendName}#${chatUser.friendId}`]?.map((message: Message, index: number) => (
                 <div
                   key={index}
                   className={cn(
                     "flex max-w-[75%] flex-col gap-2 rounded-lg px-3 py-2 text-sm w-fit break-words whitespace-pre-wrap",
-                    message.fromId === userInfo.userId
+                    message.fromId === +userInfo.userId
                       ? "ml-auto bg-primary text-primary-foreground"
                       : "bg-muted"
                   )}
@@ -314,7 +412,7 @@ export default function ChatBox() {
               onSubmit={(event) => {
                 event.preventDefault()
                 if (inputLength === 0) return
-                sendData(input)
+                chatSendData(input)
                 setInput("")
               }}
               className="flex w-full items-center space-x-2"
@@ -333,7 +431,6 @@ export default function ChatBox() {
           </CardFooter>
         </Card>
       }
-
       {/* 添加好友弹框 */}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="gap-0 p-0 outline-none">
@@ -346,7 +443,7 @@ export default function ChatBox() {
             <CommandList>
               <CommandEmpty>当前系统没有活跃用户。</CommandEmpty>
               <CommandGroup className="p-2">
-                {users.map((user: any) => (
+                {users.map((user: UserItem) => (
                   <CommandItem
                     key={user.id}
                     className="flex items-center px-2"
@@ -354,7 +451,7 @@ export default function ChatBox() {
                       if (selectedUsers.includes(user)) {
                         return setSelectedUsers(
                           selectedUsers.filter(
-                            (selectedUser: any) => selectedUser !== user
+                            (selectedUser: UserItem) => selectedUser !== user
                           )
                         )
                       }
@@ -372,12 +469,12 @@ export default function ChatBox() {
                       <p className="text-sm font-medium leading-none">
                         {user.name}
                       </p>
-                      <p className="text-sm text-muted-foreground">
-                        {user.type === 'admin' ? "管理员" : "普通用户"}
+                      <div className="text-sm text-muted-foreground">
+                        {user.role === 'admin' ? "管理员" : "普通用户"}
                         {
                           user.isActive && <Badge variant="secondary">在线</Badge>
                         }
-                      </p>
+                      </div>
                     </div>
                     {selectedUsers.includes(user) ? (
                       <Check className="ml-auto flex h-5 w-5 text-primary" />
@@ -390,7 +487,7 @@ export default function ChatBox() {
           <DialogFooter className="flex items-center border-t p-4 !flex-row justify-between">
             {selectedUsers.length > 0 ? (
               <div className="flex -space-x-2 overflow-hidden">
-                {selectedUsers.map((user: any) => (
+                {selectedUsers.map((user: UserItem) => (
                   <Avatar
                     key={user.id}
                     className="inline-block border-2 border-background"

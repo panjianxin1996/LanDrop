@@ -211,7 +211,7 @@ export default function AppWeb() {
                             <div className="flex flex-col justify-start h-4/5 overflow-auto p-2">
                                 {
                                     userList.map((item: any, index: number) => (
-                                        <Card className={`w-full mb-2 cursor-pointer border-2 ${optForUserIndex === index && 'border-[#0f172a] bg-gray-200'}`} key={`${item.id}-${item.name}`} onClick={() => !isLogin && setOptForUserIndex(item.id)}>
+                                        <Card className={`w-full mb-2 cursor-pointer border-2 ${optForUserIndex === item.id && 'border-[#0f172a] bg-gray-200'}`} key={`${item.id}-${item.name}`} onClick={() => !isLogin && setOptForUserIndex(item.id)}>
                                             <CardContent className="flex item-center justify-between p-3">
                                                 <div className="flex item-center">
                                                     <Avatar>
@@ -289,7 +289,7 @@ export default function AppWeb() {
                 </AlertDialogContent>
             </AlertDialog>
             <div className="flex" style={{ height: "95vh", borderBottomWidth: '1px' }}>
-                <div className="w-20 hidden sm:block pt-10" style={{ borderRightWidth: '1px' }}>
+                <div className="w-20 h-[95vh] fixed left-0 top-0 hidden sm:block pt-10" style={{ borderRightWidth: '1px' }}>
                     {
                         btnList.map((item:any) => (
                             <Tooltip key={item.key}>
@@ -325,7 +325,7 @@ export default function AppWeb() {
                         }
                     </DropdownMenuContent>
                 </DropdownMenu>
-                <Outlet/>
+                <Outlet key={optForUserIndex}/>
             </div>
             <div style={{ height: "5vh" }}>
             </div>

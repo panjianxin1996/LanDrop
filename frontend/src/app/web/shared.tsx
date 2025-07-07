@@ -17,5 +17,7 @@ export default function Shared() {
             }
         })
     }
-    return <DirList className="sm:w-[calc(100%-80px)] w-full" dirData={sharedData} sharedDir={sharedDir} reload={getSharedDirInfo} />
+    return <div className="w-full sm:pl-20">
+        <DirList className="sm:w-[calc(100%-80px)] w-full" dirData={sharedData} sharedDir={sharedDir} reload={getSharedDirInfo} />
+    </div>
 }
