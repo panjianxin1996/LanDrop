@@ -20,7 +20,7 @@ type AppStore = {
   deviceLogsData: any // 设备数据
   wsHandle: WebSocket | null // websocket实例
   connectWS: (id: string, name: string, token: string) => void // 连接websocket
-  closeWS: (callBack?: ()=> void) => void // 关闭websocket
+  closeWS: () => Promise<any> // 关闭websocket
   selectNetAdapter: string // 选择的网络适配器
   setSelectNetAdapter: (selectNetAdapter: string, cb?: (store: AppStore) => void) => void // 设置选择网络适配器
   netAdapterList: Array<any> // 网卡列表
@@ -77,16 +77,18 @@ const useClientStore = create<AppStore>()(
           }
         };
       },
-      closeWS: (callBack?: ()=> void) => {
+      closeWS: () => {
         const ws = get().wsHandle
-        if (!ws) {
-          callBack?.()
-          return
-        }
-        ws.close()
-        ws.onclose = () => {
-          callBack?.()
-        }
+        return new Promise((resolve)=> {
+          if (!ws) {
+            resolve(-1)
+            return
+          }
+          ws.close()
+          ws.onclose = () => {
+            resolve(ws.readyState)
+          }
+        })
       },
       selectNetAdapter: "",
       setSelectNetAdapter: (selectNetAdapter, callBack) => {

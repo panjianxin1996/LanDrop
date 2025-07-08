@@ -7,8 +7,8 @@ import (
 )
 
 type tokenClaims struct {
-	UserID               int64  `json:"user_id"`
-	Username             string `json:"username"`
+	UserID               int64  `json:"userId"`
+	Username             string `json:"userName"`
 	Role                 string `json:"role"`
 	jwt.RegisteredClaims        // 内嵌标准Claims（过期时间等）
 }

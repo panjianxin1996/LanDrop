@@ -21,13 +21,13 @@ import (
 // WebSocket客户端结构体
 type WSClient struct {
 	clientID  string
-	Id        string
+	Id        int64
 	Name      string
 	Conn      *websocket.Conn
 	DB        db.SqlliteDB
 	Send      chan []byte
 	Hub       *WSHub
-	UserToken string
+	UserToken *tokenClaims
 	UserType  string
 	IsActive  bool
 	LastPing  time.Time
@@ -263,10 +263,10 @@ func (h *WSHub) Close() {
 // 客户端方法
 
 // 创建新的WebSocket客户端
-func NewWSClient(conn *websocket.Conn, hub *WSHub, db db.SqlliteDB, userType string, userToken string, id string, name string) *WSClient {
+func NewWSClient(conn *websocket.Conn, hub *WSHub, db db.SqlliteDB, userToken *tokenClaims, id int64, name string) *WSClient {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &WSClient{
-		clientID:  fmt.Sprintf(`%s#%s`, name, id),
+		clientID:  fmt.Sprintf(`%s#%v`, name, id),
 		Id:        id,
 		Name:      name,
 		Conn:      conn,
@@ -274,7 +274,7 @@ func NewWSClient(conn *websocket.Conn, hub *WSHub, db db.SqlliteDB, userType str
 		Send:      make(chan []byte, 1024*1024*10), // 支持10MB的聊天内容
 		Hub:       hub,
 		UserToken: userToken,
-		UserType:  userType,
+		UserType:  userToken.Role,
 		IsActive:  false,
 		LastPing:  time.Now(),
 		ctx:       ctx,
@@ -381,19 +381,6 @@ func generateClientID() string {
 	return fmt.Sprintf("LD_%d_%d", time.Now().UnixMilli(), r.Intn(100000))
 }
 
-// 发送错误信息
-func sendCommonError(c *WSClient, err any, sId string, clientID string) {
-	commonError := WSMsg{
-		Type: "commonError",
-		Content: map[string]any{
-			"error": err,
-		},
-	}
-	if err := c.SendMessage(commonError); err != nil {
-		log.Printf("reqID: %v|发送消息给客户端 %s 失败: %v", sId, clientID, err)
-	}
-}
-
 // 处理客户端消息
 func (c *WSClient) handleMessage(msg WebMsg) {
 	c.mutex.Lock()
@@ -401,6 +388,10 @@ func (c *WSClient) handleMessage(msg WebMsg) {
 	c.mutex.Unlock()
 	if msg.SID == "" {
 		msg.SID = generateClientID()
+	}
+	if c.Id != msg.User.UserId {
+		sendCommonError(c, "用户信息不一致，请确认。", msg.SID, c.clientID)
+		return
 	}
 	if fun, ok := FuncMap[msg.Type]; ok { // 监听
 		fun(c, msg)
@@ -422,6 +413,62 @@ func sendErrorAndClose(conn *websocket.Conn, errorMsg string) {
 	conn.Close()
 }
 
+// 发送错误信息
+func sendCommonError(c *WSClient, err any, sId string, clientID string) {
+	commonError := WSMsg{
+		Type: "commonError",
+		Content: map[string]any{
+			"error": err,
+		},
+	}
+	if err := c.SendMessage(commonError); err != nil {
+		log.Printf("reqID: %v|发送消息给客户端 %s 失败: %v", sId, clientID, err)
+	}
+}
+
+// 推送好友列表数据
+func sendFriendList(c *WSClient, err any, uId int64, sId string, clientID string) {
+	friendList := c.DB.QueryList(
+		`SELECT 
+				f.*,
+				u.id AS friendId,
+				u.name AS friendName,
+				u.avatar AS friendAvatar,
+				u.role AS friendRole,
+				u.ip AS friendIp,
+				c.type AS msgType,
+				c.message AS lastMsg,
+				c.time AS msgTime,
+				(
+					SELECT COUNT(*) 
+					FROM chat_records cr 
+					WHERE cr.fromId = f.friendId 
+					AND cr.toId = f.userId 
+					AND cr.isRead = 'n'
+				) AS unreadCount
+			FROM 
+				friendships f
+			INNER JOIN 
+				users u ON f.friendId = u.id
+			LEFT JOIN 
+				chat_records c ON (
+					c.cId = f.lastChatId 
+					AND (c.fromId = f.friendId OR c.toId = f.friendId)
+				)
+			WHERE 
+				f.status = 'accept' 
+				AND f.userId = ?`, uId)
+	receiveData := WSMsg{
+		Type: "replyLatestFriendList",
+		Content: map[string]any{
+			"code": 1,
+			"data": friendList,
+		},
+	}
+	if err := c.SendMessage(receiveData); err != nil {
+		log.Printf("reqID: %v|发送消息给客户端 %s 失败: %v", sId, clientID, err)
+	}
+}
 func InitFunc() {
 	// 拉取数据包含客户端信息，离线通知、消息
 	FuncMap["pullData"] = func(c *WSClient, m WebMsg) {
@@ -506,6 +553,7 @@ func InitFunc() {
 	}
 	// 添加好友
 	FuncMap["addFriends"] = func(c *WSClient, m WebMsg) {
+		uId := m.User.UserId
 		to := m.SendData["to"].(string)
 		var insertFriendData []map[string]any
 		c.DB.Transaction(nil, func(tx *sql.Tx) error {
@@ -513,7 +561,7 @@ func InitFunc() {
 				`INSERT INTO friendships ( "userId", "friendId", "status", "createTime" )
 			VALUES
 				( ?, ?, 'pending', ? )`,
-				m.SendData["fromId"], m.SendData["toId"], time.Now().UnixMilli())
+				uId, m.SendData["toId"], time.Now().UnixMilli())
 			fId, _ := result.LastInsertId()
 			insertFriendData = c.DB.QueryListTx(tx,
 				`SELECT 
@@ -555,15 +603,16 @@ func InitFunc() {
 	// 处理好友请求
 	FuncMap["dealWithFriendsRequest"] = func(c *WSClient, m WebMsg) {
 		status, ok := m.SendData["status"].(string)
-		if ok && m.SendData["fId"] != nil {
+		uId := m.User.UserId
+		if ok && m.SendData["fId"] != nil && uId != 0 {
 			err := c.DB.Transaction(nil, func(tx *sql.Tx) error {
 				dataList := c.DB.QueryListTx(tx,
 					`SELECT
-					* 
-				FROM
-					friendships 
-				WHERE
-					fId = ?`, m.SendData["fId"])
+						* 
+					FROM
+						friendships 
+					WHERE
+						fId = ? AND friendId = ?`, m.SendData["fId"], uId)
 				if len(dataList) == 1 {
 					if status == "accept" { // 同意后进行双向绑定好友
 						c.DB.ExecTx(tx,
@@ -703,7 +752,7 @@ func InitFunc() {
 		if operateType, ok := m.SendData["type"].(string); ok {
 			if id != nil {
 				if operateType == "all" { // 全部情况把所有聊天记录改为已读
-					c.DB.Exec(`UPDATE chat_records SET isRead = 'y' WHERE fromId = ? AND toId = ?`, uId, id)
+					c.DB.Exec(`UPDATE chat_records SET isRead = 'y' WHERE fromId = ? AND toId = ?`, id, uId)
 				} else {
 					c.DB.Exec(`UPDATE chat_records SET isRead = 'y' WHERE cId = ?`, id)
 				}
@@ -715,6 +764,7 @@ func InitFunc() {
 	// 聊天数据发送
 	FuncMap["chatSendData"] = func(c *WSClient, m WebMsg) {
 		to := m.SendData["to"].(string)
+		uId := m.User.UserId
 		var chatRecords []map[string]any
 		err := c.DB.Transaction(nil, func(tx *sql.Tx) error {
 			list := c.DB.QueryListTx(tx, // 查询好友关系
@@ -724,15 +774,15 @@ func InitFunc() {
 					friendships 
 				WHERE
 					userId = ? 
-					AND friendId = ?`, m.SendData["fromId"], m.SendData["toId"])
+					AND friendId = ?`, uId, m.SendData["toId"])
 			if len(list) == 0 {
-				return fmt.Errorf("不存在的好友关系不能发送消息:%v=>%v", m.SendData["fromId"], m.SendData["toId"])
+				return fmt.Errorf("不存在的好友关系不能发送消息:%v=>%v", uId, m.SendData["toId"])
 			}
 			result, _ := c.DB.ExecTx(tx, // 新增一条记录
 				`INSERT INTO chat_records ( "toId", "fromId", "message", "isRead", "time" )
 				VALUES
 					( ?, ?, ?, ?, ? )`,
-				m.SendData["toId"], m.SendData["fromId"], m.SendData["message"], "n", time.Now().UnixMilli())
+				m.SendData["toId"], uId, m.SendData["message"], "n", time.Now().UnixMilli())
 			cId, _ := result.LastInsertId()
 			c.DB.ExecTx(tx, // 更新最近聊天记录
 				`UPDATE friendships 
@@ -740,7 +790,7 @@ func InitFunc() {
 				WHERE
 					( userId = ? AND friendId = ? ) 
 					OR ( userId = ? AND friendId = ? )`,
-				cId, m.SendData["fromId"], m.SendData["toId"], m.SendData["toId"], m.SendData["fromId"])
+				cId, uId, m.SendData["toId"], m.SendData["toId"], uId)
 			chatRecords = c.DB.QueryListTx(tx, // 查询聊天记录
 				`SELECT 
 					c.*,

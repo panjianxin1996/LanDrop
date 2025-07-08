@@ -29,6 +29,11 @@ import {
     InputOTPGroup,
     InputOTPSlot,
 } from "@/components/ui/input-otp"
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from "@/components/ui/popover"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -45,7 +50,6 @@ export default function AppWeb() {
     const { request } = useApiRequest()
     const navigate = useNavigate();
     // 分享文件列表信息
-
     const [openAlert, setOpenAlert] = useState<boolean>(false)
     const [openUserDialog, setOpenUserDialog] = useState<boolean>(true)
     const [sharedCode, setSharedCode] = useState<string>("")
@@ -54,9 +58,9 @@ export default function AppWeb() {
     const [addNewUser, setAddNewUser] = useState<boolean>(false)
     const [newUserName, setNewUserName] = useState<string>("")
     const [rememberUser, setRememberUser] = useState<boolean>(false)
-    const [userInfo, setUserInfo] = useState<any>({})
     const [isLogin, setIsLogin] = useState<boolean>(false)
     const [activeMenu, setActiveMenu] = useState<string>("sharedDir")
+    const userAvatar = ["🐱","😼", "🐶", "🐷", "🐥", "🐭", "🐹", "🐼", "🦉", "🐸","🤪","🥰","😬","😏","🙄","🥵","🥶","🥴","🤓","🥺","👹"]
     useEffect(() => {
         // web端设置为非客户端
         checkIsClient()
@@ -66,34 +70,47 @@ export default function AppWeb() {
         }
     }, [])
 
-    const connectWSServer = () => {
-        let userInfo: any = localStorage.getItem("rememberUserInfo")
-        let token = localStorage.getItem("userToken")
-        if (!token || !userInfo) return
-        userInfo = JSON.parse(userInfo)
-        let wsHandle = new WebSocket(`ws://${location.hostname}:4321/ws?ldToken=${token}&id=${userInfo.id}&name=${userInfo.name}`)
-        setStoreData({ name: "wsHandle", value: wsHandle })
+    const connectWSServer = (token: string, userInfo: any) => { // 连接socket
+        return new Promise(resolve => {
+            if (!token || !userInfo) {
+                console.warn("缺少关键参数")
+                return resolve(-1)
+            }
+            let wsHandle = new WebSocket(`ws://${location.hostname}:4321/ws?ldToken=${token}&id=${userInfo.id}&name=${userInfo.name}`)
+            wsHandle.onopen = () => {
+                setStoreData({ name: "wsHandle", value: wsHandle })
+                resolve(wsHandle.readyState);
+            }
+            wsHandle.onerror = () => {
+                console.warn("socket连接出错了。")
+                resolve(wsHandle.readyState);
+            }
+        })
+
     }
-    const initData = () => {
-        const token = localStorage.getItem("userToken")
+    const initData = async () => { // 初始化数据
+        const token = localStorage.getItem("userToken") || ""
         const rememberUser = localStorage.getItem("rememberUserInfo")
         const rememberUserInfoFlag = localStorage.getItem("rememberUserInfoFlag")
+        let userInfo = rememberUser && JSON.parse(rememberUser)
         setRememberUser(!!rememberUserInfoFlag)
         if (token && rememberUser && !!rememberUserInfoFlag) {
-            document.cookie = `ldtoken=${token}; path=/;`
             setOpenUserDialog(false)
-            setUserInfo(JSON.parse(rememberUser))
-            setIsLogin(true)
         }
-        connectWSServer()
+        await connectWSServer(token, userInfo)
+        const currentUser = userList.find((item: any) => item.id === userInfo.id)
+        if (currentUser) {
+            setOptForUserIndex(currentUser.id)
+        }
         getUserList()
+        setIsLogin(true)
     }
-    const getUserList = () => {
+    const getUserList = () => { // 获取用户列表
         request("/getUserList", 'POST', {}).then(res => {
-            if (res?.code === 200) !!res.data && setUserList(res.data)
+            if (res?.code === 200) !!res.data && setUserList(res.data.map((item:any)=> ({...item, isChange: false})))
         })
     }
-    const getRealFilePath = () => {
+    const getRealFilePath = () => { // 获取真实文件路径
         request("/getRealFilePath?fileCode=" + sharedCode).then(res => {
             if (res?.code === 200) {
                 console.log(res.data)
@@ -102,7 +119,7 @@ export default function AppWeb() {
         })
     }
 
-    const createUser = () => {
+    const createUser = () => { // 创建用户
         if (newUserName === "") { toast.error("请输入用户名"); return }
         request("/createUser", 'POST', { userName: newUserName }).then(res => {
             if (res?.code === 200) {
@@ -115,7 +132,7 @@ export default function AppWeb() {
         })
     }
 
-    const getUserToken = (userId: number, userName: string) => {
+    const getUserToken = (userId: number, userName: string) => { // 获取用户token
         return request("/createToken", 'POST', { userId, userName })
     }
     // 选择用户
@@ -137,30 +154,43 @@ export default function AppWeb() {
 
     // 更换用户
     const changeUserEvent = async (checkId: number) => {
+        await closeWS()
         let userItem = userList.find((item: any) => item.id === checkId)
-        setUserInfo(userItem)
         setStoreData({
             name: "userInfo", value: {
                 userId: userItem.id,
                 userName: userItem.name,
-                // userItem
             }
         })
-        localStorage.setItem("rememberUserInfo", JSON.stringify(userItem))
+        localStorage.setItem("rememberUserInfo", JSON.stringify(userItem)) // 设置用户信息
         const tokenRes = await getUserToken(userItem.id, userItem.name) // 选择用户获取token
-        localStorage.setItem("userToken", tokenRes.data.token)
-        connectWSServer() // ws连接、重连
+        localStorage.setItem("userToken", tokenRes.data.token) // 设置用户token
+        await connectWSServer(tokenRes.data.token, userItem) // ws连接、重连
         if (rememberUser) {
             localStorage.setItem("rememberUserInfoFlag", "1")
         }
-        setIsLogin(true) // 设置保持登录（已登录）
+        if (isLogin) {
+            setOptForUserIndex(checkId) // 设置选中的用户
+        }
     }
 
-    const unBindEvent = (item: any) => {
+    const unBindEvent = (item: any) => { // 解绑设备
         request("/unBindUser", 'POST', { userId: item.id, userName: item.name }).then(res => {
             if (res.code === 200) {
                 toast.success("解绑成功")
                 getUserList()
+            }
+        })
+    }
+    const changeUserAvatar = (avatar: string, index: number) => { // 更换用户头像
+        let newUserList = userList.map((item:any,i:number) => i === index ? {...item, isChange: true, avatar}: item)
+        setUserList(newUserList)
+    }
+
+    const updateUserInfo = (item: any) => {
+            request("/updateUserInfo", 'POST', { ...item }).then(res => {
+            if (res.code === 200) {
+                toast.success("更新成功")
             }
         })
     }
@@ -171,8 +201,6 @@ export default function AppWeb() {
                 setOpenAlert(true)
                 break;
             case "userList":
-                const currentUser = userList.find((item: any) => item.id === userInfo.id)
-                setOptForUserIndex(currentUser.id)
                 setOpenUserDialog(true)
                 break;
             case "toShare":
@@ -212,16 +240,30 @@ export default function AppWeb() {
                                         <Card className={`w-full mb-2 cursor-pointer border-2 ${optForUserIndex === item.id && 'border-[#0f172a] bg-gray-200'}`} key={`${item.id}-${item.name}`} onClick={() => !isLogin && setOptForUserIndex(item.id)}>
                                             <CardContent className="flex item-center justify-between p-3">
                                                 <div className="flex item-center">
-                                                    <Avatar>
-                                                        <AvatarFallback>
-                                                            <UserRound />
-                                                        </AvatarFallback>
-                                                    </Avatar>
+                                                    <Popover>
+                                                        <PopoverTrigger asChild>
+                                                            <Avatar>
+                                                                <AvatarFallback className="text-xl">
+                                                                    {item.avatar || <UserRound />}
+                                                                </AvatarFallback>
+                                                            </Avatar>
+                                                        </PopoverTrigger>
+                                                        <PopoverContent className="flex flex-wrap gap-2 min-w-[32rem]">
+                                                            {
+                                                                userAvatar.map((item:string)=> (
+                                                                    <p className="text-3xl p-2 cursor-pointer hover:bg-slate-100" key={item} onClick={()=> changeUserAvatar(item, index)}>{item}</p>
+                                                                ))
+                                                            }
+                                                        </PopoverContent>
+                                                    </Popover>
                                                     <span className="leading-10 ml-4">{item.name}</span>
                                                 </div>
                                                 {
                                                     optForUserIndex !== index && isLogin && <div className="flex">
-                                                        <Button variant={"default"} className="ml-2" onClick={() => { setOptForUserIndex(item.id); changeUserEvent(item.id); }}>切换</Button>
+                                                        {
+                                                            item.isChange && <Button variant={"default"} className="ml-2" onClick={() => { updateUserInfo(item) }}>更新</Button>
+                                                        }
+                                                        <Button variant={"default"} className="ml-2" onClick={() => { changeUserEvent(item.id) }}>切换</Button>
                                                         <Button variant={"destructive"} className="ml-2" onClick={(e) => { e.preventDefault(); e.stopPropagation(); unBindEvent(item); }}>解绑</Button>
                                                     </div>
                                                 }

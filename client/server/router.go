@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -23,7 +24,7 @@ type Router struct {
 	assets embed.FS
 	config Config
 	Reply
-	db *sql.DB
+	db db.SqlliteDB
 }
 type FileInfo struct {
 	ID       int    `json:"fileId"`
@@ -54,7 +55,7 @@ func startRouter(app *fiber.App, assets embed.FS, config Config, sldb db.Sqllite
 		app:    app,
 		assets: assets,
 		config: config,
-		db:     sldb.DB,
+		db:     sldb,
 	}
 	// WebSocket 升级中间件
 	app.Use("/ws", func(c *fiber.Ctx) error {
@@ -67,7 +68,6 @@ func startRouter(app *fiber.App, assets embed.FS, config Config, sldb db.Sqllite
 
 	// WebSocket 路由
 	app.Get("/ws", websocket.New(func(conn *websocket.Conn) {
-		// 验证token
 		token := conn.Query("ldToken")
 		id := conn.Query("id")
 		name := conn.Query("name")
@@ -75,21 +75,22 @@ func startRouter(app *fiber.App, assets embed.FS, config Config, sldb db.Sqllite
 			sendErrorAndClose(conn, "缺少token数据")
 			return
 		}
-
 		tokenJWT, err := ParseToken(token)
 		if err != nil {
 			sendErrorAndClose(conn, "无法验证token有效性")
 			return
 		}
-
-		// 验证角色权限 - 修复逻辑判断
-		if tokenJWT.Role != "admin" && tokenJWT.Role != "guest" {
+		if tokenJWT.Role != "admin" && tokenJWT.Role != "guest" { // 验证角色权限 - 修复逻辑判断
 			sendErrorAndClose(conn, "token角色验证失败")
 			return
 		}
-
+		userId, _ := strconv.ParseInt(id, 10, 64)
+		if tokenJWT.UserID != userId { // token账号与传入id比对
+			sendErrorAndClose(conn, "token账号验证失败")
+			return
+		}
 		// 创建客户端
-		wsClient := NewWSClient(conn, wsHub, sldb, tokenJWT.Role, token, id, name)
+		wsClient := NewWSClient(conn, wsHub, sldb, tokenJWT, userId, name)
 
 		// 注册客户端
 		wsHub.register <- wsClient
@@ -127,6 +128,8 @@ func startRouter(app *fiber.App, assets embed.FS, config Config, sldb db.Sqllite
 		api.Get("/getWSStatus", r.getWSStatus)
 		// 获取配置信息
 		api.Get("/getConfigData", r.getConfigData)
+		// 更新用户信息
+		api.Post("/updateUserInfo", r.updateUserInfo)
 	}
 }
 
@@ -181,7 +184,7 @@ func (r Router) uploadFile(c *fiber.Ctx) error {
 }
 
 func (r Router) getSharedDirInfo(c *fiber.Ctx) error {
-	rows, err := r.db.Query("SELECT * FROM files")
+	rows, err := r.db.DB.Query("SELECT * FROM files")
 	if err != nil {
 		r.Reply = Reply{
 			Code: http.StatusBadRequest,
@@ -225,7 +228,7 @@ func (r Router) getSharedDirInfo(c *fiber.Ctx) error {
 func (r Router) getRealFilePath(c *fiber.Ctx) error {
 	fileCode := c.Query("fileCode")
 	var f FileInfo
-	row := r.db.QueryRow("SELECT * FROM files WHERE fileCode = ?", fileCode)
+	row := r.db.DB.QueryRow("SELECT * FROM files WHERE fileCode = ?", fileCode)
 	row.Scan(&f.ID, &f.Name, &f.Size, &f.Mode, &f.ModTime, &f.IsDir, &f.URIName, &f.Path, &f.FileCode)
 	if row.Err() != nil {
 		r.Reply.Code = 199
@@ -292,7 +295,7 @@ func (r Router) getUserList(c *fiber.Ctx) error {
 		r.Reply.Data = err
 		return c.Status(r.Reply.Code).JSON(r.Reply)
 	}
-	rows, err := r.db.Query(`SELECT * FROM "users" WHERE ip = ? AND role= 'guest'`, clientIP)
+	rows, err := r.db.DB.Query(`SELECT * FROM "users" WHERE ip = ? AND role= 'guest'`, clientIP)
 	if err != nil {
 		r.Reply.Code = http.StatusInternalServerError
 		r.Reply.Msg = "服务器错误"
@@ -343,7 +346,7 @@ func (r Router) createUser(c *fiber.Ctx) error {
 		r.Reply.Data = nil
 		return c.Status(r.Reply.Code).JSON(r.Reply)
 	}
-	row := r.db.QueryRow(`SELECT COUNT(ip) as countIP FROM "users" WHERE ip = ? AND role = 'guest'`, clientIP)
+	row := r.db.DB.QueryRow(`SELECT COUNT(ip) as countIP FROM "users" WHERE ip = ? AND role = 'guest'`, clientIP)
 	countIP := 0
 	row.Scan(&countIP)
 	if countIP >= 5 {
@@ -352,7 +355,7 @@ func (r Router) createUser(c *fiber.Ctx) error {
 		r.Reply.Data = nil
 		return c.Status(http.StatusOK).JSON(r.Reply)
 	}
-	result, err := r.db.Exec(`INSERT INTO users (name, pwd, role, ip, createdAt) VALUES (?, ?, ?, ?, ?);`, postBody["userName"], postBody["userName"]+"#123", "guest", clientIP, time.Now().Format("2006-01-02 15:04:05"))
+	result, err := r.db.DB.Exec(`INSERT INTO users (name, pwd, role, ip, createdAt) VALUES (?, ?, ?, ?, ?);`, postBody["userName"], postBody["userName"]+"#123", "guest", clientIP, time.Now().Format("2006-01-02 15:04:05"))
 	if err != nil {
 		r.Reply.Code = http.StatusBadRequest
 		r.Reply.Msg = "创建失败"
@@ -387,7 +390,7 @@ func (r Router) createToken(c *fiber.Ctx) error {
 	}
 	var id int64
 	var name string
-	err := r.db.QueryRow(`SELECT id, name FROM users WHERE id = ? AND name = ?`, postBody.UserId, postBody.UserName).Scan(&id, &name)
+	err := r.db.DB.QueryRow(`SELECT id, name FROM users WHERE id = ? AND name = ?`, postBody.UserId, postBody.UserName).Scan(&id, &name)
 	if err != nil && err != sql.ErrNoRows {
 		r.Reply.Code = http.StatusOK
 		r.Reply.Msg = "确保数据正确"
@@ -471,7 +474,7 @@ func (r Router) appLogin(c *fiber.Ctx) error {
 	}
 	var adminId int64
 	var adminName, adminRole string
-	err := r.db.QueryRow("SELECT id, name, role FROM users WHERE name = ? AND pwd = ?", postBody["adminName"], postBody["adminPassword"]).Scan(&adminId, &adminName, &adminRole)
+	err := r.db.DB.QueryRow("SELECT id, name, role FROM users WHERE name = ? AND pwd = ?", postBody["adminName"], postBody["adminPassword"]).Scan(&adminId, &adminName, &adminRole)
 	if err != nil && err == sql.ErrNoRows {
 		result, err := r.db.Exec(`INSERT INTO users (name, pwd, role,  ip, createdAt) VALUES (?, ?, ?, ?, ?);`, postBody["adminName"], postBody["adminPassword"], "admin", clientIP, time.Now().Format("2006-01-02 15:04:05"))
 		if err != nil {
@@ -518,5 +521,27 @@ func (r Router) getConfigData(c *fiber.Ctx) error {
 	r.Reply.Code = http.StatusOK
 	r.Reply.Msg = "successed"
 	r.Reply.Data = r.config
+	return c.Status(r.Reply.Code).JSON(r.Reply)
+}
+
+func (r Router) updateUserInfo(c *fiber.Ctx) error {
+	postBody := map[string]any{}
+	if err := c.BodyParser(&postBody); err != nil {
+		r.Reply.Code = http.StatusBadRequest
+		r.Reply.Msg = "请验证参数正确性"
+		r.Reply.Data = err
+		return c.Status(r.Reply.Code).JSON(r.Reply)
+	}
+	result, _ := r.db.Exec(`UPDATE users SET avatar = ? WHERE id = ?`, postBody["avatar"], postBody["id"])
+	if _, err := result.RowsAffected(); err != nil {
+		r.Reply.Code = http.StatusBadRequest
+		r.Reply.Msg = "失败"
+		r.Reply.Data = "修改失败"
+	} else {
+		r.Reply.Code = http.StatusOK
+		r.Reply.Msg = "完成"
+		r.Reply.Data = "修改成功"
+	}
+
 	return c.Status(r.Reply.Code).JSON(r.Reply)
 }

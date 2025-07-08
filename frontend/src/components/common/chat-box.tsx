@@ -1,5 +1,5 @@
 import * as React from "react"
-import { Check, Send, Bell, UserRoundPlus, CircleCheck, CircleX } from "lucide-react"
+import { Check, Send, Bell, UserRoundPlus, CircleCheck, CircleX, UserRound } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -56,6 +56,7 @@ type ChatUserItem = {
   friendId: number
   friendIp: string
   friendName: string
+  friendAvatar: string
   friendRole: string
   lastChatId: string | null
   lastMsg: string | null
@@ -72,6 +73,7 @@ type UserItem = {
   id: number
   ip: string
   isActive: boolean
+  avatar: string
   name: string
   pwd: string
   role: string
@@ -89,7 +91,7 @@ type Message = {
   type: string | null
 }
 
-export default function ChatBox(props: {userId: number}) {
+export default function ChatBox(props: { userId: number }) {
   const { wsHandle, userInfo } = useClientStore()
   const [clientData, setClientData] = React.useState<ClientData>({ // 当前设备数据，包含了设备信息以及离线情况设备消息、通知
     clientID: "",
@@ -358,9 +360,18 @@ export default function ChatBox(props: {userId: number}) {
             {
               chatUserList.map((item: ChatUserItem) => {
                 return <div className={`relative flex items-center space-x-4 mb-2 cursor-pointer p-[4px] hover:bg-slate-100 ${chatUser?.friendId === item.friendId ? 'bg-slate-200' : ''}`} key={item.friendId} onClick={() => { changeChatUser(item) }}>
-                  <Avatar>
-                    <AvatarFallback>{item.friendName.slice(0, 2)}</AvatarFallback>
-                  </Avatar>
+                  <div className="relative">
+                    <Avatar>
+                      <AvatarFallback className="text-xl">
+                        {item.friendAvatar || <UserRound />}
+                      </AvatarFallback>
+
+                    </Avatar>
+                    {
+                      item.unreadCount > 0 && <p className="text-xs absolute top-[-5px] right-[-5px] bg-red-500 rounded px-[3px] text-white">{item.unreadCount}</p>
+                    }
+                  </div>
+
                   <div className="w-3/5 flex flex-col justify-between">
                     <p className="text-sm font-medium leading-none whitespace-nowrap overflow-visible truncate">{item.friendName}</p>
                     <p className="text-xs text-muted-foreground whitespace-nowrap overflow-visible truncate mt-2">{item.lastMsg}</p>
@@ -447,7 +458,9 @@ export default function ChatBox(props: {userId: number}) {
                     }}
                   >
                     <Avatar>
-                      <AvatarFallback>{user.name[0]}</AvatarFallback>
+                      <AvatarFallback className="text-xl">
+                        {user.avatar || <UserRound />}
+                      </AvatarFallback>
                     </Avatar>
                     <div className="ml-2">
                       <p className="text-sm font-medium leading-none">
@@ -476,7 +489,9 @@ export default function ChatBox(props: {userId: number}) {
                     key={user.id}
                     className="inline-block border-2 border-background"
                   >
-                    <AvatarFallback>{user.name[0]}</AvatarFallback>
+                    <AvatarFallback>
+                      {user.avatar || <UserRound />}
+                    </AvatarFallback>
                   </Avatar>
                 ))}
               </div>
