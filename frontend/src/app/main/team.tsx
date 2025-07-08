@@ -1,10 +1,10 @@
 import ChatBox from "@/components/common/chat-box"
-import useClientStore from "@/store/appStore";
+import { useOutletContext } from 'react-router-dom';
 export default function Team() {
-  const { userInfo } = useClientStore()
+  const { userId, socketData } = useOutletContext<{ userId: number, socketData:any }>();
     return (
     <div className="w-full h-[calc(100vh-4rem)]">
-      <ChatBox userId={+userInfo.userId}/>
+      <ChatBox userId={userId} socketData={socketData}/>
     </div>
   );
 }

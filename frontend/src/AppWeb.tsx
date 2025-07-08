@@ -60,6 +60,7 @@ export default function AppWeb() {
     const [rememberUser, setRememberUser] = useState<boolean>(false)
     const [isLogin, setIsLogin] = useState<boolean>(false)
     const [activeMenu, setActiveMenu] = useState<string>("sharedDir")
+    const [socketData, setSocketData] = useState<any>({})
     const userAvatar = ["🐱","😼", "🐶", "🐷", "🐥", "🐭", "🐹", "🐼", "🦉", "🐸","🤪","🥰","😬","😏","🙄","🥵","🥶","🥴","🤓","🥺","👹"]
     useEffect(() => {
         // web端设置为非客户端
@@ -77,6 +78,10 @@ export default function AppWeb() {
                 return resolve(-1)
             }
             let wsHandle = new WebSocket(`ws://${location.hostname}:4321/ws?ldToken=${token}&id=${userInfo.id}&name=${userInfo.name}`)
+            wsHandle.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                setSocketData(data)
+            }
             wsHandle.onopen = () => {
                 setStoreData({ name: "wsHandle", value: wsHandle })
                 resolve(wsHandle.readyState);
@@ -365,7 +370,7 @@ export default function AppWeb() {
                         }
                     </DropdownMenuContent>
                 </DropdownMenu>
-                <Outlet context={{ userId: optForUserIndex }} />
+                <Outlet context={{ userId: optForUserIndex, socketData }} />
             </div>
             <div style={{ height: "5vh" }}>
             </div>

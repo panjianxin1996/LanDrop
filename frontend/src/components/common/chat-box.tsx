@@ -91,7 +91,7 @@ type Message = {
   type: string | null
 }
 
-export default function ChatBox(props: { userId: number }) {
+export default function ChatBox(props: { userId: number, socketData: any }) {
   const { wsHandle, userInfo } = useClientStore()
   const [clientData, setClientData] = React.useState<ClientData>({ // 当前设备数据，包含了设备信息以及离线情况设备消息、通知
     clientID: "",
@@ -110,29 +110,41 @@ export default function ChatBox(props: { userId: number }) {
   const [notifyList, setNotifyList] = React.useState<Array<NotifyItem>>([])
   const chatUserRef = React.useRef(chatUser) // 为了方便onMessage中获取最新的chatUser
   const inputLength = input.trim().length
+  React.useEffect(() => {
+    if (wsHandle) {
+      initData()
+      sendMessage({ type: "pullData" }) // 获取初始数据
+      queryFriendList()
+    }
+  }, [props.userId])
   React.useEffect(() => { // 监听chatUser切换
     chatUserRef.current = chatUser;
   }, [chatUser]);
   React.useEffect(() => {
-    initData()
-    if (wsHandle) {
-      sendMessage({ type: "pullData" }) // 获取初始数据
-      queryFriendList() // 查询好友列表
-      wsHandle.onmessage = (event) => {
-        const m = JSON.parse(event.data)
-        if (m.type && OnMessageOperation[m.type]) {
-          OnMessageOperation[m.type](m.content)
-        } else {
-          // console.warn("未获取到socket类型", m.type, m.content)
-        }
-      };
+    console.log(props.userId, "触发更新。")
+    // initData()
+    // if (wsHandle) {
+    //   sendMessage({ type: "pullData" }) // 获取初始数据
+    //   queryFriendList() // 查询好友列表
+    // wsHandle.onmessage = (event) => {
+    //   const m = JSON.parse(event.data)
+    //   if (m.type && OnMessageOperation[m.type]) {
+    //     OnMessageOperation[m.type](m.content)
+    //   } else {
+    //     // console.warn("未获取到socket类型", m.type, m.content)
+    //   }
+    // };
+    let socketData = props.socketData
+    if (socketData.type && OnMessageOperation[socketData.type]) {
+      OnMessageOperation[socketData.type](socketData.content)
     }
-  }, [props.userId])
+    // }
+  }, [props.socketData])
 
   const OnMessageOperation: Record<string, Function> = {
     // 处理通用错误数据
     "commonError": (content: any) => {
-      console.warn("监听到ws处理错误", content.error)
+      console.warn("监听到ws处理错误:", content.error)
     },
     // 获取整体数据包含当前客户端信息以及离线数据通知、消息
     "replyPullData": (content: any) => {

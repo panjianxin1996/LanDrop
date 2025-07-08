@@ -1,15 +1,16 @@
 import { AppSidebar } from "@/components/main/app-sidebar"
 import { SiteHeader } from "@/components/main/app-header"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Outlet, useNavigate } from 'react-router-dom'
 import useClientStore from "@/store/appStore"
 import { useApiRequest } from "@/tools/request"
 export default function App() {
   const navigate = useNavigate();
   const { request } = useApiRequest()
-  const { isClient, checkIsClient, setStoreData, connectWS, closeWS, selectNetAdapter, setSelectNetAdapter, userInfo } = useClientStore()
-
+  const { isClient, checkIsClient, setStoreData, closeWS, selectNetAdapter, setSelectNetAdapter, userInfo } = useClientStore()
+  const [userId, setUserId] = useState<number>(-1)
+  const [socketData, setSocketData] = useState<any>({})
   useEffect(() => {
     checkIsClient().then(res => {
       if (res) {
@@ -41,13 +42,37 @@ export default function App() {
     })
   }
 
+  const connectWS = (id: string, name: string, token: string) => {
+    let wsHandle = new WebSocket(`ws://127.0.0.1:${localStorage.getItem("appPort") || "4321"}/ws?ldToken=${token}&id=${id}&name=${name}`)
+    wsHandle.onmessage = (event) => {
+      const info = JSON.parse(event.data);
+      if (info.type === "deviceRealTimeInfo") {
+        let newNetWorkLog = { ...info.content.network, ...info.content }
+        setStoreData({
+          beforeSet: (_, set) => {
+            set(state => ({// 只存放24条数据
+              deviceLogsData: state.deviceLogsData.length >= 24 ? [...state.deviceLogsData.slice(-23), newNetWorkLog] : [...state.deviceLogsData, newNetWorkLog]
+            }))
+          }
+        })
+      } else {
+        setSocketData(info)
+      }
+    }
+    wsHandle.onopen = () => {
+      setStoreData({ name: 'wsHandle', value: wsHandle })
+      setUserId(+userInfo.userId)
+    }
+    
+  }
+
   const appLogin = () => {
     let uName
-    if (!userInfo.userName)  uName = `admin${(Math.random() * 1000).toFixed(0)}` 
-    else  uName = userInfo.userName
+    if (!userInfo.userName) uName = `admin${(Math.random() * 1000).toFixed(0)}`
+    else uName = userInfo.userName
     setStoreData({
-      name: 'userInfo', value: {...userInfo, userName: uName}, endSet: (store) => {
-        console.log(store,"store")
+      name: 'userInfo', value: { ...userInfo, userName: uName }, endSet: (store) => {
+        console.log(store, "store")
         request("/appLogin", "POST", {
           adminName: store.userInfo.userName,
           adminPassword: `landrop#${store.userInfo.userName}`,
@@ -57,7 +82,7 @@ export default function App() {
             localStorage.setItem("ldtoken", res.data.token)
             setStoreData({
               beforeSet: (_, set) => {
-                set({ 
+                set({
                   userInfo: {
                     token: res.data.token,
                     userName: res.data.adminName,
@@ -86,7 +111,7 @@ export default function App() {
     <SidebarInset className="overflow-auto !w-3/5 !m-0 !rounded-none h-full ">
       <SiteHeader />
       <main className=" flex flex-1 flex-col">
-        <Outlet />
+        <Outlet context={{ userId: userId, socketData }} />
       </main>
     </SidebarInset>
   </SidebarProvider>)

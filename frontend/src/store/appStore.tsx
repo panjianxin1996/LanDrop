@@ -19,7 +19,7 @@ type AppStore = {
   setStoreData: (params: SetStoreDataParams) => void // 通用更新store数据函数
   deviceLogsData: any // 设备数据
   wsHandle: WebSocket | null // websocket实例
-  connectWS: (id: string, name: string, token: string) => void // 连接websocket
+  // connectWS: (id: string, name: string, token: string) => void // 连接websocket
   closeWS: () => Promise<any> // 关闭websocket
   selectNetAdapter: string // 选择的网络适配器
   setSelectNetAdapter: (selectNetAdapter: string, cb?: (store: AppStore) => void) => void // 设置选择网络适配器
@@ -64,19 +64,6 @@ const useClientStore = create<AppStore>()(
       },
       deviceLogsData: [],
       wsHandle: null,
-      connectWS: (id: string, name: string, token: string) => {
-        let wsHandle = new WebSocket(`ws://127.0.0.1:${localStorage.getItem("appPort") || "4321"}/ws?ldToken=${token}&id=${id}&name=${name}`)
-        set({ wsHandle })
-        wsHandle.onmessage = (event) => {
-          const info = JSON.parse(event.data);
-          if (info.type === "deviceRealTimeInfo") {
-            let newNetWorkLog = { ...info.content.network, ...info.content }
-            set(state => ({// 只存放24条数据
-              deviceLogsData: state.deviceLogsData.length >= 24 ? [...state.deviceLogsData.slice(-23), newNetWorkLog] : [...state.deviceLogsData, newNetWorkLog]
-            }))
-          }
-        };
-      },
       closeWS: () => {
         const ws = get().wsHandle
         return new Promise((resolve)=> {

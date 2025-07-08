@@ -427,7 +427,7 @@ func sendCommonError(c *WSClient, err any, sId string, clientID string) {
 }
 
 // 推送好友列表数据
-func sendFriendList(c *WSClient, err any, uId int64, sId string, clientID string) {
+func sendFriendList(c *WSClient, uId int64, sId string, clientID string) {
 	friendList := c.DB.QueryList(
 		`SELECT 
 				f.*,
@@ -809,6 +809,7 @@ func InitFunc() {
 			sendCommonError(c, err, m.SID, c.clientID)
 			return
 		}
+		sendFriendList(c, m.User.UserId, m.SID, c.clientID)
 		receiveData := WSMsg{
 			Type: "replyChatReceiveData",
 			Content: map[string]any{
