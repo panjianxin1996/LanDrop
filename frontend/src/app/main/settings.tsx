@@ -1,5 +1,5 @@
 import React from "react"
-import { FolderOpen, RefreshCcwDot, LogOut } from "lucide-react"
+import { FolderOpen, RefreshCcwDot, LogOut, Trash } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useApiRequest } from "@/tools/request"
@@ -41,6 +41,11 @@ export default function Settings() {
     })
   }
 
+  const clearStorageData = () => { 
+    localStorage.clear()
+    toast.success('清理缓存完成！')
+  }
+
   const getConfigData = () => {
     request("/getConfigData").then(res => {
       if (res?.code === 200) {
@@ -70,7 +75,7 @@ export default function Settings() {
             changeDirFlag && <p className="absolute bottom-0 left-0 text-xs text-muted-foreground text-red-300" style={{ bottom: "-20px" }}>修改后需点击按钮重启服务。</p>
           }
         </div>
-        <Button className="px-3" onClick={restartServer}>
+        <Button className="px-3" onClick={restartServer} size="sm">
           <RefreshCcwDot size={20} />
           保存重启服务
         </Button>
@@ -89,11 +94,19 @@ export default function Settings() {
         />
         <p className="absolute bottom-0 left-0 text-xs text-muted-foreground text-red-300" style={{ bottom: "-20px" }}>设置用户身份过期后，原先授权的用户不会受影响。（设置后请重启服务）</p>
       </div>
+      <div className="flex items-center space-x-2 relative w-full mb-4">
+        <Label htmlFor="tokenExpTime" className="w-32">清除缓存数据</Label>
+        <Button className="px-3" size="sm" onClick={()=> clearStorageData()}>
+          <Trash size={15} />
+          清除
+        </Button>
+        <p className="absolute bottom-0 left-0 text-xs text-muted-foreground text-red-300" style={{ bottom: "-20px" }}>页面异常的时候可以清除缓存。</p>
+      </div>
       <div className="flex items-center space-x-2 w-full mb-4">
         <Label htmlFor="exitApp" className="w-32">退出LanDrop</Label>
         <Popover open={popoverOpen}>
           <PopoverTrigger asChild> 
-            <Button variant="destructive" className="px-6" onClick={() => setPopoverOpen(true)}>
+            <Button variant="destructive" size="sm" className="px-6" onClick={() => setPopoverOpen(true)}>
               <LogOut size={20} />
               退出
             </Button>

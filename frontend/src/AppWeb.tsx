@@ -88,6 +88,7 @@ export default function AppWeb() {
         setRememberUser(!!rememberUserInfoFlag)
         if (token && rememberUser && !!rememberUserInfoFlag) {
             setOpenUserDialog(false)
+            setIsLogin(true)
         }
         await connectWSServer(token, userInfo)
         // const currentUser = userList.find((item: any) => item.id === userInfo.id)
@@ -95,7 +96,6 @@ export default function AppWeb() {
         setOptForUserId(userInfo && userInfo.id)
         // }
         getUserList()
-        setIsLogin(true)
     }
     const getUserList = () => { // 获取用户列表
         request("/getUserList", 'POST', {}).then(res => {
@@ -141,6 +141,7 @@ export default function AppWeb() {
             e.preventDefault();
         } else {
             changeUserEvent(optForUserId)
+            setIsLogin(true)
         }
     }
 
@@ -148,6 +149,7 @@ export default function AppWeb() {
     const changeUserEvent = async (checkId: number) => {
         await closeWS()
         let userItem = userList.find((item: any) => item.id === checkId)
+        console.log("changeUserEvent", userItem)
         setStoreData({
             name: "userInfo", value: {
                 userId: userItem.id,
