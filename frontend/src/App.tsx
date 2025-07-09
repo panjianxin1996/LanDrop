@@ -1,7 +1,7 @@
 import { AppSidebar } from "@/components/main/app-sidebar"
 import { SiteHeader } from "@/components/main/app-header"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Outlet, useNavigate } from 'react-router-dom'
 import useClientStore from "@/store/appStore"
 import { useApiRequest } from "@/tools/request"
@@ -10,7 +10,9 @@ export default function App() {
   const { request } = useApiRequest()
   const { isClient, checkIsClient, setStoreData, closeWS, selectNetAdapter, setSelectNetAdapter, userInfo } = useClientStore()
   const [userId, setUserId] = useState<number>(-1)
-  const [socketData, setSocketData] = useState<any>({})
+  const socketList = useRef<Array<any>>([])
+  const timeoutHandle = useRef<any>(null)
+  // const [socketData, setSocketData] = useState<any>({})
   useEffect(() => {
     checkIsClient().then(res => {
       if (res) {
@@ -30,7 +32,7 @@ export default function App() {
     return (window.location.pathname.includes('/client') || window.location.pathname.includes('/'))
   }
 
-  const getNetworkInfo = () => {
+  const getNetworkInfo = () => { // 获取网卡信息
     request("/getNetworkInfo").then(res => {
       if (res && res.code === 200) {
         setStoreData({ name: 'netAdapterList', value: res.data })
@@ -41,6 +43,21 @@ export default function App() {
       }
     })
   }
+
+  // 异步传递socket信息，将socket的信息暂存socketList，在100s内进行更新
+  const setSocketQueue = useCallback(() => {
+    if (!!timeoutHandle.current) return
+    timeoutHandle.current = setTimeout(() => {
+      const currentList = [...socketList.current]
+      socketList.current = []
+      setStoreData({
+        beforeSet: (store, set) => {
+          set({ socketQueue: [...store.socketQueue, ...currentList] })
+        }
+      })
+      timeoutHandle.current = null
+    }, (Math.random() * 100)) // 设置更新为100秒的延迟
+  }, [])
 
   const connectWS = (id: string, name: string, token: string) => {
     let wsHandle = new WebSocket(`ws://127.0.0.1:${localStorage.getItem("appPort") || "4321"}/ws?ldToken=${token}&id=${id}&name=${name}`)
@@ -56,14 +73,15 @@ export default function App() {
           }
         })
       } else {
-        setSocketData(info)
+        socketList.current.push(info)
+        setSocketQueue()
       }
     }
     wsHandle.onopen = () => {
       setStoreData({ name: 'wsHandle', value: wsHandle })
       setUserId(+userInfo.userId)
     }
-    
+
   }
 
   const appLogin = () => {
@@ -111,7 +129,7 @@ export default function App() {
     <SidebarInset className="overflow-auto !w-3/5 !m-0 !rounded-none h-full ">
       <SiteHeader />
       <main className=" flex flex-1 flex-col">
-        <Outlet context={{ userId: userId, socketData }} />
+        <Outlet context={{ userId: userId }} />
       </main>
     </SidebarInset>
   </SidebarProvider>)

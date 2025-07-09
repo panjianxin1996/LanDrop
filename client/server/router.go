@@ -49,7 +49,7 @@ var wsHub *WSHub
 
 func startRouter(app *fiber.App, assets embed.FS, config Config, sldb db.SqlliteDB) {
 	ctx := context.Background()
-	wsHub = NewWSHub(ctx)
+	wsHub = NewWSHub(ctx, sldb)
 	go wsHub.Run()
 	r := Router{
 		app:    app,

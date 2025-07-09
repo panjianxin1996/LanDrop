@@ -12,6 +12,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, } from "@/com
 import { Popover, PopoverContent, PopoverTrigger, } from "@/components/ui/popover"
 import { Badge } from "@/components/ui/badge"
 import useClientStore from "@/store/appStore"
+import dayjs from "dayjs"
 
 // 发送ws服务器数据结构
 type WebMsg = {
@@ -92,7 +93,7 @@ type Message = {
 }
 
 export default function ChatBox(props: { userId: number, socketData: any }) {
-  const { wsHandle, userInfo } = useClientStore()
+  const { wsHandle, userInfo, socketQueue, setStoreData } = useClientStore()
   const [clientData, setClientData] = React.useState<ClientData>({ // 当前设备数据，包含了设备信息以及离线情况设备消息、通知
     clientID: "",
     id: "",
@@ -109,37 +110,42 @@ export default function ChatBox(props: { userId: number, socketData: any }) {
   const [users, setUsers] = React.useState<Array<UserItem>>([])
   const [notifyList, setNotifyList] = React.useState<Array<NotifyItem>>([])
   const chatUserRef = React.useRef(chatUser) // 为了方便onMessage中获取最新的chatUser
+  const chatWindowRef = React.useRef<any>(null)
   const inputLength = input.trim().length
   React.useEffect(() => {
-    if (wsHandle) {
+    console.log("当前聊天用户ID:", props.userId)
+    if (props.userId && props.userId > 0 && wsHandle) {
       initData()
       sendMessage({ type: "pullData" }) // 获取初始数据
       queryFriendList()
     }
   }, [props.userId])
-  React.useEffect(() => { // 监听chatUser切换
+  React.useEffect(() => {
     chatUserRef.current = chatUser;
   }, [chatUser]);
-  React.useEffect(() => {
-    console.log(props.userId, "触发更新。")
-    // initData()
-    // if (wsHandle) {
-    //   sendMessage({ type: "pullData" }) // 获取初始数据
-    //   queryFriendList() // 查询好友列表
-    // wsHandle.onmessage = (event) => {
-    //   const m = JSON.parse(event.data)
-    //   if (m.type && OnMessageOperation[m.type]) {
-    //     OnMessageOperation[m.type](m.content)
-    //   } else {
-    //     // console.warn("未获取到socket类型", m.type, m.content)
-    //   }
-    // };
-    let socketData = props.socketData
-    if (socketData.type && OnMessageOperation[socketData.type]) {
-      OnMessageOperation[socketData.type](socketData.content)
+  React.useEffect(() => { // 监听chatUser切换
+    if (socketQueue.length > 0) {
+      socketQueue.forEach(socket => {
+        if (socket.type && OnMessageOperation[socket.type]) {
+          OnMessageOperation[socket.type](socket.content)
+        }
+      })
+      setStoreData({
+        beforeSet: (_, set) => {
+          set({ queueLock: true, socketQueue: [] })
+          set({ queueLock: false })
+        }
+      })
     }
-    // }
-  }, [props.socketData])
+  }, [socketQueue]) // socket队列数据更新
+  React.useEffect(() => {
+    if (chatUser && chatWindowRef.current) {
+      chatWindowRef.current.scrollTo({
+        top: chatWindowRef.current.scrollHeight,
+        behavior: 'smooth' // 平滑滚动
+      });
+    }
+  }, [messages])
 
   const OnMessageOperation: Record<string, Function> = {
     // 处理通用错误数据
@@ -178,8 +184,8 @@ export default function ChatBox(props: { userId: number, socketData: any }) {
     },
     // 处理好友请求回调
     "replyDealWithFriends": (content: any) => {
-      if (content.code === 1 && content.fId) {
-        setNotifyList(notifyList.filter((item: NotifyItem) => item.fId === content.fId))
+      if (content.code === 1 && content.data) {
+        setNotifyList(notifyList.filter((item: NotifyItem) => item.fId === content.data))
         queryFriendList()
       }
     },
@@ -204,6 +210,12 @@ export default function ChatBox(props: { userId: number, socketData: any }) {
         }))
       }
     },
+    // 更新最新的好友列表
+    "replyLatestFriendList": (content: any) => {
+      if (content.code === 1 && content.data) {
+        setChatUserList(content.data)
+      }
+    }
   }
 
   const sendMessage = (webMsg: WebMsg) => { // 封装socket发送
@@ -211,8 +223,8 @@ export default function ChatBox(props: { userId: number, socketData: any }) {
       console.warn("发送消息失败，未获取到用户信息。。。")
       return
     }
-    if (!wsHandle) {
-      console.warn("发送消息失败，socket连接断开。。。")
+    if (!wsHandle || wsHandle.readyState != wsHandle.OPEN) {
+      console.warn("发送消息失败，socket连接断开。。。", wsHandle?.readyState)
       return
     }
     const { sId, type, sendData, content, user } = webMsg
@@ -310,14 +322,30 @@ export default function ChatBox(props: { userId: number, socketData: any }) {
     })
   }
 
-  // type single/all 改变聊天记录的状态
-  const setChatRecordStatus = (type: string, cId: number) => {
+  const setChatRecordStatus = (type: string, cId: number) => { // type single/all 改变聊天记录的状态
     sendMessage({
       type: "changeChatRecordsStatus", sendData: {
         type,
         id: cId
       }
     })
+  }
+
+  const selectAddUser = (user: UserItem) => {
+    {
+      if (selectedUsers.includes(user)) {
+        return setSelectedUsers(
+          selectedUsers.filter(
+            (selectedUser: UserItem) => selectedUser !== user
+          )
+        )
+      }
+      return setSelectedUsers(
+        [...users].filter((u) =>
+          [...selectedUsers, user].includes(u)
+        )
+      )
+    }
   }
 
   return (
@@ -371,7 +399,7 @@ export default function ChatBox(props: { userId: number, socketData: any }) {
           <div>
             {
               chatUserList.map((item: ChatUserItem) => {
-                return <div className={`relative flex items-center space-x-4 mb-2 cursor-pointer p-[4px] hover:bg-slate-100 ${chatUser?.friendId === item.friendId ? 'bg-slate-200' : ''}`} key={item.friendId} onClick={() => { changeChatUser(item) }}>
+                return <div className={`relative h-12 flex items-center mb-2 cursor-pointer p-[4px] hover:bg-slate-100 ${chatUser?.friendId === item.friendId ? 'bg-slate-200' : ''}`} key={item.friendId} onClick={() => { changeChatUser(item) }}>
                   <div className="relative">
                     <Avatar>
                       <AvatarFallback className="text-xl">
@@ -383,10 +411,12 @@ export default function ChatBox(props: { userId: number, socketData: any }) {
                       item.unreadCount > 0 && <p className="text-xs absolute top-[-5px] right-[-5px] bg-red-500 rounded px-[3px] text-white">{item.unreadCount}</p>
                     }
                   </div>
-
-                  <div className="w-3/5 flex flex-col justify-between">
+                  <div className="w-3/5 flex flex-col justify-between pl-4">
                     <p className="text-sm font-medium leading-none whitespace-nowrap overflow-visible truncate">{item.friendName}</p>
                     <p className="text-xs text-muted-foreground whitespace-nowrap overflow-visible truncate mt-2">{item.lastMsg}</p>
+                  </div>
+                  <div className="w-[calc(40%-2.5rem)] flex flex-col justify-start h-full text-xs text-gray-400 pl-4">
+                    <div>{dayjs(item.msgTime).format("HH:MM")}</div>
                   </div>
                 </div>
               })
@@ -394,10 +424,11 @@ export default function ChatBox(props: { userId: number, socketData: any }) {
           </div>
         </Card>
       </div>
+      {/* 好友聊天窗口面板 */}
       {
         chatUser?.friendId && <Card className="h-full flex flex-col justify-between border-0 rounded-none border-l-[1px]" style={{ width: "calc(100% - 16rem)" }}>
           <CardHeader className="flex flex-row items-center h-10 p-2 text-lg font-medium leading-none border-b-[1px] pl-4">{chatUser?.friendName}</CardHeader>
-          <CardContent className="flex-1 overflow-y-auto p-4">
+          <CardContent className="flex-1 overflow-y-auto p-4" ref={chatWindowRef}>
             <div className="space-y-4">
               {messages[`${chatUser.friendName}#${chatUser.friendId}`]?.map((message: Message, index: number) => (
                 <div
@@ -408,9 +439,7 @@ export default function ChatBox(props: { userId: number, socketData: any }) {
                       ? "ml-auto bg-primary text-primary-foreground"
                       : "bg-muted"
                   )}
-                >
-                  {message.message}
-                </div>
+                >{message.message}</div>
               ))}
             </div>
           </CardContent>
@@ -454,20 +483,7 @@ export default function ChatBox(props: { userId: number, socketData: any }) {
                   <CommandItem
                     key={user.id}
                     className="flex items-center px-2"
-                    onSelect={() => {
-                      if (selectedUsers.includes(user)) {
-                        return setSelectedUsers(
-                          selectedUsers.filter(
-                            (selectedUser: UserItem) => selectedUser !== user
-                          )
-                        )
-                      }
-                      return setSelectedUsers(
-                        [...users].filter((u) =>
-                          [...selectedUsers, user].includes(u)
-                        )
-                      )
-                    }}
+                    onSelect={() => selectAddUser(user)}
                   >
                     <Avatar>
                       <AvatarFallback className="text-xl">

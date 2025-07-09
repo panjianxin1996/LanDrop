@@ -1,46 +1,16 @@
-import {
-    TooltipProvider,
-    Tooltip,
-    TooltipContent,
-    TooltipTrigger,
-} from "@/components/ui/tooltip"
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import {
-    Card,
-    CardContent,
-} from "@/components/ui/card"
-import {
-    InputOTP,
-    InputOTPGroup,
-    InputOTPSlot,
-} from "@/components/ui/input-otp"
-import {
-    Popover,
-    PopoverContent,
-    PopoverTrigger,
-} from "@/components/ui/popover"
+import { TooltipProvider, Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Card, CardContent } from "@/components/ui/card"
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { RectangleEllipsis, CloudUpload, MessageCircle, UserPlus, CircleUserRound, UserRound, FolderOpen, Menu, ChevronsUpDown } from 'lucide-react'
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import useClientStore from "@/store/appStore"
-import React, { useEffect, useState } from "react"
+import React, { useEffect, useState, useCallback, useRef } from "react"
 import { useApiRequest } from "@/tools/request"
 import { toast } from "sonner"
 import { Outlet, useNavigate } from 'react-router-dom'
@@ -54,14 +24,15 @@ export default function AppWeb() {
     const [openUserDialog, setOpenUserDialog] = useState<boolean>(true)
     const [sharedCode, setSharedCode] = useState<string>("")
     const [userList, setUserList] = useState<any>([])
-    const [optForUserIndex, setOptForUserIndex] = useState<number>(-1)
+    const [optForUserId, setOptForUserId] = useState<number>(-1)
     const [addNewUser, setAddNewUser] = useState<boolean>(false)
     const [newUserName, setNewUserName] = useState<string>("")
     const [rememberUser, setRememberUser] = useState<boolean>(false)
     const [isLogin, setIsLogin] = useState<boolean>(false)
     const [activeMenu, setActiveMenu] = useState<string>("sharedDir")
-    const [socketData, setSocketData] = useState<any>({})
-    const userAvatar = ["🐱","😼", "🐶", "🐷", "🐥", "🐭", "🐹", "🐼", "🦉", "🐸","🤪","🥰","😬","😏","🙄","🥵","🥶","🥴","🤓","🥺","👹"]
+    const socketList = useRef<Array<any>>([])
+    const timeoutHandle = useRef<any>(null)
+    const userAvatar = ["🐱", "😼", "🐶", "🐷", "🐥", "🐭", "🐹", "🐼", "🦉", "🐸", "🤪", "🥰", "😬", "😏", "🙄", "🥵", "🥶", "🥴", "🤓", "🥺", "👹"]
     useEffect(() => {
         // web端设置为非客户端
         checkIsClient()
@@ -69,6 +40,21 @@ export default function AppWeb() {
         return () => {
             closeWS() // 关闭socket连接
         }
+    }, [])
+
+    // 异步传递socket信息，将socket的信息暂存socketList，在100s内进行更新
+    const setSocketQueue = useCallback(() => {
+        if (!!timeoutHandle.current) return
+        timeoutHandle.current = setTimeout(() => {
+            const currentList = [...socketList.current]
+            socketList.current = []
+            setStoreData({
+                beforeSet: (store, set) => {
+                    set({ socketQueue: [...store.socketQueue, ...currentList] })
+                }
+            })
+            timeoutHandle.current = null
+        }, (Math.random() * 100)) // 设置更新为100秒的延迟
     }, [])
 
     const connectWSServer = (token: string, userInfo: any) => { // 连接socket
@@ -80,7 +66,8 @@ export default function AppWeb() {
             let wsHandle = new WebSocket(`ws://${location.hostname}:4321/ws?ldToken=${token}&id=${userInfo.id}&name=${userInfo.name}`)
             wsHandle.onmessage = (event) => {
                 const data = JSON.parse(event.data);
-                setSocketData(data)
+                socketList.current.push(data)
+                setSocketQueue()
             }
             wsHandle.onopen = () => {
                 setStoreData({ name: "wsHandle", value: wsHandle })
@@ -103,16 +90,16 @@ export default function AppWeb() {
             setOpenUserDialog(false)
         }
         await connectWSServer(token, userInfo)
-        const currentUser = userList.find((item: any) => item.id === userInfo.id)
-        if (currentUser) {
-            setOptForUserIndex(currentUser.id)
-        }
+        // const currentUser = userList.find((item: any) => item.id === userInfo.id)
+        // if (currentUser) {
+        setOptForUserId(userInfo && userInfo.id)
+        // }
         getUserList()
         setIsLogin(true)
     }
     const getUserList = () => { // 获取用户列表
         request("/getUserList", 'POST', {}).then(res => {
-            if (res?.code === 200) !!res.data && setUserList(res.data.map((item:any)=> ({...item, isChange: false})))
+            if (res?.code === 200) !!res.data && setUserList(res.data.map((item: any) => ({ ...item, isChange: false })))
         })
     }
     const getRealFilePath = () => { // 获取真实文件路径
@@ -149,11 +136,11 @@ export default function AppWeb() {
             return
         }
         // 未登录的情况
-        if (optForUserIndex === -1) {
+        if (optForUserId === -1) {
             toast.error("请选择用户")
             e.preventDefault();
         } else {
-            changeUserEvent(optForUserIndex)
+            changeUserEvent(optForUserId)
         }
     }
 
@@ -175,7 +162,7 @@ export default function AppWeb() {
             localStorage.setItem("rememberUserInfoFlag", "1")
         }
         if (isLogin) {
-            setOptForUserIndex(checkId) // 设置选中的用户
+            setOptForUserId(checkId) // 设置选中的用户
         }
     }
 
@@ -187,13 +174,15 @@ export default function AppWeb() {
             }
         })
     }
-    const changeUserAvatar = (avatar: string, index: number) => { // 更换用户头像
-        let newUserList = userList.map((item:any,i:number) => i === index ? {...item, isChange: true, avatar}: item)
+    const changeUserAvatar = (avatar: string, index: number, isChange: boolean) => { // 更换用户头像
+        let newUserList = userList.map((item: any, i: number) => i === index ? { ...item, isChange, avatar } : item)
         setUserList(newUserList)
     }
 
-    const updateUserInfo = (item: any) => {
-            request("/updateUserInfo", 'POST', { ...item }).then(res => {
+    const updateUserInfo = (item: any, index: number, isChange: boolean) => {
+        let newUserList = userList.map((item: any, i: number) => i === index ? { ...item, isChange } : item)
+        setUserList(newUserList)
+        request("/updateUserInfo", 'POST', { ...item }).then(res => {
             if (res.code === 200) {
                 toast.success("更新成功")
             }
@@ -242,7 +231,7 @@ export default function AppWeb() {
                             <div className="flex flex-col justify-start h-4/5 overflow-auto p-2">
                                 {
                                     userList.map((item: any, index: number) => (
-                                        <Card className={`w-full mb-2 cursor-pointer border-2 ${optForUserIndex === item.id && 'border-[#0f172a] bg-gray-200'}`} key={`${item.id}-${item.name}`} onClick={() => !isLogin && setOptForUserIndex(item.id)}>
+                                        <Card className={`w-full mb-2 cursor-pointer border-2 ${optForUserId === item.id && 'border-[#0f172a] bg-gray-200'}`} key={`${item.id}-${item.name}`} onClick={() => !isLogin && setOptForUserId(item.id)}>
                                             <CardContent className="flex item-center justify-between p-3">
                                                 <div className="flex item-center">
                                                     <Popover>
@@ -255,8 +244,8 @@ export default function AppWeb() {
                                                         </PopoverTrigger>
                                                         <PopoverContent className="flex flex-wrap gap-2 min-w-[32rem]">
                                                             {
-                                                                userAvatar.map((item:string)=> (
-                                                                    <p className="text-3xl p-2 cursor-pointer hover:bg-slate-100" key={item} onClick={()=> changeUserAvatar(item, index)}>{item}</p>
+                                                                userAvatar.map((item: string) => (
+                                                                    <p className="text-3xl p-2 cursor-pointer hover:bg-slate-100" key={item} onClick={() => changeUserAvatar(item, index, true)}>{item}</p>
                                                                 ))
                                                             }
                                                         </PopoverContent>
@@ -264,12 +253,16 @@ export default function AppWeb() {
                                                     <span className="leading-10 ml-4">{item.name}</span>
                                                 </div>
                                                 {
-                                                    optForUserIndex !== index && isLogin && <div className="flex">
+                                                    optForUserId !== index && isLogin && <div className="flex">
                                                         {
-                                                            item.isChange && <Button variant={"default"} className="ml-2" onClick={() => { updateUserInfo(item) }}>更新</Button>
+                                                            item.isChange && <Button variant={"default"} className="ml-2" onClick={() => { updateUserInfo(item, index, false) }}>更新头像</Button>
                                                         }
-                                                        <Button variant={"default"} className="ml-2" onClick={() => { changeUserEvent(item.id) }}>切换</Button>
-                                                        <Button variant={"destructive"} className="ml-2" onClick={(e) => { e.preventDefault(); e.stopPropagation(); unBindEvent(item); }}>解绑</Button>
+                                                        {
+                                                            optForUserId !== item.id && <>
+                                                                <Button variant={"default"} className="ml-2" onClick={() => { changeUserEvent(item.id) }}>切换</Button>
+                                                                <Button variant={"destructive"} className="ml-2" onClick={(e) => { e.preventDefault(); e.stopPropagation(); unBindEvent(item); }}>解绑</Button>
+                                                            </>
+                                                        }
                                                     </div>
                                                 }
                                             </CardContent>
@@ -308,7 +301,6 @@ export default function AppWeb() {
                 </AlertDialogContent>
             </AlertDialog>
             <AlertDialog open={openAlert} onOpenChange={setOpenAlert}>
-                {/* <AlertDialogTrigger>Open</AlertDialogTrigger> */}
                 <AlertDialogContent>
                     <AlertDialogHeader>
                         <AlertDialogTitle className="text-center">请输入分享码</AlertDialogTitle>
@@ -370,7 +362,7 @@ export default function AppWeb() {
                         }
                     </DropdownMenuContent>
                 </DropdownMenu>
-                <Outlet context={{ userId: optForUserIndex, socketData }} />
+                <Outlet context={{ userId: optForUserId }} />
             </div>
             <div style={{ height: "5vh" }}>
             </div>

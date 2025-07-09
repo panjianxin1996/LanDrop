@@ -2,6 +2,7 @@ package server
 
 import (
 	"LanDrop/client/db"
+	"LanDrop/client/sqlGather"
 	"context"
 	"database/sql"
 	"encoding/json"
@@ -75,16 +76,21 @@ type WSHub struct {
 
 var r *rand.Rand
 var FuncMap map[string]func(c *WSClient, m WebMsg)
+var sg sqlGather.SqlGather
 
 func init() {
 	r = rand.New(rand.NewSource(time.Now().UnixNano()))
 	FuncMap = make(map[string]func(c *WSClient, m WebMsg))
 	InitFunc() // 初始化消息监听函数
+
 }
 
 // 创建新的WSHub
-func NewWSHub(ctx context.Context) *WSHub {
+func NewWSHub(ctx context.Context, db db.SqlliteDB) *WSHub {
 	hubCtx, cancel := context.WithCancel(ctx)
+	sg = sqlGather.SqlGather{
+		DB: db,
+	}
 	return &WSHub{
 		clients:    make(map[string]*WSClient),
 		register:   make(chan *WSClient),
@@ -469,62 +475,46 @@ func sendFriendList(c *WSClient, uId int64, sId string, clientID string) {
 		log.Printf("reqID: %v|发送消息给客户端 %s 失败: %v", sId, clientID, err)
 	}
 }
+
+// 通用消息回复
+func commonReply(c *WSClient, sId string, replyType string, replyCode int64, replyData any) {
+	response := WSMsg{
+		SID:        sId,
+		Type:       replyType,
+		ClientType: "LD_APP",
+		Content: map[string]any{
+			"code": replyCode,
+			"data": replyData,
+		},
+		TimeStamp: time.Now().UnixMilli(),
+	}
+	if err := c.SendMessage(response); err != nil {
+		log.Printf("reqID: %v|发送消息给客户端 %s 失败: %v", sId, c.clientID, err)
+	}
+}
 func InitFunc() {
 	// 拉取数据包含客户端信息，离线通知、消息
 	FuncMap["pullData"] = func(c *WSClient, m WebMsg) {
 		uId := m.User.UserId
-		notifyList := c.DB.QueryList(`SELECT 
-			f.*,
-			u_from.id AS fromId,
-			u_from.name AS fromName,
-			u_from.role AS fromRole,
-			u_from.ip AS fromIp,
-			u_to.id AS toId,
-			u_to.name AS toName,
-			u_to.role AS toRole,
-			u_to.ip AS toIp
-		FROM 
-			friendships f
-		LEFT JOIN 
-			users u_from ON f.userId = u_from.id
-		INNER JOIN
-			users u_to ON f.friendId = u_to.id
-		WHERE 
-			f.status = 'pending' 
-			AND f.friendId = ?`, uId)
-		response := WSMsg{
-			SID:        m.SID,
-			Type:       "replyPullData",
-			ClientType: "LD_APP",
-			Content: map[string]any{
-				"code": 1,
-				"data": map[string]any{
-					"clientID":    c.clientID,
-					"id":          c.Id,
-					"name":        c.Name,
-					"notifyList":  notifyList, // 通知数据
-					"messageList": nil,        // 消息数据
-				},
-			},
-			TimeStamp: time.Now().UnixMilli(),
+		notifyList := sg.RunQuery("queryNotifyData", uId)
+		postData := map[string]any{
+			"clientID":    c.clientID,
+			"id":          c.Id,
+			"name":        c.Name,
+			"notifyList":  notifyList, // 通知数据
+			"messageList": nil,        // 消息数据
 		}
-		if err := c.SendMessage(response); err != nil {
-			log.Printf("reqID: %v|发送消息给客户端 %s 失败: %v", m.SID, c.clientID, err)
-		}
+		commonReply(c, m.SID, "replyPullData", 1, postData)
 	}
 	// 查询所有在线客户端信息
-	FuncMap["queryClients"] = func(c *WSClient, msg WebMsg) {
+	FuncMap["queryClients"] = func(c *WSClient, m WebMsg) {
 		content := map[string]any{}
-		if msg.User.UserId == 0 {
+		if m.User.UserId == 0 {
 			content["code"] = -1
 			content["error"] = "缺少用户信息,拒绝访问"
+			commonReply(c, m.SID, "replyClientList", -1, "缺少用户信息,拒绝访问")
 		} else {
-			dataList := c.DB.QueryList(`SELECT * FROM users 
-			WHERE id != ? AND id > 999
-			AND NOT EXISTS (
-				SELECT 1 FROM friendships 
-				WHERE userId = ? AND friendId = users.id AND status != 'reject'
-			)`, msg.User.UserId, msg.User.UserId)
+			dataList := sg.RunQuery("queryClients", m.User.UserId, m.User.UserId)
 			for _, item := range dataList {
 				clientID := fmt.Sprintf(`%v#%v`, item["name"], item["id"])
 				cItem, ok := c.Hub.clients[clientID]
@@ -536,19 +526,7 @@ func InitFunc() {
 					item["isActive"] = false
 				}
 			}
-			content["code"] = 0
-			content["error"] = nil
-			content["data"] = dataList
-		}
-		response := WSMsg{
-			SID:        msg.SID,
-			Type:       "replyClientList",
-			ClientType: "LD_APP",
-			Content:    content,
-			TimeStamp:  time.Now().UnixMilli(),
-		}
-		if err := c.SendMessage(response); err != nil {
-			log.Printf("reqID: %v|发送消息给客户端 %s 失败: %v", msg.SID, c.clientID, err)
+			commonReply(c, m.SID, "replyClientList", 1, dataList)
 		}
 	}
 	// 添加好友
@@ -556,46 +534,15 @@ func InitFunc() {
 		uId := m.User.UserId
 		to := m.SendData["to"].(string)
 		var insertFriendData []map[string]any
-		c.DB.Transaction(nil, func(tx *sql.Tx) error {
-			result, _ := c.DB.ExecTx(tx,
-				`INSERT INTO friendships ( "userId", "friendId", "status", "createTime" )
-			VALUES
-				( ?, ?, 'pending', ? )`,
-				uId, m.SendData["toId"], time.Now().UnixMilli())
+		sg.RunTransaction(nil, func(tx *sql.Tx) error {
+			result, _ := sg.RunExecTx(tx, "execInsertFriendshipsRecord", uId, m.SendData["toId"], time.Now().UnixMilli())
 			fId, _ := result.LastInsertId()
-			insertFriendData = c.DB.QueryListTx(tx,
-				`SELECT 
-				f.*,
-				u_from.id AS fromId,
-				u_from.name AS fromName,
-				u_from.role AS fromRole,
-				u_from.ip AS fromIp,
-				u_to.id AS toId,
-				u_to.name AS toName,
-				u_to.role AS toRole,
-				u_to.ip AS toIp
-			FROM 
-				friendships f
-			LEFT JOIN 
-				users u_from ON f.userId = u_from.id
-			INNER JOIN
-				users u_to ON f.friendId = u_to.id
-			WHERE 
-				f.status = 'pending' AND f.fId = ?`, fId)
+			insertFriendData = sg.RunQueryTx(tx, "queryInsertFriendshipsRecord", fId)
 			return nil
 		})
-		receiveData := WSMsg{
-			Type: "replyAddFriends",
-			Content: map[string]any{
-				"code": 1,
-				"data": insertFriendData,
-			},
-		}
 		// 针对特定客户端发送消息
 		if targetClient, ok := c.Hub.clients[to]; ok {
-			if err := targetClient.SendMessage(receiveData); err != nil {
-				log.Printf("reqID: %v|发送消息给客户端 %s 失败: %v", m.SID, c.clientID, err)
-			}
+			commonReply(targetClient, m.SID, "replyAddFriends", 1, insertFriendData)
 		} else {
 			log.Println("目标客户端未在线", to, m.SID)
 		}
@@ -606,26 +553,12 @@ func InitFunc() {
 		uId := m.User.UserId
 		if ok && m.SendData["fId"] != nil && uId != 0 {
 			err := c.DB.Transaction(nil, func(tx *sql.Tx) error {
-				dataList := c.DB.QueryListTx(tx,
-					`SELECT
-						* 
-					FROM
-						friendships 
-					WHERE
-						fId = ? AND friendId = ?`, m.SendData["fId"], uId)
+				dataList := sg.RunQueryTx(tx, "queryFriendshipsRecord", m.SendData["fId"], uId)
 				if len(dataList) == 1 {
 					if status == "accept" { // 同意后进行双向绑定好友
-						c.DB.ExecTx(tx,
-							`INSERT INTO friendships ( "userId", "friendId", "status", "createTime" )
-						VALUES
-							( ?, ?, ?, ? )`,
-							dataList[0]["friendId"], dataList[0]["userId"], status, time.Now().UnixMilli())
+						sg.RunExecTx(tx, "execInsertFriendshipsAcceptRecord", dataList[0]["friendId"], dataList[0]["userId"], status, time.Now().UnixMilli())
 					}
-					c.DB.ExecTx(tx,
-						`UPDATE friendships 
-					SET status = ? 
-					WHERE
-						fId = ?`, status, m.SendData["fId"])
+					sg.RunExecTx(tx, "execUpdateFriendshipsStatus", status, m.SendData["fId"])
 
 				} else {
 					return fmt.Errorf("未查询到好友关系")
@@ -636,114 +569,22 @@ func InitFunc() {
 				sendCommonError(c, err, m.SID, c.clientID)
 				return
 			}
-			receiveData := WSMsg{
-				SID:  m.SID,
-				Type: "replyDealWithFriends",
-				Content: map[string]any{
-					"fId":  m.SendData["fId"],
-					"code": 1,
-				},
-			}
-			if err := c.SendMessage(receiveData); err != nil {
-				log.Printf("reqID: %v|发送消息给客户端 %s 失败: %v", m.SID, c.clientID, err)
-			}
+			commonReply(c, m.SID, "replyDealWithFriends", 1, m.SendData["fId"])
 		}
 	}
 	//查询好友列表
 	FuncMap["queryFriendList"] = func(c *WSClient, m WebMsg) {
 		uId := m.User.UserId
-		friendList := c.DB.QueryList(
-			`SELECT 
-				f.*,
-				u.id AS friendId,
-				u.name AS friendName,
-				u.avatar AS friendAvatar,
-				u.role AS friendRole,
-				u.ip AS friendIp,
-				c.type AS msgType,
-				c.message AS lastMsg,
-				c.time AS msgTime,
-				(
-					SELECT COUNT(*) 
-					FROM chat_records cr 
-					WHERE cr.fromId = f.friendId 
-					AND cr.toId = f.userId 
-					AND cr.isRead = 'n'
-				) AS unreadCount
-			FROM 
-				friendships f
-			INNER JOIN 
-				users u ON f.friendId = u.id
-			LEFT JOIN 
-				chat_records c ON (
-					c.cId = f.lastChatId 
-					AND (c.fromId = f.friendId OR c.toId = f.friendId)
-				)
-			WHERE 
-				f.status = 'accept' 
-				AND f.userId = ?`, uId)
-		receiveData := WSMsg{
-			Type: "replyFriendList",
-			Content: map[string]any{
-				"data": friendList,
-				"code": 1,
-			},
-		}
-		if err := c.SendMessage(receiveData); err != nil {
-			log.Printf("reqID: %v|发送消息给客户端 %s 失败: %v", m.SID, c.clientID, err)
-		}
+		friendList := sg.RunQuery("queryFriendListAndchatRecord", uId)
+		commonReply(c, m.SID, "replyFriendList", 1, friendList)
 	}
 	// 查询聊天记录
 	FuncMap["queryChatRecords"] = func(c *WSClient, m WebMsg) {
 		uId := m.User.UserId
 		frId := m.SendData["friendId"]
 		args := []interface{}{uId, frId, frId, uId, uId, frId, frId, uId}
-		chatRecords := c.DB.QueryList(
-			`SELECT
-			c.*,
-			u_from.name AS fromName,
-			u_to.name AS toName 
-		FROM
-			chat_records c
-			JOIN users u_from ON c.fromId = u_from.id
-			JOIN users u_to ON c.toId = u_to.id 
-		WHERE
-			(
-				( c.fromId = ? AND c.toId = ? ) 
-				OR ( c.fromId = ? AND c.toId = ? ) 
-			) 
-			AND (
-				c.time >= (
-				SELECT
-					COALESCE(
-						(
-						SELECT
-							time 
-						FROM
-							chat_records 
-						WHERE
-							( fromId = ? AND toId = ? ) 
-							OR ( fromId = ? AND toId = ? ) 
-						ORDER BY
-							time DESC 
-							LIMIT 1 OFFSET 499 
-						),
-						0 
-					) 
-				) 
-				OR c.time >= strftime( '%s', datetime( 'now', '-7 days' ) ) 
-			) 
-		ORDER BY
-			c.time ASC 
-			LIMIT 500;`, args...)
-		receiveData := WSMsg{
-			Type: "replyChatRecords",
-			Content: map[string]any{
-				"data": chatRecords,
-				"code": 1,
-			},
-		}
-		c.SendMessage(receiveData)
+		chatRecords := sg.RunQuery("queryFriendChatRecord", args...)
+		commonReply(c, m.SID, "replyChatRecords", 1, chatRecords)
 	}
 	// 修改聊天记录状态
 	FuncMap["changeChatRecordsStatus"] = func(c *WSClient, m WebMsg) {
@@ -752,76 +593,42 @@ func InitFunc() {
 		if operateType, ok := m.SendData["type"].(string); ok {
 			if id != nil {
 				if operateType == "all" { // 全部情况把所有聊天记录改为已读
-					c.DB.Exec(`UPDATE chat_records SET isRead = 'y' WHERE fromId = ? AND toId = ?`, id, uId)
+					sg.RunExec("execUpdateChatRecordsReadStatus", id, uId)
 				} else {
-					c.DB.Exec(`UPDATE chat_records SET isRead = 'y' WHERE cId = ?`, id)
+					sg.RunExec("execUpdateChatRecordReadStatus", id)
 				}
-
 			}
+			currentFriendList := sg.RunQuery("queryFriendListAndchatRecord", uId)
+			commonReply(c, m.SID, "replyLatestFriendList", 1, currentFriendList) // 更新好友列表
 		}
-
 	}
 	// 聊天数据发送
 	FuncMap["chatSendData"] = func(c *WSClient, m WebMsg) {
 		to := m.SendData["to"].(string)
 		uId := m.User.UserId
 		var chatRecords []map[string]any
-		err := c.DB.Transaction(nil, func(tx *sql.Tx) error {
-			list := c.DB.QueryListTx(tx, // 查询好友关系
-				`SELECT
-					* 
-				FROM
-					friendships 
-				WHERE
-					userId = ? 
-					AND friendId = ?`, uId, m.SendData["toId"])
+		err := sg.RunTransaction(nil, func(tx *sql.Tx) error {
+			list := sg.RunQueryTx(tx, "queryIsFriend", uId, m.SendData["toId"]) // 查询好友关系
 			if len(list) == 0 {
 				return fmt.Errorf("不存在的好友关系不能发送消息:%v=>%v", uId, m.SendData["toId"])
 			}
-			result, _ := c.DB.ExecTx(tx, // 新增一条记录
-				`INSERT INTO chat_records ( "toId", "fromId", "message", "isRead", "time" )
-				VALUES
-					( ?, ?, ?, ?, ? )`,
-				m.SendData["toId"], uId, m.SendData["message"], "n", time.Now().UnixMilli())
+			result, _ := sg.RunExecTx(tx, "execInsertNewChatRecord", m.SendData["toId"], uId, m.SendData["message"], "n", time.Now().UnixMilli()) // 新增一条记录
 			cId, _ := result.LastInsertId()
-			c.DB.ExecTx(tx, // 更新最近聊天记录
-				`UPDATE friendships 
-				SET lastChatId = ? 
-				WHERE
-					( userId = ? AND friendId = ? ) 
-					OR ( userId = ? AND friendId = ? )`,
-				cId, uId, m.SendData["toId"], m.SendData["toId"], uId)
-			chatRecords = c.DB.QueryListTx(tx, // 查询聊天记录
-				`SELECT 
-					c.*,
-					u_from.name AS fromName,
-					u_to.name AS toName
-				FROM 
-					chat_records c
-				LEFT JOIN 
-					users u_from ON c.fromId = u_from.id
-				INNER JOIN
-					users u_to ON c.toId = u_to.id
-				WHERE c.cId = ?`, cId)
+			sg.RunExecTx(tx, "execUpdateFriendshipsLastChatId", cId, uId, m.SendData["toId"], m.SendData["toId"], uId) // 更新最近聊天记录
+			chatRecords = sg.RunQueryTx(tx, "queryInsertChatRecord", cId)                                              // 查询聊天记录
 			return nil
 		})
 		if err != nil {
 			sendCommonError(c, err, m.SID, c.clientID)
 			return
 		}
-		sendFriendList(c, m.User.UserId, m.SID, c.clientID)
-		receiveData := WSMsg{
-			Type: "replyChatReceiveData",
-			Content: map[string]any{
-				"code": 1,
-				"data": chatRecords,
-			},
-		}
+		currentFriendList := sg.RunQuery("queryFriendListAndchatRecord", uId)
+		commonReply(c, m.SID, "replyLatestFriendList", 1, currentFriendList)
 		// 针对特定客户端发送消息
 		if targetClient, ok := c.Hub.clients[to]; ok {
-			if err := targetClient.SendMessage(receiveData); err != nil {
-				log.Printf("reqID: %v|发送消息给客户端 %s 失败: %v", m.SID, c.clientID, err)
-			}
+			targetFriendList := sg.RunQuery("queryFriendListAndchatRecord", targetClient.Id)
+			commonReply(targetClient, m.SID, "replyChatReceiveData", 1, chatRecords)
+			commonReply(targetClient, m.SID, "replyLatestFriendList", 1, targetFriendList)
 		} else {
 			log.Println("目标客户端未在线", to, m.SID)
 		}
