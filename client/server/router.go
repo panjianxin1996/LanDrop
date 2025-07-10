@@ -114,7 +114,7 @@ func startRouter(app *fiber.App, assets embed.FS, config Config, sldb db.Sqllite
 		api.Get("/getNetworkInfo", r.getNetworkInfo)
 		// 动态设置本机ip地址信息
 		api.Post("/setIpAddress", r.setIpAddress)
-		// 获取用户信息
+		// 获取用户列表信息
 		api.Post("/getUserList", r.getUserList)
 		// 创建用户
 		api.Post("/createUser", r.createUser)
@@ -355,7 +355,7 @@ func (r Router) createUser(c *fiber.Ctx) error {
 		r.Reply.Data = nil
 		return c.Status(http.StatusOK).JSON(r.Reply)
 	}
-	result, err := r.db.DB.Exec(`INSERT INTO users (name, nickName, pwd, role, ip, createdAt) VALUES (?, ?, ?, ?, ?);`, generateName(), postBody["userName"], postBody["userName"]+"#123", "guest", clientIP, time.Now().Format("2006-01-02 15:04:05"))
+	result, err := r.db.DB.Exec(`INSERT INTO users (name, nickName, pwd, role, ip, createdAt) VALUES (?, ?, ?, ?, ?, ?);`, generateName(), postBody["userName"], postBody["userName"]+"#123", "guest", clientIP, time.Now().Format("2006-01-02 15:04:05"))
 	if err != nil {
 		r.Reply.Code = http.StatusBadRequest
 		r.Reply.Msg = "创建失败"
@@ -473,10 +473,10 @@ func (r Router) appLogin(c *fiber.Ctx) error {
 		return c.Status(r.Reply.Code).JSON(r.Reply)
 	}
 	var adminId int64
-	var adminName, adminRole string
-	err := r.db.DB.QueryRow("SELECT id, name, role FROM users WHERE (nickName = ? OR name = ?) AND pwd = ?", postBody["adminName"], postBody["adminName"], postBody["adminPassword"]).Scan(&adminId, &adminName, &adminRole)
+	var adminName, adminRole, nickName string
+	err := r.db.DB.QueryRow("SELECT id, name, nickName, role FROM users WHERE (nickName = ? OR name = ?) AND pwd = ?", postBody["adminName"], postBody["adminName"], postBody["adminPassword"]).Scan(&adminId, &adminName, &nickName, &adminRole)
 	if err != nil && err == sql.ErrNoRows {
-		result, err := r.db.Exec(`INSERT INTO users ( name, nickName, pwd, role,  ip, createdAt) VALUES (?, ?, ?, ?, ?);`, generateName(), postBody["adminName"], postBody["adminPassword"], "admin", clientIP, time.Now().Format("2006-01-02 15:04:05"))
+		result, err := r.db.Exec(`INSERT INTO users ( name, nickName, pwd, role, ip, createdAt) VALUES (?, ?, ?, ?, ?, ?);`, postBody["adminName"], "管理员", postBody["adminPassword"], "admin", clientIP, time.Now().Format("2006-01-02 15:04:05"))
 		if err != nil {
 			r.Reply.Code = http.StatusBadRequest
 			r.Reply.Msg = "创建失败1"
@@ -506,6 +506,8 @@ func (r Router) appLogin(c *fiber.Ctx) error {
 		"token":     token,
 		"adminId":   adminId,
 		"adminName": adminName,
+		"nickName":  nickName,
+		"role":      adminRole,
 	}
 	return c.Status(r.Reply.Code).JSON(r.Reply)
 }

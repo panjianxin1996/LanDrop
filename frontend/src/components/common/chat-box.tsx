@@ -57,6 +57,7 @@ type ChatUserItem = {
   friendId: number
   friendIp: string
   friendName: string
+  friendNickName: string
   friendAvatar: string
   friendRole: string
   lastChatId: string | null
@@ -76,6 +77,7 @@ type UserItem = {
   isActive: boolean
   avatar: string
   name: string
+  nickName: string
   pwd: string
   role: string
 }
@@ -415,7 +417,7 @@ export default function ChatBox(props: { userId: number, socketData: any }) {
                     }
                   </div>
                   <div className="w-3/5 flex flex-col justify-between pl-4">
-                    <p className="text-sm font-medium leading-none whitespace-nowrap overflow-visible truncate">{item.friendName}</p>
+                    <p className="text-sm font-medium leading-none whitespace-nowrap overflow-visible truncate">{item.friendNickName}</p>
                     <p className="text-xs text-muted-foreground whitespace-nowrap overflow-visible truncate mt-2">{item.lastMsg}</p>
                   </div>
                   <div className="w-[calc(40%-2.5rem)] flex flex-col justify-start h-full text-xs text-gray-400 pl-4">
@@ -430,7 +432,7 @@ export default function ChatBox(props: { userId: number, socketData: any }) {
       {/* 好友聊天窗口面板 */}
       {
         chatUser?.friendId && <Card className="h-full flex flex-col justify-between border-0 rounded-none border-l-[1px]" style={{ width: "calc(100% - 16rem)" }}>
-          <CardHeader className="flex flex-row items-center h-10 p-2 text-lg font-medium leading-none border-b-[1px] pl-4">{chatUser?.friendName}</CardHeader>
+          <CardHeader className="flex flex-row items-center h-10 p-2 text-lg font-medium leading-none border-b-[1px] pl-4">{chatUser?.friendNickName}</CardHeader>
           <CardContent className="flex-1 overflow-y-auto p-4" ref={chatWindowRef}>
             <div className="space-y-4">
               {messages[`${chatUser.friendName}#${chatUser.friendId}`]?.map((message: Message, index: number) => (
@@ -495,7 +497,7 @@ export default function ChatBox(props: { userId: number, socketData: any }) {
                     </Avatar>
                     <div className="ml-2">
                       <p className="text-sm font-medium leading-none">
-                        {user.name}
+                        {user.nickName}
                       </p>
                       <div className="text-sm text-muted-foreground">
                         {user.role === 'admin' ? "管理员" : "普通用户"}

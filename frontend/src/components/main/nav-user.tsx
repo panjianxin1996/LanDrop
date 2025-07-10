@@ -2,7 +2,9 @@ import {
   UserRound,
   LogOutIcon,
   MoreVerticalIcon,
-  SquarePen
+  PenLine,
+  Pen,
+  CheckLine
 } from "lucide-react"
 import {
   Avatar,
@@ -40,7 +42,7 @@ export function NavUser() {
     avatar: string
     role: string
   }>({
-    name: userInfo.userName,
+    name: userInfo.nickName,
     id: userInfo.userId,
     avatar: userInfo.avatar,
     role: userInfo.role
@@ -94,8 +96,8 @@ export function NavUser() {
                           {userData.avatar || <UserRound />}
                         </AvatarFallback>
                       </Avatar>
-                      <div className="absolute bottom-0 right-0 p-[2px] bg-white rounded shadow">
-                        <SquarePen size={15} />
+                      <div className="absolute bottom-0 right-0 p-[4px] bg-white rounded shadow">
+                        <Pen size={10} />
                       </div>
                     </div>
                   </PopoverTrigger>
@@ -108,22 +110,15 @@ export function NavUser() {
                   </PopoverContent>
                 </Popover>
                 <div className="grid flex-1 text-left text-sm leading-tight">
-                  <div className="flex  justify-between items-center">
+                  <div className="flex justify-between items-center">
                     {
                       changeName ?
-                        <Input maxLength={8} className="mr-2"  onChange={(e) => {
-                          console.log(e,"===")
-                          setUserData(prev => ({
-                            ...prev,
-                            name: e.target.value
-                          }));
-                        }} />
+                        <Input maxLength={8} className="mr-2 h-8" onChange={(e) => (setUserData(prev => ({ ...prev, name: e.target.value })))} />
                         :
                         <span className="truncate font-medium">{userData.name}</span>
                     }
-
-                    <Button size="sm" variant="outline" className="px-2 text-xs h-6" onClick={() => setChangeName(true)}>
-                      <SquarePen size={15} />
+                    <Button size="sm" variant="outline" className="px-2 py-4 text-xs h-6" onClick={() => setChangeName(changeName ? false : true)}>
+                      { changeName ? <CheckLine size={15} /> : <PenLine size={15} /> }
                     </Button>
                   </div>
                   <div className="flex justify-between items-center mt-2">

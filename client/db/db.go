@@ -48,7 +48,7 @@ func InitDB(dbPath string) (SqlliteDB, error) {
 		return sdb, fmt.Errorf("初始化用户表结构失败: %v", err)
 	}
 	// 默认添加超级管理员999账户
-	db.Exec(`INSERT INTO users (id, name, pwd, role, ip, createdAt) VALUES (999 , "admin", "admin@123", "admin+", "127.0.0.1", ?)`, time.Now().Format("2006-01-02 15:04:05"))
+	db.Exec(`INSERT INTO users (id, name, nickName, pwd, role, ip, createdAt) VALUES (999 , "admin", "admin", "admin@123", "admin+", "127.0.0.1", ?)`, time.Now().Format("2006-01-02 15:04:05"))
 	// 初始化客户端设置表结构
 	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS settings (
 		"sId" INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -104,6 +104,7 @@ export default function App() {
                   userInfo: {
                     token: res.data.token,
                     userName: res.data.adminName,
+                    nickName: res.data.nickName,
                     userId: res.data.adminId,
                     role: res.data.role,
                     avatar: res.data.avatar,

@@ -29,6 +29,7 @@ type AppStore = {
   userInfo: {
     userId: string,
     userName: string,
+    nickName: string,
     token: string,
     role: string,
     avatar: string,
@@ -99,6 +100,7 @@ const useClientStore = create<AppStore>()(
       userInfo: {
         userId: "",
         userName: "",
+        nickName: "",
         token: "",
         role: "",
         avatar: "",

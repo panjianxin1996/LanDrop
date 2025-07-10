@@ -253,7 +253,7 @@ export default function AppWeb() {
                                                             }
                                                         </PopoverContent>
                                                     </Popover>
-                                                    <span className="leading-10 ml-4">{item.name}</span>
+                                                    <span className="leading-10 ml-4">{item.nickName}</span>
                                                 </div>
                                                 {
                                                     optForUserId !== index && isLogin && <div className="flex">
