@@ -14,6 +14,7 @@ import React, { useEffect, useState, useCallback, useRef } from "react"
 import { useApiRequest } from "@/tools/request"
 import { toast } from "sonner"
 import { Outlet, useNavigate } from 'react-router-dom'
+import { userAvatar } from "@/app/commonData"
 
 export default function AppWeb() {
     const { checkIsClient, setStoreData, closeWS } = useClientStore()
@@ -32,7 +33,7 @@ export default function AppWeb() {
     const [activeMenu, setActiveMenu] = useState<string>("sharedDir")
     const socketList = useRef<Array<any>>([])
     const timeoutHandle = useRef<any>(null)
-    const userAvatar = ["🐱", "😼", "🐶", "🐷", "🐥", "🐭", "🐹", "🐼", "🦉", "🐸", "🤪", "🥰", "😬", "😏", "🙄", "🥵", "🥶", "🥴", "🤓", "🥺", "👹"]
+    // const userAvatar = ["🐱", "🐶", "🐷", "🐥", "🐭", "🐹", "🐼", "🦉", "🐸", "🤪", "🥰", "😬", "😏", "🙄", "🥵", "🥶", "🥴", "🤓", "🥺", "👹"]
     useEffect(() => {
         // web端设置为非客户端
         checkIsClient()

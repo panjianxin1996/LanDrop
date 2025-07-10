@@ -105,6 +105,8 @@ export default function App() {
                     token: res.data.token,
                     userName: res.data.adminName,
                     userId: res.data.adminId,
+                    role: res.data.role,
+                    avatar: res.data.avatar,
                   }
                 })
               },

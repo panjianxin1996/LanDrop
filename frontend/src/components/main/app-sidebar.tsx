@@ -16,15 +16,6 @@ import {
 } from "@/components/ui/sidebar"
 import { navMain, navSecondary } from "@/router"
 import { Link } from 'react-router-dom'
-
-const data = {
-  user: {
-    name: "admin",
-    email: "panjianxin0807@163.com",
-    avatar: "",
-  },
-}
-
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   return (
     <Sidebar collapsible="offcanvas" {...props} className="pt-4">
@@ -48,7 +39,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <NavSecondary items={navSecondary} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={data.user} />
+        <NavUser/>
       </SidebarFooter>
     </Sidebar>
   )

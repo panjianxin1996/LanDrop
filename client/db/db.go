@@ -39,6 +39,7 @@ func InitDB(dbPath string) (SqlliteDB, error) {
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		avatar TEXT,
 		name TEXT NOT NULL,
+		nickName TEXT NOT NULL,
 		pwd TEXT NOT NULL,
 		role TEXT NOT NULL,
 		ip TEXT NOT NULL,

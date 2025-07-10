@@ -54,7 +54,7 @@ export let navMain = [
         path: "team",
         icon: UsersIcon,
         element: LazyComponent({
-            component: React.lazy(() => import("@/app/main/team"))
+            component: React.lazy(() => import("@/app/main/chat"))
         })
     },
 ]

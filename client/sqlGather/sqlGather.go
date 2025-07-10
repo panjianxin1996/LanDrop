@@ -18,10 +18,12 @@ var SqlMap = map[string]string{
 		f.*,
 		u_from.id AS fromId,
 		u_from.name AS fromName,
+		u_from.nickName AS fromNickName,
 		u_from.role AS fromRole,
 		u_from.ip AS fromIp,
 		u_to.id AS toId,
 		u_to.name AS toName,
+		u_to.nickName AS toNickName,
 		u_to.role AS toRole,
 		u_to.ip AS toIp
 	FROM 
@@ -49,10 +51,12 @@ var SqlMap = map[string]string{
 		f.*,
 		u_from.id AS fromId,
 		u_from.name AS fromName,
+		u_from.nickName AS fromNickName,
 		u_from.role AS fromRole,
 		u_from.ip AS fromIp,
 		u_to.id AS toId,
 		u_to.name AS toName,
+		u_to.nickName AS toNickName,
 		u_to.role AS toRole,
 		u_to.ip AS toIp
 	FROM 
@@ -84,6 +88,7 @@ var SqlMap = map[string]string{
 		f.*,
 		u.id AS friendId,
 		u.name AS friendName,
+		u.nickName AS friendNickName,
 		u.avatar AS friendAvatar,
 		u.role AS friendRole,
 		u.ip AS friendIp,
@@ -113,7 +118,9 @@ var SqlMap = map[string]string{
 	"queryFriendChatRecord": `SELECT
 		c.*,
 		u_from.name AS fromName,
-		u_to.name AS toName 
+		u_from.nickName AS fromNickName,
+		u_to.name AS toName, 
+		u_to.nickName AS toNickName 
 	FROM
 		chat_records c
 		JOIN users u_from ON c.fromId = u_from.id
@@ -173,7 +180,9 @@ var SqlMap = map[string]string{
 	"queryInsertChatRecord": `SELECT 
 		c.*,
 		u_from.name AS fromName,
-		u_to.name AS toName
+		u_from.nickName AS fromNickName,
+		u_to.name AS toName,
+		u_to.nickName AS toNickName
 	FROM 
 		chat_records c
 	LEFT JOIN 
@@ -186,6 +195,7 @@ var SqlMap = map[string]string{
 		f.*,
 		u.id AS friendId,
 		u.name AS friendName,
+		u.nickName AS friendNickName,
 		u.avatar AS friendAvatar,
 		u.role AS friendRole,
 		u.ip AS friendIp,

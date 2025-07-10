@@ -4,6 +4,8 @@ import (
 	"LanDrop/client/server"
 	"embed"
 	"log"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"path/filepath"
 
@@ -13,6 +15,7 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
 	"github.com/wailsapp/wails/v2/pkg/options/mac"
 	"github.com/wailsapp/wails/v2/pkg/options/windows"
+	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 //go:embed all:frontend/dist
@@ -25,6 +28,10 @@ var icon []byte
 var trayIcon []byte
 
 func main() {
+	go func() {
+		// http://localhost:4322/debug/pprof/heap?debug=1
+		log.Println(http.ListenAndServe("localhost:4322", nil)) // 仅允许localhost访问
+	}()
 	logPath := filepath.Join(server.AppDir, "app.log")
 	fileLogger := logger.NewFileLogger(logPath)
 	logFile, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
@@ -42,8 +49,6 @@ func main() {
 		Height:            568,
 		MinWidth:          755,
 		MinHeight:         425,
-		MaxWidth:          1280,
-		MaxHeight:         710,
 		DisableResize:     false,
 		Fullscreen:        false,
 		Frameless:         false,
@@ -63,6 +68,12 @@ func main() {
 		WindowStartState: options.Normal,
 		Bind: []any{
 			app,
+		},
+		SingleInstanceLock: &options.SingleInstanceLock{ // 实现应用单例运行
+			UniqueId: "landrop.panjianxin.top",
+			OnSecondInstanceLaunch: func(secondInstanceData options.SecondInstanceData) {
+				runtime.WindowShow(app.ctx)
+			},
 		},
 		// Windows platform specific options
 		Windows: &windows.Options{

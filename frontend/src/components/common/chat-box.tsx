@@ -176,7 +176,7 @@ export default function ChatBox(props: { userId: number, socketData: any }) {
     },
     // 客户端列表，用于添加好友
     "replyClientList": (content: any) => {
-      if (content.data) setUsers(content.data)
+      setUsers(content.data || [])
     },
     // 添加好友回调，[@送达方会接收回调]
     "replyAddFriends": (content: any) => {
@@ -185,7 +185,10 @@ export default function ChatBox(props: { userId: number, socketData: any }) {
     // 处理好友请求回调
     "replyDealWithFriends": (content: any) => {
       if (content.code === 1 && content.data) {
-        setNotifyList(notifyList.filter((item: NotifyItem) => item.fId === content.data))
+        setNotifyList(prevList => {
+          const filtered = prevList.filter(item => item.fId !== content.data);
+          return filtered;
+        });
         queryFriendList()
       }
     },
@@ -416,7 +419,7 @@ export default function ChatBox(props: { userId: number, socketData: any }) {
                     <p className="text-xs text-muted-foreground whitespace-nowrap overflow-visible truncate mt-2">{item.lastMsg}</p>
                   </div>
                   <div className="w-[calc(40%-2.5rem)] flex flex-col justify-start h-full text-xs text-gray-400 pl-4">
-                    <div>{dayjs(item.msgTime).format("HH:MM")}</div>
+                    <div>{item.msgTime ? dayjs(item.msgTime).format("HH:MM") : ''}</div>
                   </div>
                 </div>
               })

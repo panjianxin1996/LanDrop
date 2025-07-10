@@ -30,6 +30,8 @@ type AppStore = {
     userId: string,
     userName: string,
     token: string,
+    role: string,
+    avatar: string,
   },
   uploadedFiles: Record<string, any>, // 上传的文件列表
   socketQueue: Array<any>, // 消息队列
@@ -98,6 +100,8 @@ const useClientStore = create<AppStore>()(
         userId: "",
         userName: "",
         token: "",
+        role: "",
+        avatar: "",
       },
       uploadedFiles: {},
       socketQueue: [],

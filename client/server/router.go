@@ -355,7 +355,7 @@ func (r Router) createUser(c *fiber.Ctx) error {
 		r.Reply.Data = nil
 		return c.Status(http.StatusOK).JSON(r.Reply)
 	}
-	result, err := r.db.DB.Exec(`INSERT INTO users (name, pwd, role, ip, createdAt) VALUES (?, ?, ?, ?, ?);`, postBody["userName"], postBody["userName"]+"#123", "guest", clientIP, time.Now().Format("2006-01-02 15:04:05"))
+	result, err := r.db.DB.Exec(`INSERT INTO users (name, nickName, pwd, role, ip, createdAt) VALUES (?, ?, ?, ?, ?);`, generateName(), postBody["userName"], postBody["userName"]+"#123", "guest", clientIP, time.Now().Format("2006-01-02 15:04:05"))
 	if err != nil {
 		r.Reply.Code = http.StatusBadRequest
 		r.Reply.Msg = "创建失败"
@@ -474,9 +474,9 @@ func (r Router) appLogin(c *fiber.Ctx) error {
 	}
 	var adminId int64
 	var adminName, adminRole string
-	err := r.db.DB.QueryRow("SELECT id, name, role FROM users WHERE name = ? AND pwd = ?", postBody["adminName"], postBody["adminPassword"]).Scan(&adminId, &adminName, &adminRole)
+	err := r.db.DB.QueryRow("SELECT id, name, role FROM users WHERE (nickName = ? OR name = ?) AND pwd = ?", postBody["adminName"], postBody["adminName"], postBody["adminPassword"]).Scan(&adminId, &adminName, &adminRole)
 	if err != nil && err == sql.ErrNoRows {
-		result, err := r.db.Exec(`INSERT INTO users (name, pwd, role,  ip, createdAt) VALUES (?, ?, ?, ?, ?);`, postBody["adminName"], postBody["adminPassword"], "admin", clientIP, time.Now().Format("2006-01-02 15:04:05"))
+		result, err := r.db.Exec(`INSERT INTO users ( name, nickName, pwd, role,  ip, createdAt) VALUES (?, ?, ?, ?, ?);`, generateName(), postBody["adminName"], postBody["adminPassword"], "admin", clientIP, time.Now().Format("2006-01-02 15:04:05"))
 		if err != nil {
 			r.Reply.Code = http.StatusBadRequest
 			r.Reply.Msg = "创建失败1"

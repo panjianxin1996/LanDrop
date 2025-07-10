@@ -1,14 +1,11 @@
 import React from "react"
-import { FolderOpen, RefreshCcwDot, LogOut, Trash } from "lucide-react"
+import { FolderOpen, RefreshCcwDot, LogOut, Trash, CircleQuestionMark } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useApiRequest } from "@/tools/request"
 import { toast } from "sonner"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger
-} from "@/components/ui/popover"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { Label } from "@/components/ui/label"
 import { OpenDirectory, UpdateConfigData, RestartServer, ExitApp } from "@clientSDK/App"
 export default function Settings() {
@@ -22,7 +19,7 @@ export default function Settings() {
     OpenDirectory().then(res => {
       if (res.dir) {
         setSharedDir(res.dir)
-        setNeedUpdateConfig({...needUpdateConfig, sharedDir: res.dir})
+        setNeedUpdateConfig({ ...needUpdateConfig, sharedDir: res.dir })
         setChangeDirFlag(true)
       }
     }).catch(err => {
@@ -30,7 +27,7 @@ export default function Settings() {
     })
   }
   const restartServer = () => {
-    console.log( "needUpdateConfig", needUpdateConfig)
+    console.log("needUpdateConfig", needUpdateConfig)
     UpdateConfigData(needUpdateConfig).then(res => {
       console.log("UpdateDefaultDir", res)
       if (res.status === "success") {
@@ -41,7 +38,7 @@ export default function Settings() {
     })
   }
 
-  const clearStorageData = () => { 
+  const clearStorageData = () => {
     localStorage.clear()
     toast.success('清理缓存完成！')
   }
@@ -81,7 +78,15 @@ export default function Settings() {
         </Button>
       </div>
       <div className="flex items-center space-x-2 relative w-full mb-4">
-        <Label htmlFor="tokenExpTime" className="w-32">用户身份过期时间（小时）</Label>
+        <Label htmlFor="tokenExpTime" className="w-32 ">
+          <span>用户身份过期时间（小时）</span>
+          <Tooltip>
+            <TooltipTrigger asChild><CircleQuestionMark className="cursor-pointer inline" size={20}/></TooltipTrigger>
+            <TooltipContent>
+              <p className="text-xs text-muted-foreground text-red-400">设置用户身份过期后，原先授权的用户不会受影响。（设置后请重启服务）</p>
+            </TooltipContent>
+          </Tooltip>
+          </Label>
         <Input
           value={tokenExpiryTime ?? 24}
           type="number"
@@ -89,23 +94,31 @@ export default function Settings() {
           onChange={(e) => {
             let time = parseInt(e.target.value) || 24
             setTokenExpiryTime(time)
-            setNeedUpdateConfig({...needUpdateConfig, tokenExpiryTime: time})
+            setNeedUpdateConfig({ ...needUpdateConfig, tokenExpiryTime: time })
           }}
         />
-        <p className="absolute bottom-0 left-0 text-xs text-muted-foreground text-red-300" style={{ bottom: "-20px" }}>设置用户身份过期后，原先授权的用户不会受影响。（设置后请重启服务）</p>
+        
       </div>
       <div className="flex items-center space-x-2 relative w-full mb-4">
-        <Label htmlFor="tokenExpTime" className="w-32">清除缓存数据</Label>
-        <Button className="px-3" size="sm" onClick={()=> clearStorageData()}>
+        <Label htmlFor="tokenExpTime" className="w-32">
+          <span>清除缓存数据</span>
+          <Tooltip>
+            <TooltipTrigger asChild><CircleQuestionMark className="cursor-pointer ml-2 inline" size={20}/></TooltipTrigger>
+            <TooltipContent>
+              <p className="text-xs text-muted-foreground text-red-400">页面异常的时候可以清除缓存</p>
+            </TooltipContent>
+          </Tooltip>
+        </Label>
+        <Button className="px-3" size="sm" onClick={() => clearStorageData()}>
           <Trash size={15} />
           清除
         </Button>
-        <p className="absolute bottom-0 left-0 text-xs text-muted-foreground text-red-300" style={{ bottom: "-20px" }}>页面异常的时候可以清除缓存。</p>
+
       </div>
       <div className="flex items-center space-x-2 w-full mb-4">
         <Label htmlFor="exitApp" className="w-32">退出LanDrop</Label>
         <Popover open={popoverOpen}>
-          <PopoverTrigger asChild> 
+          <PopoverTrigger asChild>
             <Button variant="destructive" size="sm" className="px-6" onClick={() => setPopoverOpen(true)}>
               <LogOut size={20} />
               退出
@@ -119,7 +132,7 @@ export default function Settings() {
               </div>
               <div className="flex justify-center gap-6">
                 <Button className="px-6" onClick={() => setPopoverOpen(false)}>取消</Button>
-                <Button variant="destructive" className="px-6" onClick={() => {setPopoverOpen(false);ExitApp();}}>退出</Button>
+                <Button variant="destructive" className="px-6" onClick={() => { setPopoverOpen(false); ExitApp(); }}>退出</Button>
               </div>
             </div>
           </PopoverContent>
