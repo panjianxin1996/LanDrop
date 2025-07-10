@@ -4,15 +4,15 @@ import { useEffect, useState } from "react"
 import { useApiRequest } from "@/tools/request"
 import useClientStore from "@/store/appStore";
 export default function Dashboard() {
-  const { deviceLogsData } = useClientStore()
+  const { deviceLogsData, userInfo } = useClientStore()
   const [deviceInfo, setDeviceInfo] = useState<DeviceInfo>({
     cpuInfo: { modelName: '-', cores: 0, },
     memInfo: { total: 0 }
   })
   const { request } = useApiRequest()
   useEffect(() => {
-    fetchData()
-  }, [])
+    if (userInfo.token) fetchData()
+  }, [userInfo.token])
   const fetchData = async () => {
     const res = await request("/getDeviceInfo")
     if (res?.code === 200) {
