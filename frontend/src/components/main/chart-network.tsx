@@ -43,14 +43,14 @@ export function ChartNetwork({ deviceLogs }: {
   deviceLogs: Array<any>
 }) {
   const { request } = useApiRequest()
-  const { selectNetAdapter, setSelectNetAdapter, netAdapterList, ipv4Address, ipv6Address } = useClientStore()
+  const { selectNetAdapter, setSelectNetAdapter, netAdapterList, ipv4Address, ipv6Address, userInfo } = useClientStore()
   const [allNetData, setAllNetData] = React.useState<any>([])
 
   React.useEffect(() => {
     if (selectNetAdapter) {
-      selectNetAdapterEvent(selectNetAdapter)
+      if (userInfo.token) selectNetAdapterEvent(selectNetAdapter)
     }
-  }, [])
+  }, [userInfo.token])
 
   React.useEffect(() => {
     if (deviceLogs.length > 0) {
