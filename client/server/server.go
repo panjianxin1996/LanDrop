@@ -28,6 +28,7 @@ import (
 
 var (
 	app         *fiber.App         // fiber
+	proxyApp    *http.Server       // 反向代理服务器
 	serverMutex sync.Mutex         // 服务器状态锁
 	shutdownCtx context.Context    // 上下文
 	cancelFunc  context.CancelFunc // 取消函数
@@ -262,6 +263,15 @@ func Run(assets embed.FS) {
 		if err := app.Listen(fmt.Sprintf(":%v", config.Port)); err != nil {
 			log.Fatal("服务启动失败:", err)
 		}
+
+	}()
+
+	go func() { // 启动反向代理服务器监听80端口转发到4321
+		proxyServer, err := proxyServer()
+		if err != nil {
+			log.Println("代理服务启动失败:", err)
+		}
+		proxyApp = proxyServer
 	}()
 
 	// 监听终止信号
@@ -272,13 +282,23 @@ func Run(assets embed.FS) {
 func Stop() {
 	serverMutex.Lock()
 	defer serverMutex.Unlock()
-	if app == nil {
-		log.Println("服务未启动，无需停止")
-		return
+	if app != nil {
+		log.Println("正在关闭web服务")
+		if err := app.Shutdown(); err != nil {
+			log.Fatal("强制关闭服务失败:", err)
+		}
+		app = nil
 	}
-	if err := app.Shutdown(); err != nil {
-		log.Fatal("强制关闭服务失败:", err)
+	if proxyApp != nil {
+		log.Println("正在关闭代理服务...")
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second) // 创建5s上下文优雅退出
+		defer cancel()
+		if err := proxyApp.Shutdown(ctx); err != nil {
+			log.Printf("代理服务关闭失败: %v", err)
+		}
+		proxyApp = nil
 	}
+
 	cancelFunc() // 通知所有阻塞的goroutine退出
 	log.Println("服务已停止")
 }
