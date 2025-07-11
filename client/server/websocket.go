@@ -406,7 +406,11 @@ func (c *WSClient) handleMessage(msg WebMsg) {
 		msg.SID = generateClientID()
 	}
 	if c.Id != msg.User.UserId {
-		sendCommonError(c, "用户信息不一致，请确认。", msg.SID, c.clientID)
+		sendCommonError(c, 400, "用户信息不一致，请确认。", msg.SID, c.clientID)
+		return
+	}
+	if c.UserToken.ExpiresAt.Before(time.Now()) { // token 过期
+		sendCommonError(c, 401, "登录已过期，请重新登录。", msg.SID, c.clientID)
 		return
 	}
 	if fun, ok := FuncMap[msg.Type]; ok { // 监听
@@ -419,8 +423,11 @@ func (c *WSClient) handleMessage(msg WebMsg) {
 // 发送错误消息并关闭连接
 func sendErrorAndClose(conn *websocket.Conn, errorMsg string) {
 	sendData := map[string]interface{}{
-		"type":    "error",
-		"content": errorMsg,
+		"type": "commonError",
+		"content": map[string]any{
+			"error": errorMsg,
+			"code":  401,
+		},
 	}
 	if sendByte, err := json.Marshal(sendData); err == nil {
 		conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
@@ -430,11 +437,12 @@ func sendErrorAndClose(conn *websocket.Conn, errorMsg string) {
 }
 
 // 发送错误信息
-func sendCommonError(c *WSClient, err any, sId string, clientID string) {
+func sendCommonError(c *WSClient, errCode int, err any, sId string, clientID string) {
 	commonError := WSMsg{
 		Type: "commonError",
 		Content: map[string]any{
 			"error": err,
+			"code":  errCode,
 		},
 	}
 	if err := c.SendMessage(commonError); err != nil {
@@ -540,7 +548,7 @@ func InitFunc() {
 				return nil
 			})
 			if err != nil {
-				sendCommonError(c, err, m.SID, c.clientID)
+				sendCommonError(c, 500, err, m.SID, c.clientID)
 				return
 			}
 			commonReply(c, m.SID, "replyDealWithFriends", 1, fId)
@@ -593,7 +601,7 @@ func InitFunc() {
 			return nil
 		})
 		if err != nil {
-			sendCommonError(c, err, m.SID, c.clientID)
+			sendCommonError(c, 500, err, m.SID, c.clientID)
 			return
 		}
 		currentFriendList := sg.RunQuery("queryFriendListAndchatRecord", uId)

@@ -34,6 +34,7 @@ type AppStore = {
     role: string,
     avatar: string,
   },
+  validExpToken: boolean,
   uploadedFiles: Record<string, any>, // 上传的文件列表
   socketQueue: Array<any>, // 消息队列
   queueLock: boolean, // 队列锁定
@@ -70,7 +71,7 @@ const useClientStore = create<AppStore>()(
       closeWS: () => {
         const ws = get().wsHandle
         return new Promise((resolve)=> {
-          if (!ws) {
+          if (!ws || ws.readyState !== ws.OPEN) {
             resolve(-1)
             return
           }
@@ -105,6 +106,7 @@ const useClientStore = create<AppStore>()(
         role: "",
         avatar: "",
       },
+      validExpToken: false,
       uploadedFiles: {},
       socketQueue: [],
       queueLock: false,

@@ -8,6 +8,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { Label } from "@/components/ui/label"
 import { OpenDirectory, UpdateConfigData, RestartServer, ExitApp } from "@clientSDK/App"
+import { Switch } from "@/components/ui/switch"
 export default function Settings() {
   const { request } = useApiRequest()
   const [sharedDir, setSharedDir] = React.useState<string>("")
@@ -15,6 +16,7 @@ export default function Settings() {
   const [needUpdateConfig, setNeedUpdateConfig] = React.useState<any>({})
   const [changeDirFlag, setChangeDirFlag] = React.useState<boolean>(false)
   const [popoverOpen, setPopoverOpen] = React.useState(false)
+  const [devMode, setDevMode] = React.useState<boolean>(localStorage.getItem("enableVConsle") === '1' || false)
   const openDirectory = () => {
     OpenDirectory().then(res => {
       if (res.dir) {
@@ -50,6 +52,19 @@ export default function Settings() {
         setTokenExpiryTime(res.data.tokenExpiryTime)
       }
     })
+  }
+
+  const changeDevMode = (val: boolean) => {
+    // let enableVConsle = localStorage.getItem("enableVConsle")
+    setDevMode(val)
+    let win :any = window
+    if (!val) {
+      localStorage.setItem('enableVConsle', "0");
+      win._vconsole && win._vconsole.destroy();
+    } else {
+      localStorage.setItem('enableVConsle', "1");
+      win._vconsole =new win.VConsole();
+    }
   }
 
   React.useEffect(() => {
@@ -113,7 +128,19 @@ export default function Settings() {
           <Trash size={15} />
           清除
         </Button>
-
+      </div>
+      <div className="flex items-center space-x-2 relative w-full mb-4">
+        <Label htmlFor="tokenExpTime" className="w-32">
+          <span>开启开发者模式</span>
+          <Tooltip>
+            <TooltipTrigger asChild><CircleQuestionMark className="cursor-pointer ml-2 inline" size={20}/></TooltipTrigger>
+            <TooltipContent>
+              <p className="text-xs text-muted-foreground text-red-400">开启开发者模式后可以查看控制台日志</p>
+            </TooltipContent>
+          </Tooltip>
+        </Label>
+        <Switch id="devMode" checked={devMode} onCheckedChange={(val: boolean) => changeDevMode(val)}/>
+        {/* <Button className="px-3" size="sm" onClick={()=> openVConsole()}>开启开发者模式</Button> */}
       </div>
       <div className="flex items-center space-x-2 w-full mb-4">
         <Label htmlFor="exitApp" className="w-32">退出LanDrop</Label>

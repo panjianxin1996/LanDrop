@@ -14,6 +14,8 @@ export default function Shared() {
             if (res?.code === 200) {
                 setSharedData(res.data.files)
                 setSharedDir(res.data.sharedDir)
+            } else {
+                console.log(res)
             }
         })
     }

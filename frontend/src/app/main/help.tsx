@@ -1,3 +1,4 @@
+import ChatTextArea from "@/components/common/chatTextArea"
 export default function Help() {
   return (
     <div className="flex flex-col items-start justify-center p-4">
@@ -8,6 +9,7 @@ export default function Help() {
       <div className="pb-4 text-sm">答：可以的，你可以在客户端的设置中设置需要分享的文件夹。</div>
       <div className="text-sm">问：我只想分享一个文件，并且短期有效该怎么办？</div>
       <div className="pb-4 text-sm">答：客户端快速分享，选择需要分享的文件，并且设置分享的时效。</div>
+      <ChatTextArea />
     </div>
   )
 }

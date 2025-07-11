@@ -94,7 +94,7 @@ type Message = {
   type: string | null
 }
 
-export default function ChatBox(props: { userId: number, socketData: any }) {
+export default function ChatBox({ userId }: { userId: number }) {
   const { wsHandle, userInfo, socketQueue, setStoreData } = useClientStore()
   const [clientData, setClientData] = React.useState<ClientData>({ // 当前设备数据，包含了设备信息以及离线情况设备消息、通知
     clientID: "",
@@ -115,13 +115,13 @@ export default function ChatBox(props: { userId: number, socketData: any }) {
   const chatWindowRef = React.useRef<any>(null)
   const inputLength = input.trim().length
   React.useEffect(() => {
-    console.log("当前聊天用户ID:", props.userId)
-    if (props.userId && props.userId > 0 && wsHandle) {
+    console.log("当前聊天用户ID:", userId)
+    if (userId && userId > 0 && wsHandle) {
       initData()
       sendMessage({ type: "pullData" }) // 获取初始数据
       queryFriendList()
     }
-  }, [props.userId])
+  }, [userId])
   React.useEffect(() => {
     chatUserRef.current = chatUser;
   }, [chatUser]);
@@ -153,6 +153,9 @@ export default function ChatBox(props: { userId: number, socketData: any }) {
     // 处理通用错误数据
     "commonError": (content: any) => {
       console.warn("监听到ws处理错误:", content.error)
+      if (content.code === 401) {
+        setStoreData({name: "validExpToken", value: true})
+      }
     },
     // 获取整体数据包含当前客户端信息以及离线数据通知、消息
     "replyPullData": (content: any) => {
@@ -170,10 +173,17 @@ export default function ChatBox(props: { userId: number, socketData: any }) {
         if (chatUserRef.current?.friendId === msg.fromId) { // 如果当前选中了好友就是聊天推送的数据,
           setChatRecordStatus("single", +msg.cId)
         }
-        setMessages((prev: Record<string, Array<Message>>) => ({
-          ...prev,
-          [clientID]: [...prev[clientID], msg]
-        }))
+        setMessages((prev: Record<string, Array<Message>>) => {
+          if (clientID && prev[clientID]) {
+            return {
+              ...prev,
+              [clientID]: [...prev[clientID], msg]
+            }
+          } else {
+            return prev
+          }
+          
+        })
       }
     },
     // 客户端列表，用于添加好友

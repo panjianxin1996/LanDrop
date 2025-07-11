@@ -15,9 +15,8 @@ import { useApiRequest } from "@/tools/request"
 import { toast } from "sonner"
 import { Outlet, useNavigate } from 'react-router-dom'
 import { userAvatar } from "@/app/commonData"
-
 export default function AppWeb() {
-    const { checkIsClient, setStoreData, closeWS, userInfo } = useClientStore()
+    const { checkIsClient, setStoreData, closeWS, validExpToken, userInfo } = useClientStore()
     const { request } = useApiRequest()
     const navigate = useNavigate();
     // 分享文件列表信息
@@ -33,6 +32,7 @@ export default function AppWeb() {
     const [activeMenu, setActiveMenu] = useState<string>("sharedDir")
     const socketList = useRef<Array<any>>([])
     const timeoutHandle = useRef<any>(null)
+    const currentUserId = useRef<number>(-1)
     // const userAvatar = ["🐱", "🐶", "🐷", "🐥", "🐭", "🐹", "🐼", "🦉", "🐸", "🤪", "🥰", "😬", "😏", "🙄", "🥵", "🥶", "🥴", "🤓", "🥺", "👹"]
     useEffect(() => {
         // web端设置为非客户端
@@ -42,6 +42,14 @@ export default function AppWeb() {
             closeWS() // 关闭socket连接
         }
     }, [userInfo.token])
+
+    useEffect(()=> {
+        if (validExpToken) {
+            setIsLogin(false)
+            setOptForUserId(+userInfo.userId)
+            setOpenUserDialog(true)
+        }
+    }, [validExpToken])
 
     // 异步传递socket信息，将socket的信息暂存socketList，在100s内进行更新
     const setSocketQueue = useCallback(() => {
@@ -95,6 +103,7 @@ export default function AppWeb() {
         // const currentUser = userList.find((item: any) => item.id === userInfo.id)
         // if (currentUser) {
         setOptForUserId(userInfo && userInfo.id)
+        currentUserId.current = userInfo && userInfo.id
         // }
         getUserList()
     }
@@ -148,15 +157,10 @@ export default function AppWeb() {
 
     // 更换用户
     const changeUserEvent = async (checkId: number) => {
+        currentUserId.current = -1
         await closeWS()
         let userItem = userList.find((item: any) => item.id === checkId)
         console.log("changeUserEvent", userItem)
-        setStoreData({
-            name: "userInfo", value: {
-                userId: userItem.id,
-                userName: userItem.name,
-            }
-        })
         localStorage.setItem("rememberUserInfo", JSON.stringify(userItem)) // 设置用户信息
         const tokenRes = await getUserToken(userItem.id, userItem.name) // 选择用户获取token
         // localStorage.setItem("userToken", tokenRes.data.token) // 设置用户token
@@ -164,9 +168,10 @@ export default function AppWeb() {
         if (rememberUser) {
             localStorage.setItem("rememberUserInfoFlag", "1")
         }
-        if (isLogin) {
+        // if (isLogin) {
             setOptForUserId(checkId) // 设置选中的用户
-        }
+            currentUserId.current = checkId
+        // }
     }
 
     const unBindEvent = (item: any) => { // 解绑设备
@@ -234,7 +239,7 @@ export default function AppWeb() {
                             <div className="flex flex-col justify-start h-4/5 overflow-auto p-2">
                                 {
                                     userList.map((item: any, index: number) => (
-                                        <Card className={`w-full mb-2 cursor-pointer border-2 ${optForUserId === item.id && 'border-[#0f172a] bg-gray-200'}`} key={`${item.id}-${item.name}`} onClick={() => !isLogin && setOptForUserId(item.id)}>
+                                        <Card className={`relative w-full mb-2 cursor-pointer border-2 ${optForUserId === item.id && 'border-[#0f172a] bg-gray-200'}`} key={`${item.id}-${item.name}`} onClick={() => {!isLogin && setOptForUserId(item.id);currentUserId.current = item.id;}}>
                                             <CardContent className="flex item-center justify-between p-3">
                                                 <div className="flex item-center">
                                                     <Popover>
@@ -269,6 +274,9 @@ export default function AppWeb() {
                                                     </div>
                                                 }
                                             </CardContent>
+                                            {
+                                                (userInfo.userId === item.id && validExpToken) && <p className="absolute bottom-1 right-2 text-xs text-red-300">当前账号登录已经失效，请重新登录</p>
+                                            }
                                         </Card>
                                     ))
                                 }
@@ -277,7 +285,7 @@ export default function AppWeb() {
                                         {
                                             addNewUser && <div className="flex w-full items-center">
                                                 <span className="w-24">用户名</span>
-                                                <Input value={newUserName} onChange={(val) => { setNewUserName(val.target.value) }}></Input>
+                                                <Input value={newUserName} maxLength={8} onChange={(val) => { setNewUserName(val.target.value) }}></Input>
                                                 <Button className="ml-2" onClick={() => createUser()}>新增</Button>
                                             </div>
                                         }
@@ -365,7 +373,7 @@ export default function AppWeb() {
                         }
                     </DropdownMenuContent>
                 </DropdownMenu>
-                <Outlet context={{ userId: optForUserId }} />
+                <Outlet context={{ userId: currentUserId.current }} />
             </div>
             <div style={{ height: "5vh" }}>
             </div>
