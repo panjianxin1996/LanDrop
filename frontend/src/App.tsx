@@ -97,7 +97,7 @@ export default function App() {
           timeStamp: new Date().getTime().toString()
         }).then(res => {
           if (res && res.code === 200) {
-            localStorage.setItem("ldtoken", res.data.token)
+            // localStorage.setItem("ldtoken", res.data.token)
             setStoreData({
               beforeSet: (_, set) => {
                 set({

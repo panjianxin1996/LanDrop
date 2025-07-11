@@ -34,6 +34,12 @@ func InitDB(dbPath string) (SqlliteDB, error) {
 	if err := db.Ping(); err != nil {
 		return sdb, fmt.Errorf("数据库连接测试失败: %v", err)
 	}
+	if _, err := db.Exec(`DROP TABLE IF EXISTS friendships;
+		DROP TABLE IF EXISTS chat_records;
+		DROP TABLE IF EXISTS settings;
+		DROP TABLE IF EXISTS users;`); err != nil {
+		return sdb, fmt.Errorf("删除表失败: %v", err)
+	}
 	// 初始化用户表结构
 	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS users (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,

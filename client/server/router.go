@@ -487,6 +487,7 @@ func (r Router) appLogin(c *fiber.Ctx) error {
 		adminId = insertId
 		adminName = postBody["adminName"]
 		adminRole = "admin"
+		nickName = "管理员"
 	} else if err != nil {
 		r.Reply.Code = http.StatusBadRequest
 		r.Reply.Msg = "创建失败2"

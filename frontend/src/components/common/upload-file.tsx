@@ -19,7 +19,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
   maxFileSize = 5 * 1024 * 1024 * 1024, // 默认5GB
   multiple = false,
 }) => {
-  const { uploadedFiles, setStoreData } = useClientStore()
+  const { uploadedFiles, setStoreData, userInfo } = useClientStore()
   const [isDragging, setIsDragging] = useState(false); // 是否正在拖拽
   const [uploadList, setUploadList] = useState<any>([])
   const fileInputRef = useRef<HTMLInputElement>(null); // 文件输入框引用
@@ -110,7 +110,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
       await axios.post(uploadUrl, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
-          "X-Ld-Token": localStorage.getItem("ldtoken") || localStorage.getItem("userToken") || "",
+          "X-Ld-Token": userInfo.token || "",
         },
         onUploadProgress: (progressEvent: any) => {
           if (progressEvent.total) {

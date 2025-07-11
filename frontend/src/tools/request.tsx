@@ -15,7 +15,7 @@ type ErrorResponse = {
  *   - error: 请求失败时的错误信息
  */
 export function useApiRequest() {
-    const { isClient } = useClientStore()
+    const { isClient, userInfo } = useClientStore()
     let baseHost = `http://${isClient ? `127.0.0.1:${localStorage.getItem("appPort") || "4321"}` : location.host}`
     let Host = baseHost + "/api/v1"
     const [isLoading, setIsLoading] = useState(false)
@@ -38,7 +38,7 @@ export function useApiRequest() {
                     method,
                     headers: {
                         "Content-Type": "application/json",
-                        "X-Ld-Token": localStorage.getItem("ldtoken") || localStorage.getItem("userToken") || "",
+                        "X-Ld-Token": userInfo.token || "",
                     },
                     body: body ? JSON.stringify(body) : undefined,
                 })

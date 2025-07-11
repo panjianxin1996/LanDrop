@@ -17,7 +17,7 @@ import { Outlet, useNavigate } from 'react-router-dom'
 import { userAvatar } from "@/app/commonData"
 
 export default function AppWeb() {
-    const { checkIsClient, setStoreData, closeWS } = useClientStore()
+    const { checkIsClient, setStoreData, closeWS, userInfo } = useClientStore()
     const { request } = useApiRequest()
     const navigate = useNavigate();
     // 分享文件列表信息
@@ -41,7 +41,7 @@ export default function AppWeb() {
         return () => {
             closeWS() // 关闭socket连接
         }
-    }, [])
+    }, [userInfo.token])
 
     // 异步传递socket信息，将socket的信息暂存socketList，在100s内进行更新
     const setSocketQueue = useCallback(() => {
@@ -82,16 +82,16 @@ export default function AppWeb() {
 
     }
     const initData = async () => { // 初始化数据
-        const token = localStorage.getItem("userToken") || ""
+        // const token = localStorage.getItem("userToken") || ""
         const rememberUser = localStorage.getItem("rememberUserInfo")
         const rememberUserInfoFlag = localStorage.getItem("rememberUserInfoFlag")
         let userInfo = rememberUser && JSON.parse(rememberUser)
         setRememberUser(!!rememberUserInfoFlag)
-        if (token && rememberUser && !!rememberUserInfoFlag) {
+        if (userInfo.token && rememberUser && !!rememberUserInfoFlag) {
             setOpenUserDialog(false)
             setIsLogin(true)
         }
-        await connectWSServer(token, userInfo)
+        await connectWSServer(userInfo.token, userInfo)
         // const currentUser = userList.find((item: any) => item.id === userInfo.id)
         // if (currentUser) {
         setOptForUserId(userInfo && userInfo.id)
@@ -159,7 +159,7 @@ export default function AppWeb() {
         })
         localStorage.setItem("rememberUserInfo", JSON.stringify(userItem)) // 设置用户信息
         const tokenRes = await getUserToken(userItem.id, userItem.name) // 选择用户获取token
-        localStorage.setItem("userToken", tokenRes.data.token) // 设置用户token
+        // localStorage.setItem("userToken", tokenRes.data.token) // 设置用户token
         await connectWSServer(tokenRes.data.token, userItem) // ws连接、重连
         if (rememberUser) {
             localStorage.setItem("rememberUserInfoFlag", "1")
