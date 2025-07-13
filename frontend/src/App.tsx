@@ -35,7 +35,12 @@ export default function App() {
   const getNetworkInfo = () => { // 获取网卡信息
     request("/getNetworkInfo").then(res => {
       if (res && res.code === 200) {
-        setStoreData({ name: 'netAdapterList', value: res.data })
+        setStoreData({
+          set: {
+            netAdapterList: res.data,
+
+          }
+        })
         if (selectNetAdapter === "") {
           // 如果第一次加载选中第一个网卡
           setSelectNetAdapter(res.data[0].name)
@@ -51,7 +56,7 @@ export default function App() {
       const currentList = [...socketList.current]
       socketList.current = []
       setStoreData({
-        beforeSet: (store, set) => {
+        before: (store, set) => {
           set({ socketQueue: [...store.socketQueue, ...currentList] })
         }
       })
@@ -66,7 +71,7 @@ export default function App() {
       if (info.type === "deviceRealTimeInfo") {
         let newNetWorkLog = { ...info.content.network, ...info.content }
         setStoreData({
-          beforeSet: (_, set) => {
+          before: (_, set) => {
             set(state => ({// 只存放24条数据
               deviceLogsData: state.deviceLogsData.length >= 24 ? [...state.deviceLogsData.slice(-23), newNetWorkLog] : [...state.deviceLogsData, newNetWorkLog]
             }))
@@ -78,7 +83,12 @@ export default function App() {
       }
     }
     wsHandle.onopen = () => {
-      setStoreData({ name: 'wsHandle', value: wsHandle })
+      setStoreData({
+          set: {
+            wsHandle: wsHandle,
+
+          }
+        })
       setUserId(+userInfo.userId)
     }
 
@@ -89,8 +99,10 @@ export default function App() {
     if (!userInfo.userName) uName = `admin${(Math.random() * 1000).toFixed(0)}`
     else uName = userInfo.userName
     setStoreData({
-      name: 'userInfo', value: { ...userInfo, userName: uName }, endSet: (store) => {
-        console.log(store, "store")
+      set: {userInfo: { ...userInfo, userName: uName }},
+      // name: 'userInfo', value: { ...userInfo, userName: uName }, 
+      finish: (store) => {
+        // console.log(store, "store")
         request("/appLogin", "POST", {
           adminName: store.userInfo.userName,
           adminPassword: `landrop#${store.userInfo.userName}`,
@@ -99,7 +111,7 @@ export default function App() {
           if (res && res.code === 200) {
             // localStorage.setItem("ldtoken", res.data.token)
             setStoreData({
-              beforeSet: (_, set) => {
+              before: (_, set) => {
                 set({
                   userInfo: {
                     token: res.data.token,
@@ -111,7 +123,7 @@ export default function App() {
                   }
                 })
               },
-              endSet: (store) => {
+              finish: (store) => {
                 // 连接socket数据
                 connectWS(store.userInfo.userId, store.userInfo.userName, store.userInfo.token)
               }

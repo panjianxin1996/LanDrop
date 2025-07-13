@@ -133,9 +133,8 @@ export default function ChatBox({ userId }: { userId: number }) {
         }
       })
       setStoreData({
-        beforeSet: (_, set) => {
-          set({ queueLock: true, socketQueue: [] })
-          set({ queueLock: false })
+        before: (_, set) => {
+          set({ socketQueue: [] })
         }
       })
     }
@@ -154,7 +153,12 @@ export default function ChatBox({ userId }: { userId: number }) {
     "commonError": (content: any) => {
       console.warn("监听到ws处理错误:", content.error)
       if (content.code === 401) {
-        setStoreData({name: "validExpToken", value: true})
+        setStoreData({
+          set: {
+            validExpToken: true,
+
+          }
+        })
       }
     },
     // 获取整体数据包含当前客户端信息以及离线数据通知、消息

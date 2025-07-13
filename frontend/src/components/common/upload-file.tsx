@@ -118,19 +118,19 @@ const FileUpload: React.FC<FileUploadProps> = ({
             let f = files[0]
             setUploadList((prev: any) => {
               // 不存在插入新数据
-                if (prev.findIndex((file: any) => f.name === file.name) === -1) {
-                  return [...prev, {
-                    name: f.name,
-                    time: new Date().getTime(),
-                    status: !!error ? 'ok':'err',
-                    statusMsg: !!error ? '': error,
-                    progress: progress,
-                  }]
-                }
-                // 存在更新进度
-                return prev.map((item: any) => {
-                  return item.name === f.name ? { ...item, progress } : item;
-                })
+              if (prev.findIndex((file: any) => f.name === file.name) === -1) {
+                return [...prev, {
+                  name: f.name,
+                  time: new Date().getTime(),
+                  status: !!error ? 'ok' : 'err',
+                  statusMsg: !!error ? '' : error,
+                  progress: progress,
+                }]
+              }
+              // 存在更新进度
+              return prev.map((item: any) => {
+                return item.name === f.name ? { ...item, progress } : item;
+              })
             })
           }
         },
@@ -141,7 +141,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
         newUploadedFiles[file.name] = new Date().getTime();
       });
       setStoreData({
-        beforeSet: (store, set) => {
+        before: (store, set) => {
           set({ uploadedFiles: { ...store.uploadedFiles, ...newUploadedFiles } });
         }
       })
@@ -176,7 +176,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
         <input type="file" ref={fileInputRef} onChange={handleFileInputChange} accept={acceptedFileTypes} multiple={multiple} className="hidden" />
       </div>
       <div className='flex justify-end'>
-        <Button className='my-2' onClick={() => setStoreData({ name: "uploadedFiles", value: {} })}>清空</Button>
+        <Button className='my-2' onClick={() => setStoreData({ set: { uploadedFiles: {} } })}>清空</Button>
       </div>
       {/* 上传进度和结果 */}
       <div ref={containerRef} className="mt-6 space-y-4 overflow-y-scroll h-3/5 flex flex-col">

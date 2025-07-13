@@ -33,7 +33,6 @@ export default function AppWeb() {
     const socketList = useRef<Array<any>>([])
     const timeoutHandle = useRef<any>(null)
     const currentUserId = useRef<number>(-1)
-    // const userAvatar = ["🐱", "🐶", "🐷", "🐥", "🐭", "🐹", "🐼", "🦉", "🐸", "🤪", "🥰", "😬", "😏", "🙄", "🥵", "🥶", "🥴", "🤓", "🥺", "👹"]
     useEffect(() => {
         // web端设置为非客户端
         checkIsClient()
@@ -41,9 +40,13 @@ export default function AppWeb() {
         return () => {
             closeWS() // 关闭socket连接
         }
-    }, [userInfo.token])
+    }, [])
+    useEffect(() => {
+        // web端设置为非客户端
+        if (optForUserId > 0) changeUserEvent(optForUserId)
+    }, [optForUserId])
 
-    useEffect(()=> {
+    useEffect(() => {
         if (validExpToken) {
             setIsLogin(false)
             setOptForUserId(+userInfo.userId)
@@ -58,7 +61,7 @@ export default function AppWeb() {
             const currentList = [...socketList.current]
             socketList.current = []
             setStoreData({
-                beforeSet: (store, set) => {
+                before: (store, set) => {
                     set({ socketQueue: [...store.socketQueue, ...currentList] })
                 }
             })
@@ -79,7 +82,9 @@ export default function AppWeb() {
                 setSocketQueue()
             }
             wsHandle.onopen = () => {
-                setStoreData({ name: "wsHandle", value: wsHandle })
+                setStoreData({
+                    set: { wsHandle },
+                })
                 resolve(wsHandle.readyState);
             }
             wsHandle.onerror = () => {
@@ -90,32 +95,32 @@ export default function AppWeb() {
 
     }
     const initData = async () => { // 初始化数据
+        await getUserList()
         // const token = localStorage.getItem("userToken") || ""
         const rememberUser = localStorage.getItem("rememberUserInfo")
         const rememberUserInfoFlag = localStorage.getItem("rememberUserInfoFlag")
-        let userInfo = rememberUser && JSON.parse(rememberUser)
+        let userInfoData = rememberUser && JSON.parse(rememberUser)
         setRememberUser(!!rememberUserInfoFlag)
         if (userInfo.token && rememberUser && !!rememberUserInfoFlag) {
             setOpenUserDialog(false)
             setIsLogin(true)
         }
-        await connectWSServer(userInfo.token, userInfo)
-        // const currentUser = userList.find((item: any) => item.id === userInfo.id)
-        // if (currentUser) {
-        setOptForUserId(userInfo && userInfo.id)
-        currentUserId.current = userInfo && userInfo.id
-        // }
-        getUserList()
+        // await connectWSServer(userInfo.token, userInfo)
+        setOptForUserId(userInfoData && userInfoData.id)
+        currentUserId.current = userInfoData && userInfoData.id
     }
     const getUserList = () => { // 获取用户列表
-        request("/getUserList", 'POST', {}).then(res => {
-            if (res?.code === 200) !!res.data && setUserList(res.data.map((item: any) => ({ ...item, isChange: false })))
+        return new Promise((reslove)=> {
+            request("/getUserList", 'POST', {}).then(res => {
+                reslove(res)
+                if (res?.code === 200) !!res.data && setUserList(res.data.map((item: any) => ({ ...item, isChange: false })))
+            })
         })
     }
     const getRealFilePath = () => { // 获取真实文件路径
         request("/getRealFilePath?fileCode=" + sharedCode).then(res => {
             if (res?.code === 200) {
-                console.log(res.data)
+                // console.log(res.data)
                 setSharedCode("")
             }
         })
@@ -160,17 +165,33 @@ export default function AppWeb() {
         currentUserId.current = -1
         await closeWS()
         let userItem = userList.find((item: any) => item.id === checkId)
-        console.log("changeUserEvent", userItem)
+        let token = userInfo.token
         localStorage.setItem("rememberUserInfo", JSON.stringify(userItem)) // 设置用户信息
-        const tokenRes = await getUserToken(userItem.id, userItem.name) // 选择用户获取token
+        if (!token) {
+            console.log("没获取到token请求新的token")
+            const tokenRes = await getUserToken(userItem.id, userItem.name) // 选择用户获取token
+            token = tokenRes.data.token
+        }
         // localStorage.setItem("userToken", tokenRes.data.token) // 设置用户token
-        await connectWSServer(tokenRes.data.token, userItem) // ws连接、重连
+        setStoreData({
+            before: (store, set) => {
+                set({
+                    userInfo: {
+                        ...store.userInfo,
+                        userId: userItem.id,
+                        userName: userItem.name,
+                        token,
+                    }
+                })
+            }
+        })
+        await connectWSServer(token, userItem) // ws连接、重连
         if (rememberUser) {
             localStorage.setItem("rememberUserInfoFlag", "1")
         }
         // if (isLogin) {
-            setOptForUserId(checkId) // 设置选中的用户
-            currentUserId.current = checkId
+        setOptForUserId(checkId) // 设置选中的用户
+        currentUserId.current = checkId
         // }
     }
 
@@ -239,7 +260,7 @@ export default function AppWeb() {
                             <div className="flex flex-col justify-start h-4/5 overflow-auto p-2">
                                 {
                                     userList.map((item: any, index: number) => (
-                                        <Card className={`relative w-full mb-2 cursor-pointer border-2 ${optForUserId === item.id && 'border-[#0f172a] bg-gray-200'}`} key={`${item.id}-${item.name}`} onClick={() => {!isLogin && setOptForUserId(item.id);currentUserId.current = item.id;}}>
+                                        <Card className={`relative w-full mb-2 cursor-pointer border-2 ${optForUserId === item.id && 'border-[#0f172a] bg-gray-200'}`} key={`${item.id}-${item.name}`} onClick={() => { !isLogin && setOptForUserId(item.id); currentUserId.current = item.id; }}>
                                             <CardContent className="flex item-center justify-between p-3">
                                                 <div className="flex item-center">
                                                     <Popover>

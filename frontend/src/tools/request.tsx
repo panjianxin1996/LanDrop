@@ -19,13 +19,12 @@ type ErrorResponse = {
  *   - baseHost: 基础请求地址
  */
 export function useApiRequest() {
-  const { isClient,setStoreData,userInfo } = useClientStore();
+  const { isClient, setStoreData, userInfo } = useClientStore();
   // 构建基础URL（逻辑与原fetch版本保持一致）
-  const baseHost = `http://${
-    isClient 
-      ? `127.0.0.1:${localStorage.getItem("appPort") || "4321"}` 
-      : location.host
-  }`;
+  const baseHost = `http://${isClient
+    ? `127.0.0.1:${localStorage.getItem("appPort") || "4321"}`
+    : location.host
+    }`;
   const Host = `${baseHost}/api/v1`;
 
   const [isLoading, setIsLoading] = useState(false);
@@ -68,6 +67,13 @@ export function useApiRequest() {
           method,
           data, // Axios会自动JSON.stringify(data)
         });
+        console.log("==================重置validExpToken==1")
+        setStoreData({
+          set: {
+            validExpToken: false,
+
+          }
+        })
 
         return response.data; // 直接返回响应数据（Axios默认包裹在data中）
 
@@ -84,18 +90,27 @@ export function useApiRequest() {
           errorData.message = responseData.msg;
         }
         if (axiosError.response?.status === 401) { // 登录失效清除用户数据
-            localStorage.removeItem("userToken")
-            setStoreData({
-                beforeSet: (store, set) => {
-                    set({
-                        validExpToken: true,
-                        userInfo: {
-                            ...store.userInfo,
-                            token: '',
-                        },
-                    })
-                }
-            })
+          console.log("==================401")
+          localStorage.removeItem("userToken")
+          setStoreData({
+            before: (store, set) => {
+              set({
+                validExpToken: true,
+                userInfo: {
+                  ...store.userInfo,
+                  token: '',
+                },
+              })
+            }
+          })
+        } else {
+          console.log("==================重置validExpToken==2")
+          setStoreData({
+            set: {
+              validExpToken: false,
+
+            }
+          })
         }
         setError(errorData);
         toast.error("请求出错", {

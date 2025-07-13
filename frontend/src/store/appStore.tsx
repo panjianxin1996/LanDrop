@@ -3,13 +3,15 @@ import { persist } from 'zustand/middleware' // 持久化存储到localStorage
 import { GetAppConfig } from "@clientSDK/App"
 
 type SetStoreDataParams = {
-  name?: string // 更新storeKey
-  value?: any // 更新storeValue
-  beforeSet?: (store: AppStore, set: { // 更新前钩子
+  // name?: string // 更新storeKey
+  // value?: any // 更新storeValue
+
+  before?: (store: AppStore, set: { // 更新前钩子
     (partial: AppStore | Partial<AppStore> | ((state: AppStore) => AppStore | Partial<AppStore>), replace?: false): void;
     (state: AppStore | ((state: AppStore) => AppStore), replace: true): void;
   }) => void
-  endSet?: (store: AppStore) => void // 更新后钩子
+  set?: any
+  finish?: (store: AppStore) => void // 更新后钩子
 }
 
 type AppStore = {
@@ -37,7 +39,6 @@ type AppStore = {
   validExpToken: boolean,
   uploadedFiles: Record<string, any>, // 上传的文件列表
   socketQueue: Array<any>, // 消息队列
-  queueLock: boolean, // 队列锁定
   isOnline: boolean, // 是否在线
 }
 
@@ -62,9 +63,9 @@ const useClientStore = create<AppStore>()(
       },
       clientVersion: '',
       setStoreData: (params: SetStoreDataParams) => {
-        if (params.beforeSet) params.beforeSet(get(), set) // 前置钩子
-        else if (params.name && params.value) set({ [params.name]: params.value }) // 没有传递钩子直接更新数据
-        params.endSet && params.endSet(get()) // 完成后钩子
+        if (params.before) params.before(get(), set) // 前置钩子
+        if (params.set) set(params.set) // 没有传递钩子直接更新数据
+        params.finish && params.finish(get()) // 完成后钩子
       },
       deviceLogsData: [],
       wsHandle: null,
@@ -109,7 +110,6 @@ const useClientStore = create<AppStore>()(
       validExpToken: false,
       uploadedFiles: {},
       socketQueue: [],
-      queueLock: false,
       isOnline: true,
     }),
     // 设置持久化存储名称白名单
