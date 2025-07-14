@@ -165,6 +165,10 @@ export default function AppWeb() {
         currentUserId.current = -1
         await closeWS()
         let userItem = userList.find((item: any) => item.id === checkId)
+        if (!userItem) {
+            alert("没有找到用户信息")
+            return
+        }
         let token = userInfo.token
         localStorage.setItem("rememberUserInfo", JSON.stringify(userItem)) // 设置用户信息
         if (!token) {
@@ -172,6 +176,7 @@ export default function AppWeb() {
             const tokenRes = await getUserToken(userItem.id, userItem.name) // 选择用户获取token
             token = tokenRes.data.token
         }
+        console.log("userItem===",userItem)
         // localStorage.setItem("userToken", tokenRes.data.token) // 设置用户token
         setStoreData({
             before: (store, set) => {
@@ -271,7 +276,7 @@ export default function AppWeb() {
                                                                 </AvatarFallback>
                                                             </Avatar>
                                                         </PopoverTrigger>
-                                                        <PopoverContent className="flex flex-wrap gap-2 min-w-[32rem]">
+                                                        <PopoverContent className="flex flex-wrap gap-2 w-[100vw] sm:min-w-[32rem]">
                                                             {
                                                                 userAvatar.map((item: string) => (
                                                                     <p className="text-3xl p-2 cursor-pointer hover:bg-slate-100" key={item} onClick={() => changeUserAvatar(item, index, true)}>{item}</p>

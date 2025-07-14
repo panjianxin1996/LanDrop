@@ -1,5 +1,5 @@
 import * as React from "react"
-import { Check, Send, Bell, UserRoundPlus, CircleCheck, CircleX, UserRound } from "lucide-react"
+import { Check, Send, Bell, UserRoundPlus, CircleCheck, CircleX, UserRound, ChevronLeft } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -187,7 +187,7 @@ export default function ChatBox({ userId }: { userId: number }) {
           } else {
             return prev
           }
-          
+
         })
       }
     },
@@ -369,8 +369,8 @@ export default function ChatBox({ userId }: { userId: number }) {
   }
 
   return (
-    <div className="flex h-full">
-      <div className="w-64">
+    <div className="flex h-full relative">
+      <div className="w-full sm:w-64">
         <Card className="p-2 h-full border-0 rounded-none">
           <div className="flex gap-2 justify-end">
             <Popover>
@@ -446,8 +446,13 @@ export default function ChatBox({ userId }: { userId: number }) {
       </div>
       {/* 好友聊天窗口面板 */}
       {
-        chatUser?.friendId && <Card className="h-full flex flex-col justify-between border-0 rounded-none border-l-[1px]" style={{ width: "calc(100% - 16rem)" }}>
-          <CardHeader className="flex flex-row items-center h-10 p-2 text-lg font-medium leading-none border-b-[1px] pl-4">{chatUser?.friendNickName}</CardHeader>
+        chatUser?.friendId && <Card className="absolute w-full sm:w-[calc(100%-16rem)] pt-16 sm:pt-0 sm:relative h-full flex flex-col justify-between border-0 rounded-none border-l-[1px]">
+          <CardHeader className="flex flex-row items-center h-10 p-2 text-lg font-medium leading-none border-b-[1px] pl-4">
+            <Button size={"sm"} onClick={() => setChatUser(null)} variant={"ghost"}>
+              <ChevronLeft />
+            </Button>
+            {chatUser?.friendNickName}
+          </CardHeader>
           <CardContent className="flex-1 overflow-y-auto p-4" ref={chatWindowRef}>
             <div className="space-y-4">
               {messages[`${chatUser.friendName}#${chatUser.friendId}`]?.map((message: Message, index: number) => (
