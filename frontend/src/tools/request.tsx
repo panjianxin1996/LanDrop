@@ -1,7 +1,7 @@
 import { toast } from "sonner";
 import { useState, useCallback } from "react";
 import useClientStore from "@/store/appStore";
-import axios, { AxiosRequestConfig, AxiosError } from "axios"; // 引入 Axios
+import axios, { AxiosProgressEvent, AxiosRequestConfig, AxiosError } from "axios";
 
 type RequestMethod = "GET" | "POST" | "PUT" | "DELETE";
 type ErrorResponse = {
@@ -9,37 +9,35 @@ type ErrorResponse = {
   message?: string;
 };
 
-/**
- * 自定义API请求Hook（Axios版本），封装了加载状态、错误处理和Toast通知功能
- * 
- * @returns {Object} 返回包含以下属性的对象:
- *   - request: 发起API请求的函数
- *   - isLoading: 是否正在加载中的状态
- *   - error: 请求失败时的错误信息
- *   - baseHost: 基础请求地址
- */
+interface UploadResult {
+  name: string;
+  url: string;
+  size: number;
+}
+
+interface UploadOptions extends AxiosRequestConfig {
+  maxConcurrent?: number;      // 并发数（默认5）
+  maxRetries?: number;         // 失败重试次数（默认2）
+  onProgress?: (progress: {
+    name: string;
+    percent: number;
+    total: number;
+    loaded: number;
+  }) => void;
+}
+
 export function useApiRequest() {
   const { isClient, setStoreData, userInfo } = useClientStore();
-  // 构建基础URL（逻辑与原fetch版本保持一致）
   const baseHost = `http://${isClient
     ? `127.0.0.1:${localStorage.getItem("appPort") || "4321"}`
     : location.host
-    }`;
+  }`;
   const Host = `${baseHost}/api/v1`;
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<ErrorResponse | null>(null);
 
-  /**
-   * 发起API请求（Axios实现）
-   * 
-   * @template T 期望的响应数据类型(默认为any)
-   * @param {string} url API端点路径(会自动拼接Host)
-   * @param {RequestMethod} [method="GET"] HTTP请求方法
-   * @param {any} [data] 请求体数据(无需手动JSON.stringify)
-   * @param {AxiosRequestConfig} [config] 额外的Axios配置(如headers、params等)
-   * @returns {Promise<T | undefined>} 返回解析后的响应数据或undefined(请求失败时)
-   */
+  // 统一请求方法
   const request = useCallback(
     async <T = any>(
       url: string,
@@ -51,78 +49,142 @@ export function useApiRequest() {
       setError(null);
 
       try {
-        // 创建Axios实例（每次请求创建独立实例，避免拦截器全局污染）
         const instance = axios.create({
-          baseURL: Host, // 基础URL
+          baseURL: Host,
           headers: {
             "Content-Type": "application/json",
             "X-Ld-Token": userInfo.token || "",
           },
-          ...config, // 合并额外配置（优先级更高）
+          ...config,
         });
 
-        // 发起请求
-        const response = await instance.request<T>({
-          url,
-          method,
-          data, // Axios会自动JSON.stringify(data)
-        });
-        console.log("==================重置validExpToken==1")
-        setStoreData({
-          set: {
-            validExpToken: false,
-
-          }
-        })
-
-        return response.data; // 直接返回响应数据（Axios默认包裹在data中）
+        const response = await instance.request<T>({ url, method, data });
+        setStoreData({ set: { validExpToken: false } });
+        return response.data;
 
       } catch (err) {
-        // 处理Axios错误
-        const axiosError = err as AxiosError;
-        const errorData: ErrorResponse = {
-          statusText: axiosError.message || "请求失败",
-        };
-
-        // 尝试解析服务端返回的错误信息（兼容原fetch逻辑）
-        if (axiosError.response?.data) {
-          const responseData = axiosError.response.data as { msg?: string };
-          errorData.message = responseData.msg;
-        }
-        if (axiosError.response?.status === 401) { // 登录失效清除用户数据
-          console.log("==================401")
-          localStorage.removeItem("userToken")
-          setStoreData({
-            before: (store, set) => {
-              set({
-                validExpToken: true,
-                userInfo: {
-                  ...store.userInfo,
-                  token: '',
-                },
-              })
-            }
-          })
-        } else {
-          console.log("==================重置validExpToken==2")
-          setStoreData({
-            set: {
-              validExpToken: false,
-
-            }
-          })
-        }
-        setError(errorData);
-        toast.error("请求出错", {
-          description: `${url} 请求失败: ${errorData.message || errorData.statusText}`,
-        });
+        handleRequestError(err as AxiosError, url);
         return undefined;
       } finally {
         setIsLoading(false);
       }
     },
-    [Host] // 依赖Host变化时重新创建request函数
+    [Host, userInfo.token]
   );
 
-  return { request, isLoading, error, baseHost };
+  // 统一上传方法
+  const upload = useCallback(
+    async (
+      url: string,
+      files: File[],
+      options?: UploadOptions
+    ): Promise<UploadResult[] | undefined> => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const { maxConcurrent = 5, maxRetries = 1, onProgress, ...config } = options || {};
+        const results: UploadResult[] = [];
+        const instance = axios.create({
+          baseURL: Host,
+          headers: {
+            "Content-Type": "multipart/form-data",
+            "X-Ld-Token": userInfo.token || "",
+          },
+          ...config,
+        });
+
+        // 并发控制器
+        class Semaphore {
+          private queue: (() => void)[] = [];
+          constructor(private count: number) {}
+          async acquire(): Promise<void> {
+            if (this.count > 0) {
+              this.count--;
+              return Promise.resolve();
+            }
+            return new Promise(resolve => this.queue.push(resolve));
+          }
+          release(): void {
+            this.count++;
+            const next = this.queue.shift();
+            if (next) next();
+          }
+        }
+        const semaphore = new Semaphore(maxConcurrent);
+        // 单文件上传
+        const uploadFile = async (file: File, retry = 0): Promise<void> => {
+          await semaphore.acquire();
+          try {
+            const formData = new FormData();
+            formData.append("files", file);
+            
+            const response = await instance.post(url, formData, {
+              ...config,
+              onUploadProgress: (e: AxiosProgressEvent) => {
+                if (e.total && onProgress) {
+                  onProgress({
+                    name: file.name,
+                    percent: Math.round((e.loaded / e.total) * 100),
+                    total: e.total,
+                    loaded: e.loaded,
+                  });
+                }
+              },
+            });
+            results.push({
+              name: file.name,
+              url: response.data.url,
+              size: file.size,
+            });
+          } catch (err) {
+            if (retry < maxRetries) {
+              await uploadFile(file, retry + 1);
+            } else {
+              throw err;
+            }
+          } finally {
+            semaphore.release();
+          }
+        };
+        await Promise.all(files.map(file => uploadFile(file)));
+        return results;
+      } catch (err) {
+        handleRequestError(err as AxiosError, url);
+        return undefined;
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    []
+  );
+
+  // 统一错误处理
+  const handleRequestError = (error: AxiosError, url: string) => {
+    const errorData: ErrorResponse = {
+      statusText: error.message || "请求失败",
+    };
+    if (error.response?.data) {
+      const responseData = error.response.data as { msg?: string };
+      errorData.message = responseData.msg;
+    }
+    if (error.response?.status === 401) {
+      localStorage.removeItem("userToken");
+      setStoreData({
+        before: (store, set) => {
+          set({
+            validExpToken: true,
+            userInfo: { ...store.userInfo, token: '' },
+          });
+        },
+      });
+    } else {
+      setStoreData({ set: { validExpToken: false } });
+    }
+    setError(errorData);
+    toast.error("请求出错", {
+      description: `${url} 请求失败: ${errorData.message || errorData.statusText}`,
+    });
+  };
+
+  return { request, upload, isLoading, error, baseHost };
 }

@@ -86,7 +86,6 @@ export default function App() {
       setStoreData({
           set: {
             wsHandle: wsHandle,
-
           }
         })
       setUserId(+userInfo.userId)

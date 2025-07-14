@@ -5,11 +5,15 @@ import (
 	"context"
 	"database/sql"
 	"embed"
+	"fmt"
 	"log"
+	"mime/multipart"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gofiber/contrib/websocket"
@@ -24,7 +28,8 @@ type Router struct {
 	assets embed.FS
 	config Config
 	Reply
-	db db.SqlliteDB
+	db      db.SqlliteDB
+	userDir string
 }
 type FileInfo struct {
 	ID       int    `json:"fileId"`
@@ -47,15 +52,16 @@ type Reply struct {
 // 全局WebSocket Hub实例
 var wsHub *WSHub
 
-func startRouter(app *fiber.App, assets embed.FS, config Config, sldb db.SqlliteDB) {
+func startRouter(app *fiber.App, assets embed.FS, config Config, sldb db.SqlliteDB, userDir string) {
 	ctx := context.Background()
 	wsHub = NewWSHub(ctx, sldb)
 	go wsHub.Run()
 	r := Router{
-		app:    app,
-		assets: assets,
-		config: config,
-		db:     sldb,
+		app:     app,
+		assets:  assets,
+		config:  config,
+		db:      sldb,
+		userDir: userDir,
 	}
 	// WebSocket 升级中间件
 	app.Use("/ws", func(c *fiber.Ctx) error {
@@ -130,6 +136,8 @@ func startRouter(app *fiber.App, assets embed.FS, config Config, sldb db.Sqllite
 		api.Get("/getConfigData", r.getConfigData)
 		// 更新用户信息
 		api.Post("/updateUserInfo", r.updateUserInfo)
+		// 上传用户聊天文件例如图片、文件
+		api.Post("/uploadChatFiles", r.uploadChatFiles)
 	}
 }
 
@@ -547,4 +555,101 @@ func (r Router) updateUserInfo(c *fiber.Ctx) error {
 	}
 
 	return c.Status(r.Reply.Code).JSON(r.Reply)
+}
+
+func (r Router) uploadChatFiles(c *fiber.Ctx) error {
+	form, err := c.MultipartForm()
+	if err != nil {
+		r.Reply.Code = http.StatusBadRequest
+		r.Reply.Msg = "上传失败,无法解析表单数据"
+		return c.Status(r.Reply.Code).JSON(r.Reply)
+	}
+	files := form.File["files"] // 支持多文件上传
+	if len(files) == 0 {
+		r.Reply.Code = http.StatusBadRequest
+		r.Reply.Msg = "未上传任何文件"
+		return c.Status(r.Reply.Code).JSON(r.Reply)
+	}
+	// 2. 并发处理上传（使用 goroutine 池）
+	type uploadResult struct {
+		Name string `json:"name"`
+		URL  string `json:"url"`
+		Size int64  `json:"size"`
+		Err  error
+	}
+	results := make(chan uploadResult, len(files))
+	var wg sync.WaitGroup
+	// 限制并发数（与前端 maxConcurrent 匹配）
+	maxConcurrent := 5
+	semaphore := make(chan struct{}, maxConcurrent)
+	for _, file := range files {
+		wg.Add(1)
+		go func(f *multipart.FileHeader) {
+			defer wg.Done()
+			semaphore <- struct{}{} // 获取信号量
+			defer func() { <-semaphore }()
+			result := uploadResult{
+				Name: f.Filename,
+				Size: f.Size,
+			}
+			// 3. 安全校验
+			// if !isAllowedFileType(f.Filename) {
+			//     result.Err = fmt.Errorf("禁止的文件类型: %s", filepath.Ext(f.Filename))
+			//     results <- result
+			//     return
+			// }
+			// 4. 生成唯一文件名（避免冲突）
+			newFilename := generateFilename(f.Filename)
+			savePath := filepath.Join(r.userDir, fmt.Sprintf("%v/%v", time.Now().Format("2006_01"), "test"))
+			log.Println(savePath, "savePath")
+			// 检测文件夹是否存在
+			if err := os.MkdirAll(savePath, 0755); err != nil {
+				result.Err = fmt.Errorf("无法创建上传目录: %v", err)
+				results <- result
+				return
+			}
+			// 5. 保存文件
+			if err := c.SaveFile(f, filepath.Join(savePath, newFilename)); err != nil {
+				result.Err = fmt.Errorf("文件保存失败: %v", err)
+				results <- result
+				return
+			}
+			// 6. 返回可访问的 URL（生产环境替换为 CDN 地址）
+			result.URL = fmt.Sprintf("/uploads/%s", newFilename)
+			results <- result
+		}(file)
+	}
+	// 等待所有任务完成
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
+	// 7. 收集结果
+	var successFiles []uploadResult
+	var errorMessages []string
+	for res := range results {
+		if res.Err != nil {
+			errorMessages = append(errorMessages, fmt.Sprintf("%s: %v", res.Name, res.Err))
+		} else {
+			successFiles = append(successFiles, res)
+		}
+	}
+	// 8. 统一响应
+	if len(errorMessages) > 0 {
+		r.Reply.Code = http.StatusPartialContent
+		r.Reply.Msg = fmt.Sprintf("部分文件上传失败: %s", strings.Join(errorMessages, "; "))
+		r.Reply.Data = successFiles
+		return c.Status(r.Reply.Code).JSON(r.Reply)
+	}
+	r.Reply.Code = http.StatusOK
+	r.Reply.Msg = "所有文件上传成功"
+	r.Reply.Data = successFiles
+	return c.Status(r.Reply.Code).JSON(r.Reply)
+}
+
+// 辅助函数：生成安全的文件名
+func generateFilename(original string) string {
+	ext := filepath.Ext(original)
+	// 微秒级别
+	return fmt.Sprintf("%v_%s%s", time.Now().Format("2006-01-02_15:04:05.999999"), strings.TrimSuffix(original, ext), ext)
 }

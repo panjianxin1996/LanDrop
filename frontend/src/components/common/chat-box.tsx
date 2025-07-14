@@ -40,6 +40,7 @@ type NotifyItem = {
   fromId: number
   fromIp: string
   fromName: string
+  fromNickName: string
   fromRole: string
   lastChatId: string | null
   status: string
@@ -391,7 +392,7 @@ export default function ChatBox({ userId }: { userId: number }) {
                       <div className="flex items-center text-xs text-neutral-800 pr-4">
                         <Bell size={15} />
                         <span className="ml-2">来自</span>
-                        <Badge variant="secondary" className="mx-2">{item.fromName}</Badge>
+                        <Badge variant="secondary" className="mx-2">{item.fromNickName}</Badge>
                         <span>的好友请求。</span>
                       </div>
                       <div className="flex items-center gap-2">

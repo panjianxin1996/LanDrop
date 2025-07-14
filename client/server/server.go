@@ -70,23 +70,19 @@ func isPortAvailable(port int) bool {
 }
 
 // 创建共享目录
-func createSharedDir(appDir string) string {
-	// 拼接 shared 目录路径
-	sharedDir := filepath.Join(appDir, "shared")
-	// 检查目录是否存在
-	if _, err := os.Stat(sharedDir); os.IsNotExist(err) {
-		// 目录不存在，创建
-		err = os.Mkdir(sharedDir, os.ModePerm) // 权限 0777
+func createDir(appDir string, childDir string) string {
+	subDir := filepath.Join(appDir, childDir)
+	if _, err := os.Stat(subDir); os.IsNotExist(err) {
+		err = os.Mkdir(subDir, os.ModePerm) // 权限 0777
 		if err != nil {
 			log.Println("创建 shared 目录失败:", err)
 			return ""
 		}
 	} else if err != nil {
-		// 其他错误（如权限问题）
 		log.Println("检查 shared 目录失败:", err)
 		return ""
 	}
-	return sharedDir
+	return subDir
 }
 
 func GetSettingInfo() Config {
@@ -99,7 +95,7 @@ func GetSettingInfo() Config {
 	}
 	err := slDB.DB.QueryRow(`SELECT appName, port,sharedDir ,version, tokenExpiryTime FROM settings WHERE name = 'config'`).Scan(&d.AppName, &d.Port, &d.SharedDir, &d.Version, &d.TokenExpiryTime)
 	if err != nil && err == sql.ErrNoRows {
-		sharedDir := createSharedDir(AppDir) // 创建默认分享目录
+		sharedDir := createDir(AppDir, "shared") // 创建默认分享目录
 		d.AppName = "LanDrop"
 		d.Port = 4321
 		d.SharedDir = sharedDir
@@ -130,6 +126,8 @@ func Run(assets embed.FS) {
 	}
 	// 加载配置文件通过数据库
 	config := GetSettingInfo()
+	// 创建聊天用户上传的文件
+	userDir := createDir(AppDir, "user")
 	// 启动监听目录【使用goroutine避免阻塞进程】
 	go fsListen.FSWatcher(config.SharedDir, slDB.DB)
 	if !isPortAvailable(config.Port) {
@@ -243,10 +241,12 @@ func Run(assets embed.FS) {
 		PathPrefix: "frontend/dist", // 匹配嵌入的路径
 		Browse:     true,            // 允许目录浏览（可选）
 	}))
-	app.Static("/shared", config.SharedDir)
+	app.Static("shared", config.SharedDir)
+
+	app.Static("user", userDir)
 
 	// 启动路由组
-	startRouter(app, assets, config, slDB)
+	startRouter(app, assets, config, slDB, userDir)
 
 	// 404 处理
 	app.Use(func(c *fiber.Ctx) error {
