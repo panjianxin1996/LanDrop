@@ -435,7 +435,7 @@ export default function ChatBox({ userId }: { userId: number }) {
                     <p className="text-sm font-medium leading-none whitespace-nowrap overflow-visible truncate">{item.friendNickName}</p>
                     <p className="text-xs text-muted-foreground whitespace-nowrap overflow-visible truncate mt-2">{item.lastMsg}</p>
                   </div>
-                  <div className="w-[calc(40%-2.5rem)] flex flex-col justify-start h-full text-xs text-gray-400 pl-4">
+                  <div className="w-[calc(40%-2.5rem)] flex flex-col justify-start h-full text-xs text-gray-400 pl-4 text-right">
                     <div>{item.msgTime ? dayjs(item.msgTime).format("HH:MM") : ''}</div>
                   </div>
                 </div>
@@ -446,9 +446,9 @@ export default function ChatBox({ userId }: { userId: number }) {
       </div>
       {/* 好友聊天窗口面板 */}
       {
-        chatUser?.friendId && <Card className="absolute w-full sm:w-[calc(100%-16rem)] pt-16 sm:pt-0 sm:relative h-full flex flex-col justify-between border-0 rounded-none border-l-[1px]">
-          <CardHeader className="flex flex-row items-center h-10 p-2 text-lg font-medium leading-none border-b-[1px] pl-4">
-            <Button size={"sm"} onClick={() => setChatUser(null)} variant={"ghost"}>
+        chatUser?.friendId && <Card className="absolute w-full sm:w-[calc(100%-16rem)] pt-12 sm:pt-0 sm:relative h-full flex flex-col justify-between border-0 rounded-none border-l-[1px]">
+          <CardHeader className="flex flex-row items-center h-10 p-2 text-lg font-medium leading-none border-b-[1px]">
+            <Button size={"sm"} onClick={() => setChatUser(null)} variant={"ghost"} className="p-0 pr-4">
               <ChevronLeft />
             </Button>
             {chatUser?.friendNickName}

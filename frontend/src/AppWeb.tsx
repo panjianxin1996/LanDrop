@@ -105,15 +105,14 @@ export default function AppWeb() {
             setOpenUserDialog(false)
             setIsLogin(true)
         }
-        // await connectWSServer(userInfo.token, userInfo)
         setOptForUserId(userInfoData && userInfoData.id)
         currentUserId.current = userInfoData && userInfoData.id
     }
     const getUserList = () => { // 获取用户列表
-        return new Promise((reslove)=> {
+        return new Promise((reslove) => {
             request("/getUserList", 'POST', {}).then(res => {
-                reslove(res)
                 if (res?.code === 200) !!res.data && setUserList(res.data.map((item: any) => ({ ...item, isChange: false })))
+                reslove(res)
             })
         })
     }
@@ -164,11 +163,27 @@ export default function AppWeb() {
     const changeUserEvent = async (checkId: number) => {
         currentUserId.current = -1
         await closeWS()
-        let userItem = userList.find((item: any) => item.id === checkId)
-        if (!userItem) {
-            alert("没有找到用户信息")
+        if (!userList || userList.length === 0) {
+            setOpenUserDialog(true)
+            setIsLogin(false)
+            localStorage.removeItem("rememberUserInfo")
+            setStoreData({
+                before: (_, set) => {
+                    set({
+                        userInfo: {
+                            token: "",
+                            userName: "",
+                            nickName: "",
+                            userId: "",
+                            role: "",
+                            avatar: "",
+                        }
+                    })
+                },
+            })
             return
         }
+        let userItem = userList.find((item: any) => item.id === checkId)
         let token = userInfo.token
         localStorage.setItem("rememberUserInfo", JSON.stringify(userItem)) // 设置用户信息
         if (!token) {
@@ -176,7 +191,7 @@ export default function AppWeb() {
             const tokenRes = await getUserToken(userItem.id, userItem.name) // 选择用户获取token
             token = tokenRes.data.token
         }
-        console.log("userItem===",userItem)
+        console.log("userItem===", userItem)
         // localStorage.setItem("userToken", tokenRes.data.token) // 设置用户token
         setStoreData({
             before: (store, set) => {
