@@ -9,8 +9,13 @@ export interface ChatTextAreaRef {
     getFiles: () => File[];
     clear: () => void;
 }
+interface ChatTextAreaProps {
+    className?: string;
+    children?: React.ReactNode; // 定义插槽
+    hasDataEvent?: (flag: boolean) => void;
+}
 
-const ChatTextArea = forwardRef<ChatTextAreaRef>((_, ref) => {
+const ChatTextArea = forwardRef<ChatTextAreaRef, ChatTextAreaProps>(({ className, children,hasDataEvent }, ref) => {
     const { setStoreData, enterKeyToSend } = useClientStore()
     const [input, setInput] = useState('');
     const [files, setFiles] = useState<Array<{ file: File, id: string, preview?: string }>>([]);
@@ -136,6 +141,10 @@ const ChatTextArea = forwardRef<ChatTextAreaRef>((_, ref) => {
         return () => filesContainer.removeEventListener('wheel', handleWheel);
     }, [canScroll]);
 
+    useEffect(()=>{
+        hasDataEvent?.(files.length > 0  || !!input)
+    },[files, input])
+
     const setPushEvent = () => {
         setStoreData({
             before: (store, set) => {
@@ -145,7 +154,7 @@ const ChatTextArea = forwardRef<ChatTextAreaRef>((_, ref) => {
     };
 
     return (
-        <div className="relative w-full mx-auto">
+        <div className={`relative w-full mx-auto ${className}`}>
             {(openFilesBox && files.length > 0) && (
                 <div
                     ref={filesContainerRef}
@@ -218,6 +227,9 @@ const ChatTextArea = forwardRef<ChatTextAreaRef>((_, ref) => {
                     onPaste={handlePaste}
                     placeholder="输入消息..."
                 />
+                {
+                    children
+                }
 
                 {isDragging && (
                     <div className="absolute inset-0 flex items-center justify-center bg-blue-50 bg-opacity-70 border-2 border-blue-500 rounded pointer-events-none">

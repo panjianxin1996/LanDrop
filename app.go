@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 	"os/exec"
 	"runtime"
 	"time"
@@ -128,7 +129,12 @@ func (a *App) OpenDirInExplorer(dirPath string) error {
 	var cmd *exec.Cmd
 	switch runtime.GOOS {
 	case "windows":
-		cmd = exec.Command("explorer", dirPath) // Windows 使用 explorer
+		explorerPath := "C:\\Windows\\explorer.exe"
+		if _, err := os.Stat(explorerPath); err == nil { // Win11 cmd不存在explorer
+			cmd = exec.Command(explorerPath, dirPath)
+		} else {
+			cmd = exec.Command("explorer", dirPath) // Windows 使用 explorer
+		}
 	case "darwin":
 		cmd = exec.Command("open", dirPath) // macOS 使用 open
 	case "linux":

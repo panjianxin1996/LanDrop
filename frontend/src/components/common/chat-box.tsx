@@ -7,7 +7,7 @@ import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, } from "@/components/ui/command"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
+import ChatTextArea, {type ChatTextAreaRef} from "@/components/common/chatTextArea"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, } from "@/components/ui/tooltip"
 import { Popover, PopoverContent, PopoverTrigger, } from "@/components/ui/popover"
 import { Badge } from "@/components/ui/badge"
@@ -109,12 +109,14 @@ export default function ChatBox({ userId }: { userId: number }) {
   const [chatUser, setChatUser] = React.useState<ChatUserItem | null>(null) // 聊天中的好友
   const [chatUserList, setChatUserList] = React.useState<Array<ChatUserItem>>([]) //左侧好友列表
   const [messages, setMessages] = React.useState<Record<string, Array<Message>>>({})
-  const [input, setInput] = React.useState("")
+  // const [input, setInput] = React.useState("")
+  const [hasData, setHasData] = React.useState(false)
   const [users, setUsers] = React.useState<Array<UserItem>>([])
   const [notifyList, setNotifyList] = React.useState<Array<NotifyItem>>([])
   const chatUserRef = React.useRef(chatUser) // 为了方便onMessage中获取最新的chatUser
   const chatWindowRef = React.useRef<any>(null)
-  const inputLength = input.trim().length
+  const TextArea = React.useRef<ChatTextAreaRef>(null)
+  // const inputLength = input.trim().length
   React.useEffect(() => {
     console.log("当前聊天用户ID:", userId)
     if (userId && userId > 0 && wsHandle) {
@@ -469,7 +471,15 @@ export default function ChatBox({ userId }: { userId: number }) {
             </div>
           </CardContent>
           <CardFooter className="p-2 pt-0 pb-4">
-            <form
+            <ChatTextArea ref={TextArea} hasDataEvent={(hasData:boolean)=> setHasData(hasData)}>
+              <Button className="absolute right-0 bottom-0" type="submit" size="icon" disabled={!hasData} onClick={()=> {
+                TextArea.current?.getInput() && chatSendData(TextArea.current?.getInput())
+                // setInput("")
+              }}>
+                <Send />
+              </Button>
+            </ChatTextArea>
+            {/* <form
               onSubmit={(event) => {
                 event.preventDefault()
                 if (inputLength === 0) return
@@ -488,7 +498,7 @@ export default function ChatBox({ userId }: { userId: number }) {
               <Button type="submit" size="icon" disabled={inputLength === 0}>
                 <Send />
               </Button>
-            </form>
+            </form> */}
           </CardFooter>
         </Card>
       }
