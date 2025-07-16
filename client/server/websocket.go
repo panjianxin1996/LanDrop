@@ -594,7 +594,11 @@ func InitFunc() {
 			if len(list) == 0 {
 				return fmt.Errorf("不存在的好友关系不能发送消息:%v=>%v", uId, m.SendData["toId"])
 			}
-			result, _ := sg.RunExecTx(tx, "execInsertNewChatRecord", m.SendData["toId"], uId, m.SendData["message"], "n", time.Now().UnixMilli()) // 新增一条记录
+			filesBytes, err := json.Marshal(m.SendData["files"])
+			if err != nil {
+				return err
+			}
+			result, _ := sg.RunExecTx(tx, "execInsertNewChatRecord", m.SendData["toId"], uId, m.SendData["message"], string(filesBytes), "n", time.Now().UnixMilli(), m.SendData["type"]) // 新增一条记录
 			cId, _ := result.LastInsertId()
 			sg.RunExecTx(tx, "execUpdateFriendshipsLastChatId", cId, uId, m.SendData["toId"], m.SendData["toId"], uId) // 更新最近聊天记录
 			chatRecords = sg.RunQueryTx(tx, "queryInsertChatRecord", cId)                                              // 查询聊天记录

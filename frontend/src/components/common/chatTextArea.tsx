@@ -13,9 +13,10 @@ interface ChatTextAreaProps {
     className?: string;
     children?: React.ReactNode; // 定义插槽
     hasDataEvent?: (flag: boolean) => void;
+    onEnterPressEvent?: () => void;
 }
 
-const ChatTextArea = forwardRef<ChatTextAreaRef, ChatTextAreaProps>(({ className, children,hasDataEvent }, ref) => {
+const ChatTextArea = forwardRef<ChatTextAreaRef, ChatTextAreaProps>(({ className, children,hasDataEvent, onEnterPressEvent }, ref) => {
     const { setStoreData, enterKeyToSend } = useClientStore()
     const [input, setInput] = useState('');
     const [files, setFiles] = useState<Array<{ file: File, id: string, preview?: string }>>([]);
@@ -34,6 +35,7 @@ const ChatTextArea = forwardRef<ChatTextAreaRef, ChatTextAreaProps>(({ className
         };
     }, []);
 
+    // 暴露给父组件
     useImperativeHandle(ref, () => ({
         getInput: () => input,
         getFiles: () => files.map(item => item.file),
@@ -145,12 +147,20 @@ const ChatTextArea = forwardRef<ChatTextAreaRef, ChatTextAreaProps>(({ className
         hasDataEvent?.(files.length > 0  || !!input)
     },[files, input])
 
+    // 设置发送方式
     const setPushEvent = () => {
         setStoreData({
             before: (store, set) => {
                 set({ enterKeyToSend: !store.enterKeyToSend })
             }
         });
+    };
+
+     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+        if (e.key === 'Enter' && enterKeyToSend && !e.shiftKey && (files.length > 0  || !!input)) {
+            e.preventDefault();  // 阻止默认的换行行为
+            onEnterPressEvent?.();    // 调用父组件传递的回调
+        }
     };
 
     return (
@@ -225,6 +235,7 @@ const ChatTextArea = forwardRef<ChatTextAreaRef, ChatTextAreaProps>(({ className
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     onPaste={handlePaste}
+                    onKeyDown={handleKeyDown}
                     placeholder="输入消息..."
                 />
                 {

@@ -218,7 +218,7 @@ func Run(assets embed.FS) {
 	// JWT中间件配置
 	jwtConfig := jwtware.Config{
 		SigningKey:  jwtware.SigningKey{Key: SecretKey},
-		TokenLookup: "cookie:ldtoken,header:X-Ld-Token",
+		TokenLookup: "query:token,cookie:ldtoken,header:X-Ld-Token",
 		ContextKey:  "user",
 		ErrorHandler: func(c *fiber.Ctx, err error) error {
 			if c.Locals("skipToken") == true {

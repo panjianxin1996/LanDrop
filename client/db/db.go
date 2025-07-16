@@ -3,9 +3,11 @@ package db
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -78,6 +80,7 @@ func InitDB(dbPath string) (SqlliteDB, error) {
 		"isRead" TEXT,
 		"type" TEXT,
 		"message" TEXT,
+		"files" TEXT,
 		"time" integer NOT NULL,
 		CONSTRAINT "toId" FOREIGN KEY ("toId") REFERENCES "users" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION,
 		CONSTRAINT "fromId" FOREIGN KEY ("fromId") REFERENCES "users" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION
@@ -102,6 +105,12 @@ func InitDB(dbPath string) (SqlliteDB, error) {
 	return sdb, nil
 }
 
+// 检测是否为json字符串格式
+func isJSON(s string) bool {
+	s = strings.TrimSpace(s)
+	return (strings.HasPrefix(s, "{") && strings.HasSuffix(s, "}")) ||
+		(strings.HasPrefix(s, "[") && strings.HasSuffix(s, "]"))
+}
 func (s SqlliteDB) QueryList(queryStr string, args ...any) []map[string]any {
 	var userList []map[string]any
 	rows, err := s.DB.Query(queryStr, args...)
@@ -120,7 +129,19 @@ func (s SqlliteDB) QueryList(queryStr string, args ...any) []map[string]any {
 		}
 		row := make(map[string]any)
 		for i, col := range columns {
-			row[col] = *(values[i].(*any))
+			val := *(values[i].(*any))
+			if strVal, ok := val.(string); ok {
+				if isJSON(strVal) { // 增加关于json数据的解析
+					var parsedVal any
+					if err := json.Unmarshal([]byte(strVal), &parsedVal); err == nil {
+						switch v := parsedVal.(type) {
+						case map[string]any, []map[string]any, []any:
+							val = v
+						}
+					}
+				}
+			}
+			row[col] = val
 		}
 		userList = append(userList, row)
 	}
@@ -145,7 +166,19 @@ func (s SqlliteDB) QueryListTx(tx *sql.Tx, queryStr string, args ...any) []map[s
 		}
 		row := make(map[string]any)
 		for i, col := range columns {
-			row[col] = *(values[i].(*any))
+			val := *(values[i].(*any))
+			if strVal, ok := val.(string); ok {
+				if isJSON(strVal) { // 增加关于json数据的解析
+					var parsedVal any
+					if err := json.Unmarshal([]byte(strVal), &parsedVal); err == nil {
+						switch v := parsedVal.(type) {
+						case map[string]any, []map[string]any, []any:
+							val = v
+						}
+					}
+				}
+			}
+			row[col] = val
 		}
 		userList = append(userList, row)
 	}

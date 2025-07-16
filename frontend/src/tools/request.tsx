@@ -131,11 +131,10 @@ export function useApiRequest() {
                 }
               },
             });
-            results.push({
-              name: file.name,
-              url: response.data.url,
-              size: file.size,
-            });
+            // console.log(response)
+            if (response.data.code === 200) {
+              response.data.data && results.push(...response.data.data);
+            }
           } catch (err) {
             if (retry < maxRetries) {
               await uploadFile(file, retry + 1);

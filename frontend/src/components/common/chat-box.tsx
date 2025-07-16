@@ -13,6 +13,7 @@ import { Popover, PopoverContent, PopoverTrigger, } from "@/components/ui/popove
 import { Badge } from "@/components/ui/badge"
 import useClientStore from "@/store/appStore"
 import dayjs from "dayjs"
+import { useApiRequest } from '@/tools/request'
 
 // 发送ws服务器数据结构
 type WebMsg = {
@@ -89,6 +90,7 @@ type Message = {
   fromName: string
   isRead: string | null
   message: string
+  files: any
   time: number | null
   toId: number | null
   toName: string | null
@@ -97,6 +99,8 @@ type Message = {
 
 export default function ChatBox({ userId }: { userId: number }) {
   const { wsHandle, userInfo, socketQueue, setStoreData } = useClientStore()
+    const {upload,baseHost} = useApiRequest()
+    console.log(baseHost,"baseHost")
   const [clientData, setClientData] = React.useState<ClientData>({ // 当前设备数据，包含了设备信息以及离线情况设备消息、通知
     clientID: "",
     id: "",
@@ -271,7 +275,7 @@ export default function ChatBox({ userId }: { userId: number }) {
     setMessages({})
     setNotifyList([])
   }
-  const chatSendData = (message: string) => { // 发送聊天信息
+  const chatSendData = (message: string, files: any) => { // 发送聊天信息
     let clientID = `${chatUser?.friendName}#${chatUser?.friendId}`
     let newMsg: Message = {
       cId: null,
@@ -280,8 +284,10 @@ export default function ChatBox({ userId }: { userId: number }) {
       time: null,
       toId: chatUser && chatUser.friendId,
       toName: chatUser && chatUser.friendName,
-      type: null,
-      fromId: +userInfo.userId, message
+      type: files && files.length > 0 ? 'muti' : 'text',
+      fromId: +userInfo.userId, 
+      message,
+      files
     }
     // 用户下的messages追加数据
     setMessages((prev: Record<string, Array<Message>>) => ({
@@ -295,7 +301,9 @@ export default function ChatBox({ userId }: { userId: number }) {
         toId: chatUser?.friendId,
         from: userInfo.userName,
         fromId: userInfo.userId,
-        message
+        message,
+        files,
+        type: files && files.length > 0 ? 'muti' : 'text',
       }
     })
   };
@@ -368,6 +376,24 @@ export default function ChatBox({ userId }: { userId: number }) {
         )
       )
     }
+  }
+
+  // 抽象发送消息逻辑，用户点击发送和选中回车发送符【enterKeyToSend】回车发送消息
+  const sendMessageEvent = () => {
+    let files = TextArea.current?.getFiles()
+    if (files && files.length > 0) {
+      upload("/uploadChatFiles", files)
+        .then((results) => {
+          console.log("===", results)
+          chatSendData(TextArea.current?.getInput() || "", results)
+          TextArea.current?.clear()
+        })
+        .catch(error => console.error('Upload failed:', error))
+    } else {
+      TextArea.current?.getInput() && chatSendData(TextArea.current?.getInput(), [])
+      TextArea.current?.clear()
+    }
+    
   }
 
   return (
@@ -466,39 +492,27 @@ export default function ChatBox({ userId }: { userId: number }) {
                       ? "ml-auto bg-primary text-primary-foreground"
                       : "bg-muted"
                   )}
-                >{message.message}</div>
+                >
+                  {message.type ==="muti" && message.files.map((item:any)=> (<img src={baseHost+item.url+ `?token=`+userInfo.token} alt=""/> ))}
+                  {message.message}
+                </div>
               ))}
             </div>
           </CardContent>
           <CardFooter className="p-2 pt-0 pb-4">
-            <ChatTextArea ref={TextArea} hasDataEvent={(hasData:boolean)=> setHasData(hasData)}>
+            {/* 聊天输入框 */}
+            <ChatTextArea 
+              ref={TextArea} 
+              hasDataEvent={(hasData:boolean)=> setHasData(hasData)}
+              onEnterPressEvent={() => sendMessageEvent()}>
               <Button className="absolute right-0 bottom-0" type="submit" size="icon" disabled={!hasData} onClick={()=> {
-                TextArea.current?.getInput() && chatSendData(TextArea.current?.getInput())
-                // setInput("")
+                sendMessageEvent()
+                // TextArea.current?.getInput() && chatSendData(TextArea.current?.getInput())
+                // TextArea.current?.clear()
               }}>
                 <Send />
               </Button>
             </ChatTextArea>
-            {/* <form
-              onSubmit={(event) => {
-                event.preventDefault()
-                if (inputLength === 0) return
-                chatSendData(input)
-                setInput("")
-              }}
-              className="flex w-full items-center space-x-2"
-            >
-              <Textarea
-                id="message"
-                className="flex-1 resize-none"
-                autoComplete="off"
-                value={input}
-                onChange={(event) => setInput(event.target.value)}
-              />
-              <Button type="submit" size="icon" disabled={inputLength === 0}>
-                <Send />
-              </Button>
-            </form> */}
           </CardFooter>
         </Card>
       }

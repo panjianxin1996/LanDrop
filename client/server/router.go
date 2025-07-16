@@ -575,7 +575,7 @@ func (r Router) uploadChatFiles(c *fiber.Ctx) error {
 		Name string `json:"name"`
 		URL  string `json:"url"`
 		Size int64  `json:"size"`
-		Err  error
+		Err  error  `json:"err"`
 	}
 	results := make(chan uploadResult, len(files))
 	var wg sync.WaitGroup
@@ -600,8 +600,8 @@ func (r Router) uploadChatFiles(c *fiber.Ctx) error {
 			// }
 			// 4. 生成唯一文件名（避免冲突）
 			newFilename := generateFilename(f.Filename)
-			savePath := filepath.Join(r.userDir, fmt.Sprintf("%v/%v", time.Now().Format("2006_01"), "test"))
-			log.Println(savePath, "savePath")
+			userDir := fmt.Sprintf("%v/%v", time.Now().Format("2006_01"), "test")
+			savePath := filepath.Join(r.userDir, userDir)
 			// 检测文件夹是否存在
 			if err := os.MkdirAll(savePath, 0755); err != nil {
 				result.Err = fmt.Errorf("无法创建上传目录: %v", err)
@@ -615,7 +615,7 @@ func (r Router) uploadChatFiles(c *fiber.Ctx) error {
 				return
 			}
 			// 6. 返回可访问的 URL（生产环境替换为 CDN 地址）
-			result.URL = fmt.Sprintf("/uploads/%s", newFilename)
+			result.URL = fmt.Sprintf("/user/%s/%s", userDir, newFilename)
 			results <- result
 		}(file)
 	}
@@ -651,5 +651,8 @@ func (r Router) uploadChatFiles(c *fiber.Ctx) error {
 func generateFilename(original string) string {
 	ext := filepath.Ext(original)
 	// 微秒级别
-	return fmt.Sprintf("%v_%s%s", time.Now().Format("2006-01-02_15:04:05.999999"), strings.TrimSuffix(original, ext), ext)
+	now := time.Now()
+	base := now.Format("2006-01-02_15-04-05")
+	micro := now.Nanosecond() / 1000
+	return fmt.Sprintf("%v-%v_%s%s", base, micro, strings.TrimSuffix(original, ext), ext)
 }

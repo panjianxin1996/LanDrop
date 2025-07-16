@@ -94,6 +94,7 @@ var SqlMap = map[string]string{
 		u.ip AS friendIp,
 		c.type AS msgType,
 		c.message AS lastMsg,
+		c.files AS msgFiles,
 		c.time AS msgTime,
 		(
 			SELECT COUNT(*) 
@@ -167,9 +168,9 @@ var SqlMap = map[string]string{
 		userId = ? 
 		AND friendId = ?`,
 	// 插入新的聊天记录
-	"execInsertNewChatRecord": `INSERT INTO chat_records ( "toId", "fromId", "message", "isRead", "time" )
+	"execInsertNewChatRecord": `INSERT INTO chat_records ( "toId", "fromId", "message", "files", "isRead", "time", "type" )
 	VALUES
-		( ?, ?, ?, ?, ? )`,
+		( ?, ?, ?, ?, ?, ?, ? )`,
 	// 更新好友记录中的最后一条聊天id
 	"execUpdateFriendshipsLastChatId": `UPDATE friendships 
 	SET lastChatId = ? 
@@ -201,6 +202,7 @@ var SqlMap = map[string]string{
 		u.ip AS friendIp,
 		c.type AS msgType,
 		c.message AS lastMsg,
+		c.files AS msgFiles,
 		c.time AS msgTime,
 		(
 			SELECT COUNT(*) 

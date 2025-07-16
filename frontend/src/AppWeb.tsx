@@ -291,7 +291,7 @@ export default function AppWeb() {
                                                                 </AvatarFallback>
                                                             </Avatar>
                                                         </PopoverTrigger>
-                                                        <PopoverContent className="flex flex-wrap gap-2 w-[100vw] sm:min-w-[32rem]">
+                                                        <PopoverContent className="flex flex-wrap gap-2 w-[100vw] sm:max-w-[32rem]">
                                                             {
                                                                 userAvatar.map((item: string) => (
                                                                     <p className="text-3xl p-2 cursor-pointer hover:bg-slate-100" key={item} onClick={() => changeUserAvatar(item, index, true)}>{item}</p>

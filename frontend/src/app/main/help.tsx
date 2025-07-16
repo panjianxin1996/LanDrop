@@ -21,7 +21,10 @@ export default function Help() {
   }
 
   upload("/uploadChatFiles", files)
-    .then(() => TextArea.current?.clear())
+    .then((results) => {
+      console.log(results)
+      TextArea.current?.clear()
+    })
     .catch(error => console.error('Upload failed:', error))
   }
   return (
