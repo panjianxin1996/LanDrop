@@ -23,6 +23,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/filesystem"
+	"github.com/golang-jwt/jwt/v5"
 	_ "github.com/mattn/go-sqlite3"
 )
 
@@ -220,6 +221,13 @@ func Run(assets embed.FS) {
 		SigningKey:  jwtware.SigningKey{Key: SecretKey},
 		TokenLookup: "query:token,cookie:ldtoken,header:X-Ld-Token",
 		ContextKey:  "user",
+		Claims:      &tokenClaims{},
+		SuccessHandler: func(c *fiber.Ctx) error {
+			user := c.Locals("user").(*jwt.Token)
+			claims := user.Claims.(*tokenClaims)
+			c.Locals("tokenClaims", claims)
+			return c.Next()
+		},
 		ErrorHandler: func(c *fiber.Ctx, err error) error {
 			if c.Locals("skipToken") == true {
 				return c.Next()

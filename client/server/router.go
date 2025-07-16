@@ -536,6 +536,8 @@ func (r Router) getConfigData(c *fiber.Ctx) error {
 }
 
 func (r Router) updateUserInfo(c *fiber.Ctx) error {
+	token := c.Locals("tokenClaims").(*tokenClaims)
+	log.Println("修改数据的userId", token.UserID, token.Username)
 	postBody := map[string]any{}
 	if err := c.BodyParser(&postBody); err != nil {
 		r.Reply.Code = http.StatusBadRequest
