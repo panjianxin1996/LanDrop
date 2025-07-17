@@ -38,7 +38,6 @@ export default function App() {
         setStoreData({
           set: {
             netAdapterList: res.data,
-
           }
         })
         if (selectNetAdapter === "") {
@@ -94,6 +93,7 @@ export default function App() {
   }
 
   const appLogin = () => {
+    console.log("进入到客户端-----------")
     let uName
     if (!userInfo.userName) uName = `admin${(Math.random() * 1000).toFixed(0)}`
     else uName = userInfo.userName

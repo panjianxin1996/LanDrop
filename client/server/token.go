@@ -1,6 +1,8 @@
 package server
 
 import (
+	"encoding/base64"
+	"errors"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -15,6 +17,37 @@ type tokenClaims struct {
 
 var SecretKey = []byte("KNTWcTMPxMbGPhUZskWn")
 
+var XORSecretKey = []byte("xmn30241yv413y5b01vy")
+
+func EncryptToken(token string) string {
+	keyBytes := []byte(XORSecretKey)
+	encrypted := make([]byte, len(token))
+
+	for i := 0; i < len(token); i++ {
+		encrypted[i] = token[i] ^ keyBytes[i%len(keyBytes)]
+	}
+
+	// 使用URL安全的Base64编码，避免特殊字符问题
+	return base64.URLEncoding.EncodeToString(encrypted)
+}
+
+// DecryptToken 解密方法
+func DecryptToken(encrypted string) (string, error) {
+	keyBytes := []byte(XORSecretKey)
+
+	// 解码Base64
+	data, err := base64.URLEncoding.DecodeString(encrypted)
+	if err != nil {
+		return "", errors.New("invalid encrypted token format")
+	}
+
+	decrypted := make([]byte, len(data))
+	for i := 0; i < len(data); i++ {
+		decrypted[i] = data[i] ^ keyBytes[i%len(keyBytes)]
+	}
+
+	return string(decrypted), nil
+}
 func CreateToken(role string, userId int64, userName string, expTime int) (string, error) {
 	claims := tokenClaims{
 		UserID:   userId,
@@ -32,12 +65,18 @@ func CreateToken(role string, userId int64, userName string, expTime int) (strin
 		return "", err
 	}
 
+	tokenString = EncryptToken(tokenString)
+
 	return tokenString, nil
 }
 
 func ParseToken(tokenString string) (*tokenClaims, error) {
+	realTokenStr, err := DecryptToken(tokenString)
+	if err != nil {
+		return nil, err
+	}
 	token, err := jwt.ParseWithClaims(
-		tokenString,
+		realTokenStr,
 		&tokenClaims{},
 		func(token *jwt.Token) (any, error) {
 			return SecretKey, nil

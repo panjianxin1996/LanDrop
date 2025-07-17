@@ -170,10 +170,9 @@ export function useApiRequest() {
       localStorage.removeItem("userToken");
       setStoreData({
         before: (store, set) => {
-          set({
-            validExpToken: true,
-            userInfo: { ...store.userInfo, token: '' },
-          });
+          let newStore:any = {validExpToken: true}
+          if (!isClient) newStore.userInfo = { ...store.userInfo, token: '' }
+          set(newStore);
         },
       });
     } else {

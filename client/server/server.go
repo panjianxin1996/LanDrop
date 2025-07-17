@@ -222,13 +222,20 @@ func Run(assets embed.FS) {
 		TokenLookup: "query:token,cookie:ldtoken,header:X-Ld-Token",
 		ContextKey:  "user",
 		Claims:      &tokenClaims{},
-		SuccessHandler: func(c *fiber.Ctx) error {
+		TokenProcessorFunc: func(encryptedToken string) (string, error) { // 对加密token进行解密然后进行下一步
+			decryptedToken, err := DecryptToken(encryptedToken)
+			if err != nil {
+				return "", fmt.Errorf("token解密失败: %v", err)
+			}
+			return decryptedToken, nil
+		},
+		SuccessHandler: func(c *fiber.Ctx) error { // 验证成功后，将用户信息存储在Context中
 			user := c.Locals("user").(*jwt.Token)
 			claims := user.Claims.(*tokenClaims)
 			c.Locals("tokenClaims", claims)
 			return c.Next()
 		},
-		ErrorHandler: func(c *fiber.Ctx, err error) error {
+		ErrorHandler: func(c *fiber.Ctx, err error) error { // 验证失败
 			if c.Locals("skipToken") == true {
 				return c.Next()
 			}
