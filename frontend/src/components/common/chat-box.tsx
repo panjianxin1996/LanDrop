@@ -64,6 +64,7 @@ type ChatUserItem = {
   friendRole: string
   lastChatId: string | null
   lastMsg: string | null
+  msgFiles: any
   msgType: string | null
   msgTime: string | null
   status: string
@@ -461,7 +462,7 @@ export default function ChatBox({ userId }: { userId: number }) {
                   </div>
                   <div className="w-3/5 flex flex-col justify-between pl-4">
                     <p className="text-sm font-medium leading-none whitespace-nowrap overflow-visible truncate">{item.friendNickName}</p>
-                    <p className="text-xs text-muted-foreground whitespace-nowrap overflow-visible truncate mt-2">{item.lastMsg}</p>
+                    <p className="text-xs text-muted-foreground whitespace-nowrap overflow-visible truncate mt-2">{item.lastMsg || `[${item.msgFiles && item.msgFiles.length}个文件]`}</p>
                   </div>
                   <div className="w-[calc(40%-2.5rem)] flex flex-col justify-start h-full text-xs text-gray-400 pl-4 text-right">
                     <div>{item.msgTime ? dayjs(item.msgTime).format("HH:MM") : ''}</div>

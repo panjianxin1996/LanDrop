@@ -93,7 +93,6 @@ export default function App() {
   }
 
   const appLogin = () => {
-    console.log("进入到客户端-----------")
     let uName
     if (!userInfo.userName) uName = `admin${(Math.random() * 1000).toFixed(0)}`
     else uName = userInfo.userName
@@ -125,10 +124,10 @@ export default function App() {
               finish: (store) => {
                 // 连接socket数据
                 connectWS(store.userInfo.userId, store.userInfo.userName, store.userInfo.token)
+                // 获取网卡列表
+                getNetworkInfo()
               }
             })
-            // 获取网卡列表
-            getNetworkInfo()
           }
         })
       }
