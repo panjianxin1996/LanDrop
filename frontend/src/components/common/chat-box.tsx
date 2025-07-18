@@ -7,13 +7,14 @@ import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, } from "@/components/ui/command"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import ChatTextArea, {type ChatTextAreaRef} from "@/components/common/chatTextArea"
+import ChatTextArea, { type ChatTextAreaRef } from "@/components/common/chatTextArea"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, } from "@/components/ui/tooltip"
 import { Popover, PopoverContent, PopoverTrigger, } from "@/components/ui/popover"
 import { Badge } from "@/components/ui/badge"
 import useClientStore from "@/store/appStore"
 import dayjs from "dayjs"
 import { useApiRequest } from '@/tools/request'
+import chatImg from "@/assets/img/chat.svg"
 
 // 发送ws服务器数据结构
 type WebMsg = {
@@ -100,8 +101,8 @@ type Message = {
 
 export default function ChatBox({ userId }: { userId: number }) {
   const { wsHandle, userInfo, socketQueue, setStoreData } = useClientStore()
-    const {upload,baseHost} = useApiRequest()
-    console.log(baseHost,"baseHost")
+  const { upload, baseHost } = useApiRequest()
+  console.log(baseHost, "baseHost")
   const [clientData, setClientData] = React.useState<ClientData>({ // 当前设备数据，包含了设备信息以及离线情况设备消息、通知
     clientID: "",
     id: "",
@@ -286,7 +287,7 @@ export default function ChatBox({ userId }: { userId: number }) {
       toId: chatUser && chatUser.friendId,
       toName: chatUser && chatUser.friendName,
       type: files && files.length > 0 ? 'muti' : 'text',
-      fromId: +userInfo.userId, 
+      fromId: +userInfo.userId,
       message,
       files
     }
@@ -394,7 +395,7 @@ export default function ChatBox({ userId }: { userId: number }) {
       TextArea.current?.getInput() && chatSendData(TextArea.current?.getInput(), [])
       TextArea.current?.clear()
     }
-    
+
   }
 
   return (
@@ -447,6 +448,9 @@ export default function ChatBox({ userId }: { userId: number }) {
           <Input className="my-2" placeholder="搜索我的好友"></Input>
           <div>
             {
+              chatUserList.length === 0 && <div className="text-center text-xs text-neutral-500 mt-10">🧐当前没有好友信息，快去添加好友吧。</div>
+            }
+            {
               chatUserList.map((item: ChatUserItem) => {
                 return <div className={`relative h-12 flex items-center mb-2 cursor-pointer p-[4px] hover:bg-slate-100 ${chatUser?.friendId === item.friendId ? 'bg-slate-200' : ''}`} key={item.friendId} onClick={() => { changeChatUser(item) }}>
                   <div className="relative">
@@ -454,7 +458,6 @@ export default function ChatBox({ userId }: { userId: number }) {
                       <AvatarFallback className="text-xl">
                         {item.friendAvatar || <UserRound />}
                       </AvatarFallback>
-
                     </Avatar>
                     {
                       item.unreadCount > 0 && <p className="text-xs absolute top-[-5px] right-[-5px] bg-red-500 rounded px-[3px] text-white">{item.unreadCount}</p>
@@ -474,49 +477,53 @@ export default function ChatBox({ userId }: { userId: number }) {
         </Card>
       </div>
       {/* 好友聊天窗口面板 */}
-      {
-        chatUser?.friendId && <Card className="absolute w-full sm:w-[calc(100%-16rem)] pt-12 sm:pt-0 sm:relative h-full flex flex-col justify-between border-0 rounded-none border-l-[1px]">
-          <CardHeader className="flex flex-row items-center h-10 p-2 text-lg font-medium leading-none border-b-[1px]">
-            <Button size={"sm"} onClick={() => setChatUser(null)} variant={"ghost"} className="p-0 pr-4">
-              <ChevronLeft />
-            </Button>
-            {chatUser?.friendNickName}
-          </CardHeader>
-          <CardContent className="flex-1 overflow-y-auto p-4" ref={chatWindowRef}>
-            <div className="space-y-4">
-              {messages[`${chatUser.friendName}#${chatUser.friendId}`]?.map((message: Message, index: number) => (
-                <div
-                  key={index}
-                  className={cn(
-                    "flex max-w-[75%] flex-col gap-2 rounded-lg px-3 py-2 text-sm w-fit break-words whitespace-pre-wrap",
-                    message.fromId === +userInfo.userId
-                      ? "ml-auto bg-primary text-primary-foreground"
-                      : "bg-muted"
-                  )}
-                >
-                  {message.type ==="muti" && message.files.map((item:any)=> (<img src={baseHost+item.url+ `?token=`+userInfo.token} alt=""/> ))}
-                  {message.message}
-                </div>
-              ))}
-            </div>
-          </CardContent>
-          <CardFooter className="p-2 pt-0 pb-4">
-            {/* 聊天输入框 */}
-            <ChatTextArea 
-              ref={TextArea} 
-              hasDataEvent={(hasData:boolean)=> setHasData(hasData)}
-              onEnterPressEvent={() => sendMessageEvent()}>
-              <Button className="absolute right-0 bottom-0" type="submit" size="icon" disabled={!hasData} onClick={()=> {
-                sendMessageEvent()
-                // TextArea.current?.getInput() && chatSendData(TextArea.current?.getInput())
-                // TextArea.current?.clear()
-              }}>
-                <Send />
+      <div className=" w-full sm:w-[calc(100%-16rem)]">
+        {
+          !chatUser?.friendId && <img src={chatImg} className="scale-50" alt="" />
+        }
+        {
+          chatUser?.friendId && <Card className="absolute pt-12 sm:pt-0 sm:relative h-full flex flex-col justify-between border-0 rounded-none border-l-[1px]">
+            <CardHeader className="flex flex-row items-center h-10 p-2 text-lg font-medium leading-none border-b-[1px]">
+              <Button size={"sm"} onClick={() => setChatUser(null)} variant={"ghost"} className="p-0 pr-4">
+                <ChevronLeft />
               </Button>
-            </ChatTextArea>
-          </CardFooter>
-        </Card>
-      }
+              {chatUser?.friendNickName}
+            </CardHeader>
+            <CardContent className="flex-1 overflow-y-auto p-4" ref={chatWindowRef}>
+              <div className="space-y-4">
+                {messages[`${chatUser.friendName}#${chatUser.friendId}`]?.map((message: Message, index: number) => (
+                  <div
+                    key={index}
+                    className={cn(
+                      "flex max-w-[75%] flex-col gap-2 rounded-lg px-3 py-2 text-sm w-fit break-words whitespace-pre-wrap",
+                      message.fromId === +userInfo.userId
+                        ? "ml-auto bg-primary text-primary-foreground"
+                        : "bg-muted"
+                    )}
+                  >
+                    {message.type === "muti" && message.files.map((item: any) => (<img src={baseHost + item.url + `?token=` + userInfo.token} alt="" />))}
+                    {message.message}
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+            <CardFooter className="p-2 pt-0 pb-4">
+              {/* 聊天输入框 */}
+              <ChatTextArea
+                ref={TextArea}
+                hasDataEvent={(hasData: boolean) => setHasData(hasData)}
+                onEnterPressEvent={() => sendMessageEvent()}>
+                <Button className="absolute right-0 bottom-0" type="submit" size="icon" disabled={!hasData} onClick={() => {
+                  sendMessageEvent()
+                }}>
+                  <Send />
+                </Button>
+              </ChatTextArea>
+            </CardFooter>
+          </Card>
+        }
+      </div>
+
       {/* 添加好友弹框 */}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="gap-0 p-0 outline-none">
@@ -574,7 +581,7 @@ export default function ChatBox({ userId }: { userId: number }) {
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground">请选择需要发送私信的用户。（目前只支持单聊）</p>
+              <p className="text-sm text-muted-foreground">请选择需要添加的用户。（目前只支持单个添加）</p>
             )}
             <Button
               disabled={selectedUsers.length !== 1}
