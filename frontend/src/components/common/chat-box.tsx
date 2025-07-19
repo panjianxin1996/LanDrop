@@ -102,7 +102,7 @@ type Message = {
 export default function ChatBox({ userId }: { userId: number }) {
   const { wsHandle, userInfo, socketQueue, setStoreData } = useClientStore()
   const { upload, baseHost } = useApiRequest()
-  console.log(baseHost, "baseHost")
+  // console.log(baseHost, "baseHost")
   const [clientData, setClientData] = React.useState<ClientData>({ // 当前设备数据，包含了设备信息以及离线情况设备消息、通知
     clientID: "",
     id: "",
@@ -445,7 +445,7 @@ export default function ChatBox({ userId }: { userId: number }) {
               </Tooltip>
             </TooltipProvider>
           </div>
-          <Input className="my-2" placeholder="搜索我的好友"></Input>
+          <Input className="my-2" placeholder="搜索我的好友" onChange={(e) => console.log(e.target.value)}></Input>
           <div>
             {
               chatUserList.length === 0 && <div className="text-center text-xs text-neutral-500 mt-10">🧐当前没有好友信息，快去添加好友吧。</div>

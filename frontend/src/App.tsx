@@ -5,10 +5,23 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Outlet, useNavigate } from 'react-router-dom'
 import useClientStore from "@/store/appStore"
 import { useApiRequest } from "@/tools/request"
+import { Drawer, DrawerClose, DrawerTitle, DrawerContent, DrawerTrigger, DrawerHeader } from "@/components/ui/drawer"
+import { Button } from "@/components/ui/button";
+import { useConsole, ConsoleViewer } from '@/hooks/useConsole';
+import { MonitorCog, CircleX } from 'lucide-react';
 export default function App() {
   const navigate = useNavigate();
   const { request } = useApiRequest()
-  const { isClient, checkIsClient, setStoreData, closeWS, selectNetAdapter, setSelectNetAdapter, userInfo } = useClientStore()
+  const {
+    logs,
+    requests,
+    isListening,
+    startListening,
+    stopListening,
+    clearLogs,
+    clearRequests,
+  } = useConsole();
+  const { isClient, checkIsClient, setStoreData, closeWS, selectNetAdapter, setSelectNetAdapter, userInfo, devMode } = useClientStore()
   const [userId, setUserId] = useState<number>(-1)
   const socketList = useRef<Array<any>>([])
   const timeoutHandle = useRef<any>(null)
@@ -24,8 +37,17 @@ export default function App() {
     })
     return () => {
       closeWS()
+      if (isListening) stopListening()
     }
   }, [])
+
+  useEffect(() => {
+    if (devMode) {
+      startListening()
+    } else {
+      if (isListening) stopListening()
+    }
+  }, [devMode])
 
   // 检测是否为客户端首页路由
   const checkPagePath = () => {
@@ -83,10 +105,10 @@ export default function App() {
     }
     wsHandle.onopen = () => {
       setStoreData({
-          set: {
-            wsHandle: wsHandle,
-          }
-        })
+        set: {
+          wsHandle: wsHandle,
+        }
+      })
       setUserId(+userInfo.userId)
     }
 
@@ -97,7 +119,7 @@ export default function App() {
     if (!userInfo.userName) uName = `admin${(Math.random() * 1000).toFixed(0)}`
     else uName = userInfo.userName
     setStoreData({
-      set: {userInfo: { ...userInfo, userName: uName }},
+      set: { userInfo: { ...userInfo, userName: uName } },
       // name: 'userInfo', value: { ...userInfo, userName: uName }, 
       finish: (store) => {
         // console.log(store, "store")
@@ -145,5 +167,28 @@ export default function App() {
         <Outlet context={{ userId: userId }} />
       </main>
     </SidebarInset>
+    <Drawer>
+      <DrawerTrigger asChild>
+        {
+          devMode && <Button variant={"outline"} className="absolute right-2 bottom-2"><MonitorCog size={15} /> 控制台</Button>
+        }
+      </DrawerTrigger>
+      <DrawerContent>
+        <DrawerHeader className="pt-0 pb-0 flex justify-between items-center">
+          <DrawerTitle>控制台</DrawerTitle>
+          <DrawerClose asChild>
+            <Button variant="ghost" size={"sm"}><CircleX size={20}/></Button>
+          </DrawerClose>
+        </DrawerHeader>
+        <div className="px-2">
+          <ConsoleViewer
+            logs={logs}
+            requests={requests}
+            onClearLogs={clearLogs}
+            onClearRequests={clearRequests}
+          />
+        </div>
+      </DrawerContent>
+    </Drawer>
   </SidebarProvider>)
 }

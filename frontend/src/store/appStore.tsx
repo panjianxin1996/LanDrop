@@ -40,7 +40,8 @@ type AppStore = {
   uploadedFiles: Record<string, any>, // 上传的文件列表
   socketQueue: Array<any>, // 消息队列
   isOnline: boolean, // 是否在线
-  enterKeyToSend: boolean,
+  enterKeyToSend: boolean, // 回车发送
+  devMode: boolean, // 开发模式
 }
 
 // 持久化白名单
@@ -113,6 +114,7 @@ const useClientStore = create<AppStore>()(
       socketQueue: [],
       isOnline: true,
       enterKeyToSend: false,
+      devMode: false,
     }),
     // 设置持久化存储名称白名单
     { name: 'client-store', partialize: (state) => Object.fromEntries(Object.entries(state).filter(([key]) => !blackList.includes(key))) }

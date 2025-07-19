@@ -9,14 +9,16 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { Label } from "@/components/ui/label"
 import { OpenDirectory, UpdateConfigData, RestartServer, ExitApp } from "@clientSDK/App"
 import { Switch } from "@/components/ui/switch"
+import useClientStore from "@/store/appStore"
 export default function Settings() {
   const { request } = useApiRequest()
+  const { setStoreData, devMode } = useClientStore()
   const [sharedDir, setSharedDir] = React.useState<string>("")
   const [tokenExpiryTime, setTokenExpiryTime] = React.useState<number>(24)
   const [needUpdateConfig, setNeedUpdateConfig] = React.useState<any>({})
   const [changeDirFlag, setChangeDirFlag] = React.useState<boolean>(false)
   const [popoverOpen, setPopoverOpen] = React.useState(false)
-  const [devMode, setDevMode] = React.useState<boolean>(localStorage.getItem("enableVConsle") === '1' || false)
+  // const [devMode, setDevMode] = React.useState<boolean>(localStorage.getItem("enableVConsle") === '1' || false)
   const openDirectory = () => {
     OpenDirectory().then(res => {
       if (res.dir) {
@@ -55,16 +57,9 @@ export default function Settings() {
   }
 
   const changeDevMode = (val: boolean) => {
-    // let enableVConsle = localStorage.getItem("enableVConsle")
-    setDevMode(val)
-    let win :any = window
-    if (!val) {
-      localStorage.setItem('enableVConsle', "0");
-      win._vconsole && win._vconsole.destroy();
-    } else {
-      localStorage.setItem('enableVConsle', "1");
-      win._vconsole =new win.VConsole();
-    }
+    setStoreData({
+      set: {devMode: val}
+    })
   }
 
   React.useEffect(() => {
@@ -142,6 +137,7 @@ export default function Settings() {
         <Switch id="devMode" checked={devMode} onCheckedChange={(val: boolean) => changeDevMode(val)}/>
         {/* <Button className="px-3" size="sm" onClick={()=> openVConsole()}>开启开发者模式</Button> */}
       </div>
+      {/* 退出Landrop */}
       <div className="flex items-center space-x-2 w-full mb-4">
         <Label htmlFor="exitApp" className="w-32">退出LanDrop</Label>
         <Popover open={popoverOpen}>
