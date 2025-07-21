@@ -23,32 +23,6 @@ import (
 	psNet "github.com/shirou/gopsutil/v4/net"
 )
 
-type Router struct {
-	app    *fiber.App
-	assets embed.FS
-	config Config
-	Reply
-	db      db.SqlliteDB
-	userDir string
-}
-type FileInfo struct {
-	ID       int    `json:"fileId"`
-	Name     string `json:"fileName"`
-	Size     int    `json:"fileSize"`
-	Mode     string `json:"fileMode"`
-	ModTime  string `json:"fileModTime"`
-	IsDir    bool   `json:"isDir"`
-	URIName  string `json:"uriName"`
-	Path     string `json:"path"`
-	FileCode string `json:"fileCode"`
-}
-
-type Reply struct {
-	Code int    `json:"code"`
-	Msg  string `json:"msg"`
-	Data any    `json:"data"`
-}
-
 // 全局WebSocket Hub实例
 var wsHub *WSHub
 
@@ -430,6 +404,7 @@ func (r Router) createToken(c *fiber.Ctx) error {
 }
 
 func (r Router) unBindUser(c *fiber.Ctx) error {
+	token := c.Locals("userToken").(*UserToken)
 	postBody := struct {
 		UserId   int64  `json:"userId"`
 		UserName string `json:"userName"`
@@ -446,7 +421,12 @@ func (r Router) unBindUser(c *fiber.Ctx) error {
 		r.Reply.Msg = "请验证参数正确性"
 		return c.Status(r.Reply.Code).JSON(r.Reply)
 	}
-	result, err := r.db.Exec(`DELETE FROM users WHERE id = ? AND name = ?`, postBody.UserId, postBody.UserName)
+	if postBody.UserId != token.UserID {
+		r.Reply.Code = http.StatusBadRequest
+		r.Reply.Msg = "账号验证失败"
+		return c.Status(r.Reply.Code).JSON(r.Reply)
+	}
+	result, err := r.db.Exec(`DELETE FROM users WHERE id = ? AND name = ?`, token.UserID, postBody.UserName)
 	if err != nil {
 		r.Reply.Code = http.StatusBadRequest
 		r.Reply.Msg = "出错了哦"
@@ -536,8 +516,7 @@ func (r Router) getConfigData(c *fiber.Ctx) error {
 }
 
 func (r Router) updateUserInfo(c *fiber.Ctx) error {
-	token := c.Locals("tokenClaims").(*tokenClaims)
-	log.Println("修改数据的userId", token.UserID, token.Username)
+	token := c.Locals("userToken").(*UserToken)
 	postBody := map[string]any{}
 	if err := c.BodyParser(&postBody); err != nil {
 		r.Reply.Code = http.StatusBadRequest
@@ -545,7 +524,14 @@ func (r Router) updateUserInfo(c *fiber.Ctx) error {
 		r.Reply.Data = err
 		return c.Status(r.Reply.Code).JSON(r.Reply)
 	}
-	result, _ := r.db.Exec(`UPDATE users SET avatar = ? WHERE id = ?`, postBody["avatar"], postBody["id"])
+	var result sql.Result
+	if postBody["avatar"] != nil && postBody["nickName"] == nil {
+		result, _ = r.db.Exec(`UPDATE users SET avatar = ? WHERE id = ?`, postBody["avatar"], token.UserID)
+	} else if postBody["nickName"] != nil && postBody["avatar"] == nil {
+		result, _ = r.db.Exec(`UPDATE users SET nickName = ? WHERE id = ?`, postBody["nickName"], token.UserID)
+	} else if postBody["avatar"] != nil && postBody["nickName"] != nil {
+		result, _ = r.db.Exec(`UPDATE users SET avatar = ?, nickName = ? WHERE id = ?`, postBody["avatar"], postBody["nickName"], token.UserID)
+	}
 	if _, err := result.RowsAffected(); err != nil {
 		r.Reply.Code = http.StatusBadRequest
 		r.Reply.Msg = "失败"
@@ -647,14 +633,4 @@ func (r Router) uploadChatFiles(c *fiber.Ctx) error {
 	r.Reply.Msg = "所有文件上传成功"
 	r.Reply.Data = successFiles
 	return c.Status(r.Reply.Code).JSON(r.Reply)
-}
-
-// 辅助函数：生成安全的文件名
-func generateFilename(original string) string {
-	ext := filepath.Ext(original)
-	// 微秒级别
-	now := time.Now()
-	base := now.Format("2006-01-02_15-04-05")
-	micro := now.Nanosecond() / 1000
-	return fmt.Sprintf("%v-%v_%s%s", base, micro, strings.TrimSuffix(original, ext), ext)
 }

@@ -102,7 +102,7 @@ type Message = {
 export default function ChatBox({ userId }: { userId: number }) {
   const { wsHandle, userInfo, socketQueue, setStoreData } = useClientStore()
   const { upload, baseHost } = useApiRequest()
-  // console.log(baseHost, "baseHost")
+  console.log(baseHost, "baseHost")
   const [clientData, setClientData] = React.useState<ClientData>({ // 当前设备数据，包含了设备信息以及离线情况设备消息、通知
     clientID: "",
     id: "",

@@ -18,7 +18,7 @@ import { userAvatar } from "@/app/commonData"
 export default function AppWeb() {
     const { checkIsClient, setStoreData, closeWS, validExpToken, userInfo } = useClientStore()
     const { request } = useApiRequest()
-    const navigate = useNavigate();
+    const navigate = useNavigate()
     // 分享文件列表信息
     const [openAlert, setOpenAlert] = useState<boolean>(false)
     const [openUserDialog, setOpenUserDialog] = useState<boolean>(true)
@@ -191,7 +191,6 @@ export default function AppWeb() {
             const tokenRes = await getUserToken(userItem.id, userItem.name) // 选择用户获取token
             token = tokenRes.data.token
         }
-        console.log("userItem===", userItem)
         // localStorage.setItem("userToken", tokenRes.data.token) // 设置用户token
         setStoreData({
             before: (store, set) => {

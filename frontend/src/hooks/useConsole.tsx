@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef, memo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardHeader } from '@/components/ui/card';
@@ -28,67 +28,121 @@ interface NetworkRequest {
     duration?: number;
     type: 'xhr' | 'fetch';
 }
-export function useConsole() {
-    const [logs, setLogs] = useState<ConsoleLog[]>([]);
-    const [requests, setRequests] = useState<NetworkRequest[]>([]);
-    const [isListening, setIsListening] = useState(false);
-    // 保存原始 console 方法
-    const originalConsole: any = {
-        log: console.log,
-        info: console.info,
-        warn: console.warn,
-        error: console.error,
-        debug: console.debug,
-    };
+type ConsoleMethod = {
+    (...data: any[]): void;
+    (message?: any, ...optionalParams: any[]): void;
+};
+type ConsoleMethodsToIntercept = 'log' | 'info' | 'warn' | 'error' | 'debug';
 
-    // 拦截 console 方法
+interface UseConsoleReturn {
+    subscribe: (callback: () => void) => () => void;
+    getState: () => {
+        logs: ConsoleLog[];
+        requests: NetworkRequest[];
+        isListening: boolean;
+    };
+    startListening: () => void;
+    stopListening: () => void;
+    clearLogs: () => void;
+    clearRequests: () => void;
+}
+export function useConsoleMain(): UseConsoleReturn {
+    // 使用 ref 存储所有状态，完全隔离于 React 渲染系统
+    const stateRef = useRef({
+        logs: [] as ConsoleLog[],
+        requests: [] as NetworkRequest[],
+        isListening: false,
+        subscribers: new Set<() => void>(),
+    });
+
+    // 存储原始方法
+    const originalMethods = useRef({
+        console: {
+            log: console.log,
+            info: console.info,
+            warn: console.warn,
+            error: console.error,
+            debug: console.debug,
+        },
+        xhr: {
+            open: XMLHttpRequest.prototype.open,
+            send: XMLHttpRequest.prototype.send,
+            setRequestHeader: XMLHttpRequest.prototype.setRequestHeader,
+        },
+        fetch: window.fetch,
+    });
+
+    // 通知订阅者更新
+    const notifySubscribers = useCallback(() => {
+        stateRef.current.subscribers.forEach(cb => cb());
+    }, []);
+
+    // 添加日志 (完全隔离，不触发 React 更新)
+    const addLog = useCallback((log: ConsoleLog) => {
+        const newLogs = [...stateRef.current.logs.slice(-999), log]; // 限制最大1000条
+        stateRef.current.logs = newLogs;
+        notifySubscribers();
+    }, [notifySubscribers]);
+
+    // 添加请求 (完全隔离，不触发 React 更新)
+    const addRequest = useCallback((request: NetworkRequest) => {
+        const newRequests = [...stateRef.current.requests.slice(-99), request]; // 限制最大100条
+        stateRef.current.requests = newRequests;
+        notifySubscribers();
+    }, [notifySubscribers]);
+
+    // 拦截 console 方法 (优化版，避免循环)
     const interceptConsole = useCallback(() => {
-        const consoleMethods = ['log', 'info', 'warn', 'error', 'debug'] as const;
-        consoleMethods.forEach(method => {
-            const originalMethod = originalConsole[method];
-            console[method] = function (...args: any[]) {
-                // 调用原始方法保持原有功能
+        const methods: ConsoleMethodsToIntercept[] = ['log', 'info', 'warn', 'error', 'debug'];
+
+        methods.forEach(method => {
+            const originalMethod = originalMethods.current.console[method];
+
+            const interceptedMethod: ConsoleMethod = (...args: any[]) => {
+                // 1. 先调用原始方法
                 originalMethod.apply(console, args);
-                // 记录日志
-                setLogs(prev => [
-                    ...prev,
-                    {
+
+                // 2. 记录日志
+                try {
+                    addLog({
                         type: method,
                         args,
                         timestamp: new Date(),
-                    },
-                ]);
-            } as typeof originalMethod;
+                    });
+                } catch (e) {
+                    originalMethod('Failed to log intercepted console call:', e);
+                }
+            };
+
+            // 使用类型断言确保类型匹配
+            (console[method] as ConsoleMethod) = interceptedMethod;
         });
-    }, [originalConsole]);
+    }, [addLog]);
 
     // 恢复原始 console 方法
     const restoreConsole = useCallback(() => {
-        Object.keys(originalConsole).forEach(method => {
-            console[method as keyof Console] = originalConsole[method as keyof Console];
+        Object.entries(originalMethods.current.console).forEach(([method, original]) => {
+            console[method as ConsoleMethodsToIntercept] = original as ConsoleMethod;
         });
-    }, [originalConsole]);
+    }, []);
 
-    // 拦截 XMLHttpRequest
+    // 拦截 XMLHttpRequest (优化版)
     const interceptXHR = useCallback(() => {
-        const originalXHROpen = XMLHttpRequest.prototype.open;
-        const originalXHRSend = XMLHttpRequest.prototype.send;
-        const originalXHRSetRequestHeader = XMLHttpRequest.prototype.setRequestHeader;
-        XMLHttpRequest.prototype.open = function (
-            method: string,
-            url: string | URL
-        ) {
+        const { open, send, setRequestHeader } = originalMethods.current.xhr;
+
+        XMLHttpRequest.prototype.open = function (method: string, url: string | URL) {
             this._method = method;
             this._url = typeof url === 'string' ? url : url.toString();
             this._requestHeaders = {};
             this._startTime = Date.now();
-
-            return originalXHROpen.apply(this, arguments as any);
+            return open.apply(this, arguments as any);
         };
+
         XMLHttpRequest.prototype.setRequestHeader = function (header: string, value: string) {
             this._requestHeaders[header] = value;
-            return originalXHRSetRequestHeader.apply(this, arguments as any);
+            return setRequestHeader.apply(this, arguments as any);
         };
+
         XMLHttpRequest.prototype.send = function (body?: Document | BodyInit | null) {
             const requestData: NetworkRequest = {
                 url: this._url,
@@ -98,85 +152,98 @@ export function useConsole() {
                 timestamp: new Date(),
                 type: 'xhr',
             };
+
             this.addEventListener('load', () => {
-                const endTime = Date.now();
-                const duration = endTime - this._startTime;
                 try {
+                    const duration = Date.now() - this._startTime;
                     const response = this.responseType === '' || this.responseType === 'text'
                         ? this.responseText
                         : this.response;
-                    requestData.response = response;
-                    requestData.status = this.status;
-                    requestData.statusText = this.statusText;
-                    requestData.duration = duration;
-                    const responseHeaders: Record<string, string> = {};
-                    const headers = this.getAllResponseHeaders().trim().split(/[\r\n]+/);
-                    headers.forEach(line => {
-                        const parts = line.split(': ');
-                        const header = parts.shift();
-                        const value = parts.join(': ');
-                        if (header) {
-                            responseHeaders[header] = value;
-                        }
+
+                    addRequest({
+                        ...requestData,
+                        response,
+                        status: this.status,
+                        statusText: this.statusText,
+                        duration,
+                        responseHeaders: this.getAllResponseHeaders()
+                            .split('\r\n')
+                            .reduce((acc, line) => {
+                                const [header, value] = line.split(': ');
+                                if (header) acc[header] = value;
+                                return acc;
+                            }, {} as Record<string, string>)
                     });
-                    requestData.responseHeaders = responseHeaders;
-                    setRequests(prev => [...prev, requestData]);
                 } catch (e) {
-                    originalConsole.error('Failed to parse XHR response', e);
+                    originalMethods.current.console.error('Failed to parse XHR response', e);
                 }
             });
-            this.addEventListener('error', () => {
-                requestData.status = this.status;
-                requestData.statusText = 'Request failed';
-                setRequests(prev => [...prev, requestData]);
-            });
-            return originalXHRSend.apply(this, arguments as any);
-        };
-        return () => {
-            XMLHttpRequest.prototype.open = originalXHROpen;
-            XMLHttpRequest.prototype.send = originalXHRSend;
-            XMLHttpRequest.prototype.setRequestHeader = originalXHRSetRequestHeader;
-        };
-    }, []);
 
-    // 拦截 Fetch API
+            this.addEventListener('error', () => {
+                addRequest({
+                    ...requestData,
+                    status: this.status || 0,
+                    statusText: 'Request failed'
+                });
+            });
+
+            return send.apply(this, arguments as any);
+        };
+
+        return () => {
+            XMLHttpRequest.prototype.open = open;
+            XMLHttpRequest.prototype.send = send;
+            XMLHttpRequest.prototype.setRequestHeader = setRequestHeader;
+        };
+    }, [addRequest]);
+
+    // 拦截 Fetch API (优化版)
     const interceptFetch = useCallback(() => {
-        const originalFetch = window.fetch;
+        const { fetch: originalFetch } = originalMethods.current;
+
         window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
             const startTime = Date.now();
             const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
-            const method = init?.method || 'GET';
+
             const requestData: NetworkRequest = {
                 url,
-                method,
+                method: init?.method || 'GET',
                 requestHeaders: init?.headers as Record<string, string> || {},
                 body: init?.body,
                 timestamp: new Date(),
                 type: 'fetch',
             };
+
             try {
                 const response = await originalFetch(input, init);
-                const endTime = Date.now();
-                const duration = endTime - startTime;
+                const duration = Date.now() - startTime;
                 const clonedResponse = response.clone();
-                const responseData = await (response.headers.get('Content-Type')?.includes('application/json')
-                    ? clonedResponse.json()
-                    : clonedResponse.text());
+
+                const responseData = response.headers.get('Content-Type')?.includes('application/json')
+                    ? await clonedResponse.json()
+                    : await clonedResponse.text();
+
                 const responseHeaders: Record<string, string> = {};
                 response.headers.forEach((value, key) => {
                     responseHeaders[key] = value;
                 });
-                requestData.response = responseData;
-                requestData.status = response.status;
-                requestData.statusText = response.statusText;
-                requestData.duration = duration;
-                requestData.responseHeaders = responseHeaders;
-                setRequests(prev => [...prev, requestData]);
+
+                addRequest({
+                    ...requestData,
+                    response: responseData,
+                    status: response.status,
+                    statusText: response.statusText,
+                    duration,
+                    responseHeaders
+                });
+
                 return response;
             } catch (error) {
-                requestData.status = 0;
-                requestData.statusText = 'Request failed';
-                setRequests(prev => [...prev, requestData]);
+                addRequest({
+                    ...requestData,
+                    status: 0,
+                    statusText: 'Request failed'
+                });
                 throw error;
             }
         };
@@ -184,44 +251,66 @@ export function useConsole() {
         return () => {
             window.fetch = originalFetch;
         };
+    }, [addRequest]);
+
+    // 订阅状态变化（供 UI 组件使用）
+    const subscribe = useCallback((callback: () => void) => {
+        stateRef.current.subscribers.add(callback);
+        return () => {
+            stateRef.current.subscribers.delete(callback);
+        };
     }, []);
 
     // 开始监听
     const startListening = useCallback(() => {
-        if (isListening) return;
+        if (stateRef.current.isListening) return;
+
         interceptConsole();
         const cleanupXHR = interceptXHR();
         const cleanupFetch = interceptFetch();
-        setIsListening(true);
+
+        stateRef.current.isListening = true;
+        notifySubscribers();
+
         return () => {
             restoreConsole();
             cleanupXHR();
             cleanupFetch();
-            setIsListening(false);
+            stateRef.current.isListening = false;
+            notifySubscribers();
         };
-    }, [interceptConsole, interceptXHR, interceptFetch, isListening, restoreConsole]);
+    }, [interceptConsole, interceptXHR, interceptFetch, restoreConsole, notifySubscribers]);
 
     // 停止监听
     const stopListening = useCallback(() => {
-        if (!isListening) return;
+        if (!stateRef.current.isListening) return;
         restoreConsole();
-        setIsListening(false);
-    }, [isListening, restoreConsole]);
+        stateRef.current.isListening = false;
+        notifySubscribers();
+    }, [restoreConsole, notifySubscribers]);
 
     // 清空日志
     const clearLogs = useCallback(() => {
-        setLogs([]);
-    }, []);
+        stateRef.current.logs = [];
+        notifySubscribers();
+    }, [notifySubscribers]);
 
     // 清空网络请求
     const clearRequests = useCallback(() => {
-        setRequests([]);
-    }, []);
+        stateRef.current.requests = [];
+        notifySubscribers();
+    }, [notifySubscribers]);
+
+    // 获取当前状态（快照）
+    const getState = useCallback(() => ({
+        logs: [...stateRef.current.logs],
+        requests: [...stateRef.current.requests],
+        isListening: stateRef.current.isListening,
+    }), []);
 
     return {
-        logs,
-        requests,
-        isListening,
+        subscribe,
+        getState,
         startListening,
         stopListening,
         clearLogs,
@@ -230,15 +319,35 @@ export function useConsole() {
 }
 
 // 展示组件
-export const ConsoleViewer: React.FC<{
-    logs: ConsoleLog[];
-    requests: NetworkRequest[];
-    onClearLogs?: () => void;
-    onClearRequests?: () => void;
-}> = ({ logs, requests, onClearLogs, onClearRequests }) => {
-    const formatTimestamp = (date: Date) => {
-        return date.toLocaleTimeString();
+export const ConsoleViewer = memo(({
+    // onClearLogs,
+    // onClearRequests,
+    // useConsole
+}: {
+    // onClearLogs?: () => void;
+    // onClearRequests?: () => void;
+    // useConsole: UseConsoleReturn;
+}) => {
+    const useConsole = useConsoleMain();
+    const [state, setState] = useState(useConsole.getState());
+
+    useEffect(()=>{
+        useConsole.startListening()
+    },[])
+    useEffect(() => {
+        return useConsole.subscribe(() => {
+            setState(useConsole.getState());
+        });
+    }, [useConsole]);
+
+    const onClearLogsHandler = () => {
+        useConsole.clearLogs();
     };
+    const onClearRequestsHandler = () => {
+        useConsole.clearRequests();
+    };
+
+    const formatTimestamp = (date: Date) => date.toLocaleTimeString();
 
     const stringify = (data: any) => {
         if (typeof data === 'object') {
@@ -264,7 +373,7 @@ export const ConsoleViewer: React.FC<{
         if (!status) return 'bg-red-900';
         if (status >= 400) return 'bg-red-900';
         if (status >= 300) return 'bg-yellow-900';
-        return ' bg-cyan-900';
+        return 'bg-cyan-900';
     };
 
     return (
@@ -274,17 +383,17 @@ export const ConsoleViewer: React.FC<{
                     <div className="flex justify-between items-center">
                         <TabsList>
                             <TabsTrigger value="console">
-                                Console <span className="ml-2 bg-gray-700 rounded-full px-2 py-0.5 text-xs text-white">{logs.length}</span>
+                                Console <span className="ml-2 bg-gray-700 rounded-full px-2 py-0.5 text-xs text-white">{state.logs.length}</span>
                             </TabsTrigger>
                             <TabsTrigger value="network">
-                                Network <span className="ml-2 bg-gray-700 rounded-full px-2 py-0.5 text-xs text-white">{requests.length}</span>
+                                Network <span className="ml-2 bg-gray-700 rounded-full px-2 py-0.5 text-xs text-white">{state.requests.length}</span>
                             </TabsTrigger>
                         </TabsList>
                         <div>
                             <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={logs.length > 0 ? onClearLogs : onClearRequests}
+                                onClick={state.logs.length > 0 ? onClearLogsHandler : onClearRequestsHandler}
                                 className="text-muted-foreground hover:text-foreground"
                             >
                                 Clear
@@ -293,13 +402,13 @@ export const ConsoleViewer: React.FC<{
                     </div>
 
                     <TabsContent value="console" className="mt-4">
-                        {logs.length === 0 ? (
+                        {state.logs.length === 0 ? (
                             <div className="text-center text-muted-foreground py-8">No console logs</div>
                         ) : (
                             <div className="space-y-2 h-[calc(100vh-200px)] overflow-y-auto">
-                                {logs.map((log, index) => (
+                                {state.logs.map((log, index) => (
                                     <div
-                                        key={index}
+                                        key={`log-${index}`}
                                         className={`text-xs p-3 rounded-md ${getLogTypeColor(log.type)}`}
                                     >
                                         <div className="flex items-start gap-3">
@@ -311,7 +420,7 @@ export const ConsoleViewer: React.FC<{
                                             </div>
                                             <div className="break-words flex-1">
                                                 {log.args.map((arg, i) => (
-                                                    <span key={i}>{stringify(arg)} </span>
+                                                    <span key={`arg-${i}`}>{stringify(arg)} </span>
                                                 ))}
                                             </div>
                                         </div>
@@ -320,14 +429,15 @@ export const ConsoleViewer: React.FC<{
                             </div>
                         )}
                     </TabsContent>
+
                     <TabsContent value="network" className="mt-4">
-                        {requests.length === 0 ? (
+                        {state.requests.length === 0 ? (
                             <div className="text-center text-muted-foreground py-8">No network requests</div>
                         ) : (
                             <div className="space-y-3 h-[calc(100vh-200px)] overflow-y-auto">
-                                {requests.map((req, index) => (
+                                {state.requests.map((req, index) => (
                                     <details
-                                        key={index}
+                                        key={`req-${index}`}
                                         className={`text-white text-xs rounded-lg border overflow-hidden ${getRequestStatusColor(req.status)}`}
                                     >
                                         <summary className="px-4 py-3 cursor-pointer flex items-center">
@@ -335,16 +445,13 @@ export const ConsoleViewer: React.FC<{
                                                 <span className="w-10">{req.method}</span>
                                                 <span className="text-blue-300 truncate max-w-[300px]">{req.url}</span>
                                                 {req.status !== undefined && (
-                                                    <span className={`font-semibold ${req.status >= 400 || req.status === 0 ? 'text-red-400' : 'text-green-400'
-                                                        }`}>
+                                                    <span className={`font-semibold ${req.status >= 400 || req.status === 0 ? 'text-red-400' : 'text-green-400'}`}>
                                                         {req.status} {req.statusText}
                                                     </span>
                                                 )}
                                             </div>
                                             <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                                                {req.duration !== undefined && (
-                                                    <span>{req.duration}ms</span>
-                                                )}
+                                                {req.duration !== undefined && <span>{req.duration}ms</span>}
                                                 <span>{formatTimestamp(req.timestamp)}</span>
                                             </div>
                                         </summary>
@@ -353,7 +460,7 @@ export const ConsoleViewer: React.FC<{
                                                 <div>
                                                     <h4 className="font-medium mb-2">Request Headers</h4>
                                                     <pre className="bg-gray-800 p-3 rounded text-sm text-white overflow-x-auto">
-                                                        {JSON.stringify(req.requestHeaders, null, 2)}
+                                                        {stringify(req.requestHeaders)}
                                                     </pre>
                                                 </div>
                                             )}
@@ -369,7 +476,7 @@ export const ConsoleViewer: React.FC<{
                                                 <div>
                                                     <h4 className="font-medium mb-2">Response Headers</h4>
                                                     <pre className="bg-gray-800 p-3 rounded text-sm text-white overflow-x-auto">
-                                                        {JSON.stringify(req.responseHeaders, null, 2)}
+                                                        {stringify(req.responseHeaders)}
                                                     </pre>
                                                 </div>
                                             )}
@@ -391,4 +498,4 @@ export const ConsoleViewer: React.FC<{
             </CardHeader>
         </Card>
     );
-};
+});

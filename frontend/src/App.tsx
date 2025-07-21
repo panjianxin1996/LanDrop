@@ -7,20 +7,13 @@ import useClientStore from "@/store/appStore"
 import { useApiRequest } from "@/tools/request"
 import { Drawer, DrawerClose, DrawerTitle, DrawerContent, DrawerTrigger, DrawerHeader } from "@/components/ui/drawer"
 import { Button } from "@/components/ui/button";
-import { useConsole, ConsoleViewer } from '@/hooks/useConsole';
+import { ConsoleViewer } from '@/hooks/useConsole';
 import { MonitorCog, CircleX } from 'lucide-react';
 export default function App() {
+  console.log("APP组件渲染！"+new Date())
   const navigate = useNavigate();
   const { request } = useApiRequest()
-  const {
-    logs,
-    requests,
-    isListening,
-    startListening,
-    stopListening,
-    clearLogs,
-    clearRequests,
-  } = useConsole();
+  // const consoleHook = useConsole();
   const { isClient, checkIsClient, setStoreData, closeWS, selectNetAdapter, setSelectNetAdapter, userInfo, devMode } = useClientStore()
   const [userId, setUserId] = useState<number>(-1)
   const socketList = useRef<Array<any>>([])
@@ -37,17 +30,18 @@ export default function App() {
     })
     return () => {
       closeWS()
-      if (isListening) stopListening()
+      // if (consoleHook.getState().isListening) consoleHook.stopListening()
     }
   }, [])
 
-  useEffect(() => {
-    if (devMode) {
-      startListening()
-    } else {
-      if (isListening) stopListening()
-    }
-  }, [devMode])
+  // useEffect(() => {
+  //   console.log("jinru ")
+  //   if (devMode) {
+  //     consoleHook.startListening()
+  //   } else {
+  //     if (consoleHook.getState().isListening) consoleHook.stopListening()
+  //   }
+  // }, [devMode])
 
   // 检测是否为客户端首页路由
   const checkPagePath = () => {
@@ -181,12 +175,7 @@ export default function App() {
           </DrawerClose>
         </DrawerHeader>
         <div className="px-2">
-          <ConsoleViewer
-            logs={logs}
-            requests={requests}
-            onClearLogs={clearLogs}
-            onClearRequests={clearRequests}
-          />
+          <ConsoleViewer />
         </div>
       </DrawerContent>
     </Drawer>

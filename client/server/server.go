@@ -198,7 +198,7 @@ func Run(assets embed.FS) {
 
 	skipPrefixes := []string{"/", "/assets/", "/#/", "/shared/",
 		"/ws", "/api/v1/getUserList", "/api/v1/createToken",
-		"/api/v1/createUser", "/api/v1/appLogin", "/api/v1/getServerPort",
+		"/api/v1/createUser", "/api/v1/appLogin",
 	}
 
 	app.Use(func(c *fiber.Ctx) error {
@@ -221,7 +221,7 @@ func Run(assets embed.FS) {
 		SigningKey:  jwtware.SigningKey{Key: SecretKey},
 		TokenLookup: "query:token,cookie:ldtoken,header:X-Ld-Token",
 		ContextKey:  "user",
-		Claims:      &tokenClaims{},
+		Claims:      &UserToken{},
 		TokenProcessorFunc: func(encryptedToken string) (string, error) { // 对加密token进行解密然后进行下一步
 			decryptedToken, err := DecryptToken(encryptedToken)
 			if err != nil {
@@ -231,8 +231,8 @@ func Run(assets embed.FS) {
 		},
 		SuccessHandler: func(c *fiber.Ctx) error { // 验证成功后，将用户信息存储在Context中
 			user := c.Locals("user").(*jwt.Token)
-			claims := user.Claims.(*tokenClaims)
-			c.Locals("tokenClaims", claims)
+			claims := user.Claims.(*UserToken)
+			c.Locals("userToken", claims)
 			return c.Next()
 		},
 		ErrorHandler: func(c *fiber.Ctx, err error) error { // 验证失败

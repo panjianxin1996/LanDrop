@@ -28,7 +28,7 @@ type WSClient struct {
 	DB        db.SqlliteDB
 	Send      chan []byte
 	Hub       *WSHub
-	UserToken *tokenClaims
+	UserToken *UserToken
 	UserType  string
 	IsActive  bool
 	LastPing  time.Time
@@ -271,7 +271,7 @@ func (h *WSHub) Close() {
 // 客户端方法
 
 // 创建新的WebSocket客户端
-func NewWSClient(conn *websocket.Conn, hub *WSHub, db db.SqlliteDB, userToken *tokenClaims, id int64, name string) *WSClient {
+func NewWSClient(conn *websocket.Conn, hub *WSHub, db db.SqlliteDB, userToken *UserToken, id int64, name string) *WSClient {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &WSClient{
 		clientID:  fmt.Sprintf(`%s#%v`, name, id),
