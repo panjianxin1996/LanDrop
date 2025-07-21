@@ -14,6 +14,7 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart"
+import useClientStore from "@/store/appStore";
 const chartConfig = {
   desktop: {
     label: "Desktop",
@@ -32,14 +33,15 @@ export interface DeviceInfo {
   cpuInfo: CpuInfo;
   memInfo: MemInfo;
 }
-export function SectionCards({ deviceInfo, deviceLogs }: {
+export function SectionCards({ deviceInfo }: {
   deviceInfo: DeviceInfo, // 设备信息
-  deviceLogs: Array<any> // 设备日志
+  // deviceLogs: Array<any> // 设备日志
 }) {
   const devicesCard: Array<any> = [
     { type: 'cpu', title: 'CPU利用率', icon: <CpuIcon size={15} />, iconDesc: '核', lineType: 'cpuUsage' },
     { type: 'mem', title: '内存利用率', icon: <MemoryStickIcon size={15} />, iconDesc: '-', lineType: 'memUsage' },
   ]
+  const { deviceLogsData } = useClientStore()
   return (
     <div className="*:data-[slot=card]:shadow-xs md:grid-cols-[repeat(2,minmax(0,1fr))] grid grid-cols-1 gap-4 px-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card lg:px-6">
       {
@@ -62,7 +64,7 @@ export function SectionCards({ deviceInfo, deviceLogs }: {
               <ChartContainer config={chartConfig}>
                 <LineChart
                   accessibilityLayer
-                  data={deviceLogs}
+                  data={deviceLogsData}
                   margin={{
                     left: 0,
                     right: 0,

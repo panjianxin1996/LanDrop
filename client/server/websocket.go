@@ -21,20 +21,21 @@ import (
 
 // WebSocket客户端结构体
 type WSClient struct {
-	clientID  string
-	Id        int64
-	Name      string
-	Conn      *websocket.Conn
-	DB        db.SqlliteDB
-	Send      chan []byte
-	Hub       *WSHub
-	UserToken *UserToken
-	UserType  string
-	IsActive  bool
-	LastPing  time.Time
-	mutex     sync.RWMutex
-	ctx       context.Context
-	cancel    context.CancelFunc
+	clientID    string
+	Id          int64
+	Name        string
+	Conn        *websocket.Conn
+	DB          db.SqlliteDB
+	Send        chan []byte
+	Hub         *WSHub
+	UserToken   *UserToken
+	UserType    string
+	IsActive    bool
+	IsConnected bool
+	LastPing    time.Time
+	mutex       sync.RWMutex
+	ctx         context.Context
+	cancel      context.CancelFunc
 }
 type WSMsg struct { // WebSocket通用消息结构体
 	SID        string `json:"sId"`        // 请求ID
@@ -125,11 +126,32 @@ func (h *WSHub) registerClient(client *WSClient) {
 	h.mutex.Lock()
 	defer h.mutex.Unlock()
 
+	// 检查是否存在同一用户 ID 的活跃连接
+	for _, existing := range h.clients {
+		if existing.Id == client.Id && existing.IsConnected {
+			log.Printf("发现重复连接: 用户 %d 已有活跃连接 %s", client.Id, existing.clientID)
+
+			// 立即关闭旧连接
+			existing.mutex.Lock()
+			existing.IsConnected = false
+			existing.IsActive = false
+			close(existing.Send)
+			existing.cancel()
+			existing.mutex.Unlock()
+
+			// 从 Hub 中移除
+			delete(h.clients, existing.clientID)
+			log.Printf("已强制关闭旧连接: %s", existing.clientID)
+		}
+	}
+
+	// 注册新客户端
 	h.clients[client.clientID] = client
 	client.IsActive = true
+	client.IsConnected = true // 标记为新连接
 	client.LastPing = time.Now()
 
-	log.Printf("客户端 %s 已连接，当前连接数: %d", client.clientID, len(h.clients))
+	log.Printf("新客户端连接成功: %s (用户 %d)", client.clientID, client.Id)
 
 	// 发送欢迎消息
 	welcomeMsg := WSMsg{
@@ -144,7 +166,12 @@ func (h *WSHub) unregisterClient(client *WSClient) {
 	h.mutex.Lock()
 	defer h.mutex.Unlock()
 
-	if _, exists := h.clients[client.clientID]; exists {
+	if c, exists := h.clients[client.clientID]; exists {
+		// 标记连接已断开
+		c.mutex.Lock()
+		c.IsConnected = false
+		c.IsActive = false
+		c.mutex.Unlock()
 		// 1. 从Hub中移除
 		delete(h.clients, client.clientID)
 
@@ -274,19 +301,20 @@ func (h *WSHub) Close() {
 func NewWSClient(conn *websocket.Conn, hub *WSHub, db db.SqlliteDB, userToken *UserToken, id int64, name string) *WSClient {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &WSClient{
-		clientID:  fmt.Sprintf(`%s#%v`, name, id),
-		Id:        id,
-		Name:      name,
-		Conn:      conn,
-		DB:        db,
-		Send:      make(chan []byte, 1024*128), // 支持128k的聊天内容
-		Hub:       hub,
-		UserToken: userToken,
-		UserType:  userToken.Role,
-		IsActive:  false,
-		LastPing:  time.Now(),
-		ctx:       ctx,
-		cancel:    cancel,
+		clientID:    fmt.Sprintf(`%s#%v`, name, id),
+		Id:          id,
+		Name:        name,
+		Conn:        conn,
+		DB:          db,
+		Send:        make(chan []byte, 1024*128), // 支持128k的聊天内容
+		Hub:         hub,
+		UserToken:   userToken,
+		UserType:    userToken.Role,
+		IsActive:    false,
+		IsConnected: false,
+		LastPing:    time.Now(),
+		ctx:         ctx,
+		cancel:      cancel,
 	}
 }
 
@@ -361,16 +389,18 @@ func (c *WSClient) WritePump() {
 func (c *WSClient) safeWriteMessage(messageType int, data []byte) error {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
-	if !c.IsActive {
-		return nil // 连接已关闭，忽略消息
+	if !c.IsConnected || !c.IsActive { // 双重检查
+		return fmt.Errorf("连接已关闭")
 	}
 	return c.Conn.WriteMessage(messageType, data)
 }
 
 // 发送消息给客户端
 func (c *WSClient) SendMessage(msg WSMsg) error {
-	if !c.IsActive {
-		return nil
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	if !c.IsConnected || !c.IsActive {
+		return fmt.Errorf("连接已关闭")
 	}
 	data, err := json.Marshal(msg)
 	if err != nil {

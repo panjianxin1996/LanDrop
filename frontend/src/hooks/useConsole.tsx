@@ -46,7 +46,7 @@ interface UseConsoleReturn {
     clearLogs: () => void;
     clearRequests: () => void;
 }
-export function useConsoleMain(): UseConsoleReturn {
+export function useConsole(): UseConsoleReturn {
     // 使用 ref 存储所有状态，完全隔离于 React 渲染系统
     const stateRef = useRef({
         logs: [] as ConsoleLog[],
@@ -320,32 +320,21 @@ export function useConsoleMain(): UseConsoleReturn {
 
 // 展示组件
 export const ConsoleViewer = memo(({
-    // onClearLogs,
-    // onClearRequests,
-    // useConsole
+    onClearLogs,
+    onClearRequests,
+    useConsole
 }: {
-    // onClearLogs?: () => void;
-    // onClearRequests?: () => void;
-    // useConsole: UseConsoleReturn;
+    onClearLogs?: () => void;
+    onClearRequests?: () => void;
+    useConsole: UseConsoleReturn;
 }) => {
-    const useConsole = useConsoleMain();
     const [state, setState] = useState(useConsole.getState());
 
-    useEffect(()=>{
-        useConsole.startListening()
-    },[])
     useEffect(() => {
         return useConsole.subscribe(() => {
             setState(useConsole.getState());
         });
     }, [useConsole]);
-
-    const onClearLogsHandler = () => {
-        useConsole.clearLogs();
-    };
-    const onClearRequestsHandler = () => {
-        useConsole.clearRequests();
-    };
 
     const formatTimestamp = (date: Date) => date.toLocaleTimeString();
 
@@ -393,7 +382,7 @@ export const ConsoleViewer = memo(({
                             <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={state.logs.length > 0 ? onClearLogsHandler : onClearRequestsHandler}
+                                onClick={state.logs.length > 0 ? onClearLogs : onClearRequests}
                                 className="text-muted-foreground hover:text-foreground"
                             >
                                 Clear

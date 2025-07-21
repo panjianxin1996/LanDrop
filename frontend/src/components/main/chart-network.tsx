@@ -39,11 +39,11 @@ const chartConfig = {
   },
 } satisfies ChartConfig
 
-export function ChartNetwork({ deviceLogs }: {
-  deviceLogs: Array<any>
+export function ChartNetwork({  }: {
+  // deviceLogs: Array<any>
 }) {
   const { request } = useApiRequest()
-  const { selectNetAdapter, setSelectNetAdapter, netAdapterList, ipv4Address, ipv6Address, userInfo } = useClientStore()
+  const { selectNetAdapter, setSelectNetAdapter, netAdapterList, ipv4Address, ipv6Address, userInfo, deviceLogsData } = useClientStore()
   const [allNetData, setAllNetData] = React.useState<any>([])
 
   React.useEffect(() => {
@@ -53,10 +53,10 @@ export function ChartNetwork({ deviceLogs }: {
   }, [userInfo.token])
 
   React.useEffect(() => {
-    if (deviceLogs.length > 0) {
-      setAllNetData(deviceLogs)
+    if (deviceLogsData.length > 0) {
+      setAllNetData(deviceLogsData)
     }
-  }, [deviceLogs])
+  }, [deviceLogsData])
 
   const filteredData = allNetData.map((item: any) => {
     return {

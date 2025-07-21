@@ -102,7 +102,7 @@ type Message = {
 export default function ChatBox({ userId }: { userId: number }) {
   const { wsHandle, userInfo, socketQueue, setStoreData } = useClientStore()
   const { upload, baseHost } = useApiRequest()
-  console.log(baseHost, "baseHost")
+  // console.log(baseHost, "baseHost")
   const [clientData, setClientData] = React.useState<ClientData>({ // 当前设备数据，包含了设备信息以及离线情况设备消息、通知
     clientID: "",
     id: "",
@@ -135,6 +135,7 @@ export default function ChatBox({ userId }: { userId: number }) {
     chatUserRef.current = chatUser;
   }, [chatUser]);
   React.useEffect(() => { // 监听chatUser切换
+    // console.log("更新原因", socketQueue)
     if (socketQueue.length > 0) {
       socketQueue.forEach(socket => {
         if (socket.type && OnMessageOperation[socket.type]) {
@@ -401,7 +402,7 @@ export default function ChatBox({ userId }: { userId: number }) {
   return (
     <div className="flex h-full relative">
       <div className="w-full sm:w-64">
-        <Card className="p-2 h-full border-0 rounded-none">
+        <Card className="p-2 h-full border-0 rounded-none border-r-[1px]">
           <div className="flex gap-2 justify-end">
             <Popover>
               <PopoverTrigger asChild>
@@ -465,7 +466,7 @@ export default function ChatBox({ userId }: { userId: number }) {
                   </div>
                   <div className="w-3/5 flex flex-col justify-between pl-4">
                     <p className="text-sm font-medium leading-none whitespace-nowrap overflow-visible truncate">{item.friendNickName}</p>
-                    <p className="text-xs text-muted-foreground whitespace-nowrap overflow-visible truncate mt-2">{item.lastMsg || `[${item.msgFiles && item.msgFiles.length}个文件]`}</p>
+                    <p className="text-xs text-muted-foreground whitespace-nowrap overflow-visible truncate mt-2">{ item.msgFiles && item.msgFiles.length > 0 ? `[${item.msgFiles && item.msgFiles.length}个文件]` : item.lastMsg ? item.lastMsg : ''}</p>
                   </div>
                   <div className="w-[calc(40%-2.5rem)] flex flex-col justify-start h-full text-xs text-gray-400 pl-4 text-right">
                     <div>{item.msgTime ? dayjs(item.msgTime).format("HH:MM") : ''}</div>
@@ -477,12 +478,12 @@ export default function ChatBox({ userId }: { userId: number }) {
         </Card>
       </div>
       {/* 好友聊天窗口面板 */}
-      <div className=" w-full sm:w-[calc(100%-16rem)]">
+      <div className={`w-full absolute sm:relative sm:w-[calc(100%-16rem)] bg-white ${chatUser?.friendId ? 'h-full' : 'h-0 sm:h-full'}`}>
         {
-          !chatUser?.friendId && <img src={chatImg} className="scale-50" alt="" />
+          !chatUser?.friendId && <img src={chatImg} className="scale-50 hidden sm:block" alt="" />
         }
         {
-          chatUser?.friendId && <Card className="absolute pt-12 sm:pt-0 sm:relative h-full flex flex-col justify-between border-0 rounded-none border-l-[1px]">
+          chatUser?.friendId && <Card className="pt-12 sm:pt-0 h-full flex flex-col justify-between border-0 rounded-none">
             <CardHeader className="flex flex-row items-center h-10 p-2 text-lg font-medium leading-none border-b-[1px]">
               <Button size={"sm"} onClick={() => setChatUser(null)} variant={"ghost"} className="p-0 pr-4">
                 <ChevronLeft />

@@ -7,17 +7,18 @@ import useClientStore from "@/store/appStore"
 import { useApiRequest } from "@/tools/request"
 import { Drawer, DrawerClose, DrawerTitle, DrawerContent, DrawerTrigger, DrawerHeader } from "@/components/ui/drawer"
 import { Button } from "@/components/ui/button";
-import { ConsoleViewer } from '@/hooks/useConsole';
+import { useConsole, ConsoleViewer } from '@/hooks/useConsole';
 import { MonitorCog, CircleX } from 'lucide-react';
 export default function App() {
-  console.log("APP组件渲染！"+new Date())
+  // console.log("APP组件渲染！"+new Date())
   const navigate = useNavigate();
   const { request } = useApiRequest()
-  // const consoleHook = useConsole();
+  const consoleHook = useConsole();
   const { isClient, checkIsClient, setStoreData, closeWS, selectNetAdapter, setSelectNetAdapter, userInfo, devMode } = useClientStore()
   const [userId, setUserId] = useState<number>(-1)
   const socketList = useRef<Array<any>>([])
   const timeoutHandle = useRef<any>(null)
+  const wsRef = useRef<WebSocket | null>(null)
   // const [socketData, setSocketData] = useState<any>({})
   useEffect(() => {
     checkIsClient().then(res => {
@@ -34,14 +35,13 @@ export default function App() {
     }
   }, [])
 
-  // useEffect(() => {
-  //   console.log("jinru ")
-  //   if (devMode) {
-  //     consoleHook.startListening()
-  //   } else {
-  //     if (consoleHook.getState().isListening) consoleHook.stopListening()
-  //   }
-  // }, [devMode])
+  useEffect(() => {
+    if (devMode) {
+      consoleHook.startListening()
+    } else {
+      if (consoleHook.getState().isListening) consoleHook.stopListening()
+    }
+  }, [devMode])
 
   // 检测是否为客户端首页路由
   const checkPagePath = () => {
@@ -79,8 +79,13 @@ export default function App() {
     }, (Math.random() * 100)) // 设置更新为100秒的延迟
   }, [])
 
-  const connectWS = (id: string, name: string, token: string) => {
+  const connectWS = useCallback((id: string, name: string, token: string) => {
+    if (wsRef.current) {
+      wsRef.current.close();
+      wsRef.current = null;
+    }
     let wsHandle = new WebSocket(`ws://127.0.0.1:${localStorage.getItem("appPort") || "4321"}/ws?ldToken=${token}&id=${id}&name=${name}`)
+    wsRef.current = wsHandle;
     wsHandle.onmessage = (event) => {
       const info = JSON.parse(event.data);
       if (info.type === "deviceRealTimeInfo") {
@@ -92,7 +97,8 @@ export default function App() {
             }))
           }
         })
-      } else {
+      }
+      else {
         socketList.current.push(info)
         setSocketQueue()
       }
@@ -106,7 +112,7 @@ export default function App() {
       setUserId(+userInfo.userId)
     }
 
-  }
+  }, [])
 
   const appLogin = () => {
     let uName
@@ -171,11 +177,15 @@ export default function App() {
         <DrawerHeader className="pt-0 pb-0 flex justify-between items-center">
           <DrawerTitle>控制台</DrawerTitle>
           <DrawerClose asChild>
-            <Button variant="ghost" size={"sm"}><CircleX size={20}/></Button>
+            <Button variant="ghost" size={"sm"}><CircleX size={20} /></Button>
           </DrawerClose>
         </DrawerHeader>
         <div className="px-2">
-          <ConsoleViewer />
+          <ConsoleViewer
+            useConsole={consoleHook}
+            onClearLogs={consoleHook.clearLogs}
+            onClearRequests={consoleHook.clearRequests}
+          />
         </div>
       </DrawerContent>
     </Drawer>
