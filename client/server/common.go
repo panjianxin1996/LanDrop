@@ -162,3 +162,12 @@ func Contains(slice []string, target string) bool {
 	}
 	return false
 }
+
+func ChanIsClosed(ch chan []byte) bool {
+	select {
+	case _, ok := <-ch:
+		return !ok
+	default:
+		return false
+	}
+}

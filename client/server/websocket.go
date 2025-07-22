@@ -128,9 +128,8 @@ func (h *WSHub) registerClient(client *WSClient) {
 
 	// 检查是否存在同一用户 ID 的活跃连接
 	for _, existing := range h.clients {
-		if existing.Id == client.Id && existing.IsConnected {
-			log.Printf("发现重复连接: 用户 %d 已有活跃连接 %s", client.Id, existing.clientID)
-
+		if existing.clientID == client.clientID && existing.IsConnected {
+			log.Printf("发现重复连接: 用户【%d】已有活跃连接【%s】", client.Id, existing.clientID)
 			// 立即关闭旧连接
 			existing.mutex.Lock()
 			existing.IsConnected = false
@@ -138,10 +137,9 @@ func (h *WSHub) registerClient(client *WSClient) {
 			close(existing.Send)
 			existing.cancel()
 			existing.mutex.Unlock()
-
 			// 从 Hub 中移除
 			delete(h.clients, existing.clientID)
-			log.Printf("已强制关闭旧连接: %s", existing.clientID)
+			log.Printf("已强制关闭旧连接:【%s】", existing.clientID)
 		}
 	}
 
@@ -151,7 +149,7 @@ func (h *WSHub) registerClient(client *WSClient) {
 	client.IsConnected = true // 标记为新连接
 	client.LastPing = time.Now()
 
-	log.Printf("新客户端连接成功: %s (用户 %d)", client.clientID, client.Id)
+	log.Printf("新客户端连接成功:【%s】,当前连接数: %d", client.clientID, len(h.clients))
 
 	// 发送欢迎消息
 	welcomeMsg := WSMsg{
@@ -176,10 +174,14 @@ func (h *WSHub) unregisterClient(client *WSClient) {
 		delete(h.clients, client.clientID)
 
 		// 2. 关闭发送通道
-		close(client.Send)
+		if !ChanIsClosed(client.Send) {
+			close(client.Send)
+		}
 
-		// 3. 取消上下文
-		client.cancel()
+		// 取消上下文
+		if client.cancel != nil {
+			client.cancel()
+		}
 
 		// 4. 关闭连接
 		if client.Conn != nil {
@@ -187,9 +189,9 @@ func (h *WSHub) unregisterClient(client *WSClient) {
 			client.Conn.Close()
 		}
 
-		log.Printf("客户端 %s 已完全断开，当前连接数: %d", client.clientID, len(h.clients))
+		log.Printf("客户端【%s】已完全断开，当前连接数: %d", client.clientID, len(h.clients))
 	} else {
-		log.Printf("注销客户端失败: 客户端 %s 不在连接列表中", client.clientID)
+		log.Printf("注销客户端失败: 客户端【%s】不在连接列表中", client.clientID)
 	}
 }
 
@@ -299,6 +301,7 @@ func (h *WSHub) Close() {
 
 // 创建新的WebSocket客户端
 func NewWSClient(conn *websocket.Conn, hub *WSHub, db db.SqlliteDB, userToken *UserToken, id int64, name string) *WSClient {
+	time.Sleep(100 * time.Millisecond) // 防止旧连接清理未完成
 	ctx, cancel := context.WithCancel(context.Background())
 	return &WSClient{
 		clientID:    fmt.Sprintf(`%s#%v`, name, id),
@@ -362,23 +365,23 @@ func (c *WSClient) WritePump() {
 	for {
 		select {
 		case <-c.ctx.Done():
-			log.Printf("客户端 %s 已关闭写入循环", c.clientID)
+			log.Printf("客户端【%s】已关闭写入循环", c.clientID)
 			return
 		case message, ok := <-c.Send:
 			if !ok {
 				// 通道已关闭
-				log.Printf("客户端 %s 发送通道已关闭", c.clientID)
+				log.Printf("客户端【%s】发送通道已关闭", c.clientID)
 				return
 			}
 			c.Conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
 			if err := c.safeWriteMessage(websocket.TextMessage, message); err != nil {
-				log.Printf("客户端 %s 发送消息失败: %v", c.clientID, err)
+				log.Printf("客户端【%s】发送消息失败: %v", c.clientID, err)
 				return
 			}
 		case <-ticker.C:
 			c.Conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
 			if err := c.Conn.WriteMessage(websocket.PingMessage, nil); err != nil {
-				log.Printf("客户端 %s 发送ping失败: %v", c.clientID, err)
+				log.Printf("客户端【%s】发送ping失败: %v", c.clientID, err)
 				return
 			}
 		}
