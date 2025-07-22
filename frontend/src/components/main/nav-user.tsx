@@ -1,60 +1,67 @@
-import {
-  UserRound,
-  LogOutIcon,
-  MoreVerticalIcon,
-  PenLine,
-  Pen,
-  CheckLine
-} from "lucide-react"
-import {
-  Avatar,
-  AvatarFallback,
-  // AvatarImage,
-} from "@/components/ui/avatar"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  // DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import {
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  useSidebar,
-} from "@/components/ui/sidebar"
+import { UserRound, LogOutIcon, MoreVerticalIcon, PenLine, Pen, CheckLine } from "lucide-react"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from "@/components/ui/sidebar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { userAvatar } from "@/app/commonData"
-import { useState } from "react"
+import { forwardRef, useEffect, useImperativeHandle, useState } from "react"
 import { Button } from "@/components/ui/button"
 import useClientStore from "@/store/appStore"
-import { Input } from "../ui/input"
+import { Input } from "@/components/ui/input"
+import { useApiRequest } from "@/tools/request"
+import { toast } from "sonner"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { AppLoginForm } from "./app-login"
+interface NavUserRef {
+    closeLoginDialog: () => void;
+}
 
-export function NavUser() {
+const NavUser = forwardRef<NavUserRef,{loginEvent?: (adminId: string,adminPwd: string) => void}>(({loginEvent}, ref) => {
   const { userInfo } = useClientStore()
+  const { request } = useApiRequest()
   const { isMobile } = useSidebar()
   const [userData, setUserData] = useState<{
-    name: string
+    nickName: string
     id: string
     avatar: string
     role: string
   }>({
-    name: userInfo.nickName,
+    nickName: userInfo.nickName,
     id: userInfo.userId,
     avatar: userInfo.avatar,
     role: userInfo.role
   })
-
   const [isChange, setIsChange] = useState<boolean>(false)
   const [changeName, setChangeName] = useState<boolean>(false)
+  const [openAppLogin, setOpenAppLogin] = useState<boolean>(false)
+
+  useEffect(() => {
+    setUserData({
+      nickName: userInfo.nickName,
+      id: userInfo.userId,
+      avatar: userInfo.avatar,
+      role: userInfo.role
+    })
+  }, [userInfo])
+
+  useImperativeHandle(ref, ()=> ({
+    closeLoginDialog: ()=> {
+      setOpenAppLogin(false)
+    }
+  }))
   const changeUserAvatar = (avatar: string) => {
     setIsChange(true)
     setUserData({
       ...userData,
       avatar
+    })
+  }
+  const updateUserInfo = () => {
+    request("/updateUserInfo", 'POST', userData).then(res => {
+      if (res.code === 200) {
+        toast.success("更新成功")
+        setIsChange(false)
+      }
     })
   }
   return (
@@ -72,7 +79,7 @@ export function NavUser() {
                 </AvatarFallback>
               </Avatar>
               <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-medium">{userData.name}</span>
+                <span className="truncate font-medium">{userData.nickName}</span>
                 <span className="truncate text-xs text-muted-foreground">
                   {(userData.role === 'admin' || userData.role === "admin+") ? "管理员" : "普通用户"}
                 </span>
@@ -113,29 +120,45 @@ export function NavUser() {
                   <div className="flex justify-between items-center">
                     {
                       changeName ?
-                        <Input maxLength={8} className="mr-2 h-8" onChange={(e) => (setUserData(prev => ({ ...prev, name: e.target.value })))} />
+                        <Input maxLength={8} className="mr-2 h-8" onBlur={() => setChangeName(false)} onChange={(e) => (setUserData(prev => ({ ...prev, nickName: e.target.value })))} />
                         :
-                        <span className="truncate font-medium">{userData.name}</span>
+                        <span className="truncate font-medium">{userData.nickName}</span>
                     }
-                    <Button size="sm" variant="outline" className="px-2 py-4 text-xs h-6" onClick={() => setChangeName(changeName ? false : true)}>
-                      { changeName ? <CheckLine size={15} /> : <PenLine size={15} /> }
+                    <Button size="sm" variant="outline" className="px-2 py-4 text-xs h-6" onClick={() => setChangeName(changeName ? false : true)} >
+                      {changeName ? <CheckLine size={15} /> : <PenLine size={15} />}
                     </Button>
                   </div>
                   <div className="flex justify-between items-center mt-2">
                     <span className="truncate text-xs text-muted-foreground">{(userData.role === 'admin' || userData.role === "admin+") ? "管理员" : "普通用户"}</span>
-                    {isChange && <Button size="sm" className="px-2 text-xs h-6">更新</Button>}
+                    {isChange && <Button size="sm" className="px-2 text-xs h-6" onClick={() => updateUserInfo()}>更新</Button>}
                   </div>
                 </div>
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
+            <DropdownMenuItem onClick={()=> setOpenAppLogin(true)}>
               <LogOutIcon />
               切换账户
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarMenuItem>
+      <Dialog open={openAppLogin} onOpenChange={setOpenAppLogin}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle></DialogTitle>
+            <DialogDescription asChild>
+              <AppLoginForm loginEvent={loginEvent}/>
+            </DialogDescription>
+          </DialogHeader>
+        </DialogContent>
+      </Dialog>
+
     </SidebarMenu>
   )
+})
+export {
+  NavUser
 }
+
+export type { NavUserRef }

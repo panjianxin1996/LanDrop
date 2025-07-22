@@ -4,7 +4,7 @@ import {
 } from "lucide-react"
 import { NavMain } from "@/components/main/nav-main"
 import { NavSecondary } from "@/components/main/nav-secondary"
-import { NavUser } from "@/components/main/nav-user"
+import { NavUser, type NavUserRef } from "@/components/main/nav-user"
 import {
   Sidebar,
   SidebarContent,
@@ -16,9 +16,14 @@ import {
 } from "@/components/ui/sidebar"
 import { navMain, navSecondary } from "@/router"
 import { Link } from 'react-router-dom'
-export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+type AppSidebarProps = {
+  sidebarProps: React.ComponentProps<typeof Sidebar>;
+  loginEvent?: (adminId: string, adminPwd: string) => void;
+};
+
+const AppSidebar = React.forwardRef<NavUserRef, AppSidebarProps>(({ sidebarProps, loginEvent }, ref) => {
   return (
-    <Sidebar collapsible="offcanvas" {...props} className="pt-4">
+    <Sidebar collapsible="offcanvas" {...sidebarProps} className="pt-4">
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
@@ -39,8 +44,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <NavSecondary items={navSecondary} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser/>
+        <NavUser loginEvent={loginEvent} ref={ref}/>
       </SidebarFooter>
     </Sidebar>
   )
-}
+})
+export {
+  AppSidebar
+} 

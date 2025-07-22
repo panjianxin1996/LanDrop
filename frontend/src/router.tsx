@@ -1,11 +1,11 @@
 import {
-    BarChartIcon,
     FolderIcon,
     HelpCircleIcon,
     LayoutDashboardIcon,
     SearchIcon,
     SettingsIcon,
     UsersIcon,
+    PocketKnife
 } from "lucide-react"
 import React, { Suspense, LazyExoticComponent } from "react"
 import App from '@/App'
@@ -36,7 +36,7 @@ export let navMain = [
     {
         title: "工具",
         path: "tools",
-        icon: BarChartIcon,
+        icon: PocketKnife,
         element: LazyComponent({
             component: React.lazy(() => import("@/app/main/tools"))
         })

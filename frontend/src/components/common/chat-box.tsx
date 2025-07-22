@@ -413,17 +413,17 @@ export default function ChatBox({ userId }: { userId: number }) {
                   }
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="min-w-fit max-w-3xl">
+              <PopoverContent className="min-w-fit max-w-4xl">
                 {
                   !notifyList || (Array.isArray(notifyList) && notifyList.length === 0) && <div className="text-center text-xs text-neutral-800">没有通知信息</div>
                 }
                 {
                   notifyList.map((item: NotifyItem) => (
                     <div key={item.fId} className="flex items-center justify-between">
-                      <div className="flex items-center text-xs text-neutral-800 pr-4">
+                      <div className="flex items-center text-xs text-neutral-800 pr-4 flex-wrap">
                         <Bell size={15} />
                         <span className="ml-2">来自</span>
-                        <Badge variant="secondary" className="mx-2">{item.fromNickName}</Badge>
+                        <Badge variant="secondary">{item.fromNickName}</Badge>
                         <span>的好友请求。</span>
                       </div>
                       <div className="flex items-center gap-2">

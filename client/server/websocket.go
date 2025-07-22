@@ -116,7 +116,7 @@ func (h *WSHub) Run() {
 		case client := <-h.unregister: // 用户注销退出系统
 			h.unregisterClient(client)
 		case message := <-h.broadcast: // 通道广播消息
-			h.broadcastMessage(message, "admin")
+			h.broadcastMessage(message, "admin+", "admin")
 		}
 	}
 }
@@ -200,7 +200,7 @@ func (h *WSHub) broadcastMessage(message []byte, userTypeFilter ...string) {
 	for _, client := range h.clients {
 		if client.IsActive {
 			// 如果没有过滤条件，或者用户类型匹配
-			if len(userTypeFilter) == 0 || client.UserType == userTypeFilter[0] {
+			if len(userTypeFilter) == 0 || Contains(userTypeFilter, client.UserType) {
 				clients = append(clients, client)
 			}
 		}

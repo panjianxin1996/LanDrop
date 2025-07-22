@@ -152,3 +152,13 @@ func proxyServer() (*http.Server, error) {
 	}()
 	return server, nil
 }
+
+// 检测slice中是否包含某个元素
+func Contains(slice []string, target string) bool {
+	for _, s := range slice {
+		if s == target {
+			return true
+		}
+	}
+	return false
+}

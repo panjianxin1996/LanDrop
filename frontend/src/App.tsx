@@ -1,5 +1,5 @@
 import { AppSidebar } from "@/components/main/app-sidebar"
-import { SiteHeader } from "@/components/main/app-header"
+import { AppHeader } from "@/components/main/app-header"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Outlet, useNavigate } from 'react-router-dom'
@@ -9,6 +9,7 @@ import { Drawer, DrawerClose, DrawerTitle, DrawerContent, DrawerTrigger, DrawerH
 import { Button } from "@/components/ui/button";
 import { useConsole, ConsoleViewer } from '@/hooks/useConsole';
 import { MonitorCog, CircleX } from 'lucide-react';
+import { toast } from "sonner";
 export default function App() {
   // console.log("APP组件渲染！"+new Date())
   const navigate = useNavigate();
@@ -19,12 +20,25 @@ export default function App() {
   const socketList = useRef<Array<any>>([])
   const timeoutHandle = useRef<any>(null)
   const wsRef = useRef<WebSocket | null>(null)
-  // const [socketData, setSocketData] = useState<any>({})
+  const sidebarRef = useRef<any>(null)
+  const adminLoginInfo = useRef<Record<string, any>>({})
   useEffect(() => {
+    if (userInfo.userId && userInfo.userPwd) {
+      let pwd = atob(atob(userInfo.userPwd))
+      adminLoginInfo.current = {
+        adminName: userInfo.userId.toString(),
+        adminPassword: pwd,
+      }
+    } else {
+      adminLoginInfo.current = {
+        adminName: '1000',
+        adminPassword: 'admin@123',
+      }
+    }
     checkIsClient().then(res => {
       if (res) {
         // 客户端鉴权登录
-        appLogin()
+        appLogin(adminLoginInfo.current, 'login')
       } else {
         if (checkPagePath()) navigate("/web", { replace: true });
       }
@@ -114,55 +128,54 @@ export default function App() {
 
   }, [])
 
-  const appLogin = () => {
-    let uName
-    if (!userInfo.userName) uName = `admin${(Math.random() * 1000).toFixed(0)}`
-    else uName = userInfo.userName
-    setStoreData({
-      set: { userInfo: { ...userInfo, userName: uName } },
-      // name: 'userInfo', value: { ...userInfo, userName: uName }, 
-      finish: (store) => {
-        // console.log(store, "store")
-        request("/appLogin", "POST", {
-          adminName: store.userInfo.userName,
-          adminPassword: `landrop#${store.userInfo.userName}`,
-          timeStamp: new Date().getTime().toString()
-        }).then(res => {
-          if (res && res.code === 200) {
-            // localStorage.setItem("ldtoken", res.data.token)
-            setStoreData({
-              before: (_, set) => {
-                set({
-                  userInfo: {
-                    token: res.data.token,
-                    userName: res.data.adminName,
-                    nickName: res.data.nickName,
-                    userId: res.data.adminId,
-                    role: res.data.role,
-                    avatar: res.data.avatar,
-                  }
-                })
-              },
-              finish: (store) => {
-                // 连接socket数据
-                connectWS(store.userInfo.userId, store.userInfo.userName, store.userInfo.token)
-                // 获取网卡列表
-                getNetworkInfo()
+  const appLogin = (adminLoginInfo: Record<string, any>, loginType: string) => {
+    request("/appLogin", "POST", {
+      ...adminLoginInfo,
+      timeStamp: new Date().getTime().toString()
+    }).then(res => {
+      if (res && res.code === 200) {
+        toast.success("登录成功")
+        if (loginType === 'change') {
+          sidebarRef.current?.closeLoginDialog()
+        }
+        setStoreData({
+          before: (_, set) => {
+            set({
+              userInfo: {
+                token: res.data.token,
+                userName: res.data.adminName,
+                nickName: res.data.nickName,
+                userId: res.data.adminId,
+                role: res.data.role,
+                avatar: res.data.avatar,
+                userPwd: btoa(btoa(adminLoginInfo.adminPassword))
               }
             })
+          },
+          finish: (store) => {
+            // 连接socket数据
+            connectWS(store.userInfo.userId, store.userInfo.userName, store.userInfo.token)
+            // 获取网卡列表
+            getNetworkInfo()
           }
         })
       }
     })
   }
 
+  const appAdminLogin = (adminId: string, adminPwd: string) => {
+    let tmpAdminInfo = { adminName: adminId, adminPassword: adminPwd }
+    adminLoginInfo.current = tmpAdminInfo
+    appLogin(tmpAdminInfo, "change")
+  }
+
   return !isClient && checkPagePath() ? <></> : (<SidebarProvider style={{ height: "100vh" }}>
     {/* return (<SidebarProvider> */}
     {/* 侧边栏 */}
-    <AppSidebar variant="inset" />
+    <AppSidebar sidebarProps={{ variant: 'inset' }} loginEvent={appAdminLogin} ref={sidebarRef} />
     {/* 主体 */}
     <SidebarInset className="overflow-auto !w-3/5 !m-0 !rounded-none h-full ">
-      <SiteHeader />
+      <AppHeader />
       <main className=" flex flex-1 flex-col">
         <Outlet context={{ userId: userId }} />
       </main>

@@ -177,6 +177,7 @@ export default function AppWeb() {
                             userId: "",
                             role: "",
                             avatar: "",
+                            userPwd: "",
                         }
                     })
                 },

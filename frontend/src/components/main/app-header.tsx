@@ -4,7 +4,7 @@ import { useLocation } from 'react-router-dom'
 import router from "@/router"
 import { Button } from "@/components/ui/button"
 import { RotateCw } from "lucide-react"
-export function SiteHeader() {
+export function AppHeader() {
   const { pathname } = useLocation();
   return (
     <header className="group-has-data-[collapsible=icon]/sidebar-wrapper:h-12 flex h-12 shrink-0 items-center gap-2 border-b transition-[width,height] ease-linear sticky top-0 bg-white z-50">

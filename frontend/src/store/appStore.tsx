@@ -35,6 +35,7 @@ type AppStore = {
     token: string,
     role: string,
     avatar: string,
+    userPwd: string,
   },
   validExpToken: boolean,
   uploadedFiles: Record<string, any>, // 上传的文件列表
@@ -108,6 +109,7 @@ const useClientStore = create<AppStore>()(
         token: "",
         role: "",
         avatar: "",
+        userPwd: "",
       },
       validExpToken: false,
       uploadedFiles: {},

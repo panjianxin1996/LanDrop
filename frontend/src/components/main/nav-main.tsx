@@ -79,7 +79,7 @@ export function NavMain({
                 <DialogFooter className="sm:justify-start">
                   <DialogClose asChild>
                     <Button type="button" variant="secondary">
-                      Close
+                      关闭
                     </Button>
                   </DialogClose>
                 </DialogFooter>

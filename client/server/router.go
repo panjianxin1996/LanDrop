@@ -60,7 +60,7 @@ func startRouter(app *fiber.App, assets embed.FS, config Config, sldb db.Sqllite
 			sendErrorAndClose(conn, "无法验证token有效性")
 			return
 		}
-		if tokenJWT.Role != "admin" && tokenJWT.Role != "guest" { // 验证角色权限 - 修复逻辑判断
+		if tokenJWT.Role != "admin+" && tokenJWT.Role != "admin" && tokenJWT.Role != "guest" { // 验证角色权限 - 修复逻辑判断
 			sendErrorAndClose(conn, "token角色验证失败")
 			return
 		}
@@ -460,29 +460,30 @@ func (r Router) appLogin(c *fiber.Ctx) error {
 		r.Reply.Data = nil
 		return c.Status(r.Reply.Code).JSON(r.Reply)
 	}
-	var adminId int64
-	var adminName, adminRole, nickName string
-	err := r.db.DB.QueryRow("SELECT id, name, nickName, role FROM users WHERE (nickName = ? OR name = ?) AND pwd = ?", postBody["adminName"], postBody["adminName"], postBody["adminPassword"]).Scan(&adminId, &adminName, &nickName, &adminRole)
-	if err != nil && err == sql.ErrNoRows {
-		result, err := r.db.Exec(`INSERT INTO users ( name, nickName, pwd, role, ip, createdAt) VALUES (?, ?, ?, ?, ?, ?);`, postBody["adminName"], "管理员", postBody["adminPassword"], "admin", clientIP, time.Now().Format("2006-01-02 15:04:05"))
-		if err != nil {
-			r.Reply.Code = http.StatusBadRequest
-			r.Reply.Msg = "创建失败1"
-			r.Reply.Data = err
-			return c.Status(r.Reply.Code).JSON(r.Reply)
-		}
-		insertId, _ := result.LastInsertId()
-		adminId = insertId
-		adminName = postBody["adminName"]
-		adminRole = "admin"
-		nickName = "管理员"
-	} else if err != nil {
+	// var adminId int64
+	// var adminName, adminRole, nickName string
+	adminUserList := r.db.QueryList("SELECT id, name, nickName, role, avatar FROM users WHERE (nickName = ? OR name = ? OR id = ?) AND pwd = ?", postBody["adminName"], postBody["adminName"], postBody["adminName"], postBody["adminPassword"])
+	// err := r.db.DB.QueryRow("SELECT id, name, nickName, role FROM users WHERE (nickName = ? OR name = ?) AND pwd = ?", postBody["adminName"], postBody["adminName"], postBody["adminPassword"]).Scan(&adminId, &adminName, &nickName, &adminRole)
+	if len(adminUserList) != 1 {
 		r.Reply.Code = http.StatusBadRequest
-		r.Reply.Msg = "创建失败2"
-		r.Reply.Data = err
+		r.Reply.Msg = "管理员账号或密码错误"
+		r.Reply.Data = "login failed."
 		return c.Status(r.Reply.Code).JSON(r.Reply)
+		// result, err := r.db.Exec(`INSERT INTO users ( name, nickName, pwd, role, ip, createdAt) VALUES (?, ?, ?, ?, ?, ?);`, postBody["adminName"], "管理员", postBody["adminPassword"], "admin", clientIP, time.Now().Format("2006-01-02 15:04:05"))
+		// if err != nil {
+		// 	r.Reply.Code = http.StatusBadRequest
+		// 	r.Reply.Msg = "创建失败1"
+		// 	r.Reply.Data = err
+		// 	return c.Status(r.Reply.Code).JSON(r.Reply)
+		// }
+		// insertId, _ := result.LastInsertId()
+		// adminUserList = r.db.QueryList("SELECT id, name, nickName, role, avatar FROM users WHERE id = ?", insertId)
 	}
-	token, err := CreateToken(adminRole, adminId, adminName, 100*365*24) // 设置app端token长期有效100年
+
+	adminUser := adminUserList[0]
+	adminId := adminUser["id"].(int64)
+	r.db.Exec(`UPDATE users SET ip = ? WHERE id = ?`, clientIP, adminId)
+	token, err := CreateToken(adminUser["role"].(string), adminId, adminUser["name"].(string), 100*365*24) // 设置app端token长期有效100年
 	if err != nil {
 		r.Reply.Code = http.StatusOK
 		r.Reply.Msg = "创建token失败"
@@ -494,9 +495,10 @@ func (r Router) appLogin(c *fiber.Ctx) error {
 	r.Reply.Data = map[string]any{
 		"token":     token,
 		"adminId":   adminId,
-		"adminName": adminName,
-		"nickName":  nickName,
-		"role":      adminRole,
+		"adminName": adminUser["name"],
+		"nickName":  adminUser["nickName"],
+		"role":      adminUser["role"],
+		"avatar":    adminUser["avatar"],
 	}
 	return c.Status(r.Reply.Code).JSON(r.Reply)
 }
