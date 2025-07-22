@@ -194,3 +194,7 @@ func (a *App) ToolsPingHost(pingId any, host string) (map[string]any, error) {
 func (a *App) GetAppConfig() server.Config {
 	return server.GetSettingInfo()
 }
+
+func (a *App) ToolsParseToken(token string) (*server.UserToken, error) {
+	return server.ParseToken(token)
+}

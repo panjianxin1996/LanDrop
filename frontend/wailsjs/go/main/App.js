@@ -22,6 +22,10 @@ export function RestartServer() {
   return window['go']['main']['App']['RestartServer']();
 }
 
+export function ToolsParseToken(arg1) {
+  return window['go']['main']['App']['ToolsParseToken'](arg1);
+}
+
 export function ToolsPingHost(arg1, arg2) {
   return window['go']['main']['App']['ToolsPingHost'](arg1, arg2);
 }

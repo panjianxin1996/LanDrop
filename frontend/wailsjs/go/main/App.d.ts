@@ -12,6 +12,8 @@ export function OpenDirectory():Promise<Record<string, any>>;
 
 export function RestartServer():Promise<void>;
 
+export function ToolsParseToken(arg1:string):Promise<server.UserToken>;
+
 export function ToolsPingHost(arg1:any,arg2:string):Promise<Record<string, any>>;
 
 export function UpdateConfigData(arg1:Record<string, any>):Promise<Record<string, any>>;
