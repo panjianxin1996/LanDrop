@@ -43,7 +43,7 @@ export default function AppWeb() {
     }, [])
     useEffect(() => {
         // web端设置为非客户端
-        if (optForUserId > 0) changeUserEvent(optForUserId)
+        if (optForUserId > 0 && isLogin) changeUserEvent(optForUserId)
     }, [optForUserId])
 
     useEffect(() => {
@@ -105,7 +105,7 @@ export default function AppWeb() {
             setOpenUserDialog(false)
             setIsLogin(true)
         }
-        setOptForUserId(userInfoData && userInfoData.id)
+        userInfoData && setOptForUserId(userInfoData.id)
         currentUserId.current = userInfoData && userInfoData.id
     }
     const getUserList = () => { // 获取用户列表
@@ -187,8 +187,8 @@ export default function AppWeb() {
         let userItem = userList.find((item: any) => item.id === checkId)
         let token = userInfo.token
         localStorage.setItem("rememberUserInfo", JSON.stringify(userItem)) // 设置用户信息
-        if (!token) {
-            console.log("没获取到token请求新的token")
+        if (userItem.id !== userInfo.userId) {
+            console.log("不是当前用户，重新请求")
             const tokenRes = await getUserToken(userItem.id, userItem.name) // 选择用户获取token
             token = tokenRes.data.token
         }
@@ -308,7 +308,7 @@ export default function AppWeb() {
                                                         }
                                                         {
                                                             optForUserId !== item.id && <>
-                                                                <Button variant={"default"} className="ml-2" onClick={() => { changeUserEvent(item.id) }}>切换</Button>
+                                                                <Button variant={"default"} className="ml-2" onClick={() => { setOptForUserId(item.id) }}>切换</Button>
                                                                 <Button variant={"destructive"} className="ml-2" onClick={(e) => { e.preventDefault(); e.stopPropagation(); unBindEvent(item); }}>解绑</Button>
                                                             </>
                                                         }

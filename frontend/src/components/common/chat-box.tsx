@@ -122,7 +122,7 @@ export default function ChatBox({ userId }: { userId: number }) {
   const chatUserRef = React.useRef(chatUser) // 为了方便onMessage中获取最新的chatUser
   const chatWindowRef = React.useRef<any>(null)
   const TextArea = React.useRef<ChatTextAreaRef>(null)
-  // const inputLength = input.trim().length
+  const [filterFriendText, setFilterFriendText] = React.useState("")
   React.useEffect(() => {
     console.log("当前聊天用户ID:", userId)
     if (userId && userId > 0 && wsHandle) {
@@ -446,13 +446,13 @@ export default function ChatBox({ userId }: { userId: number }) {
               </Tooltip>
             </TooltipProvider>
           </div>
-          <Input className="my-2" placeholder="搜索我的好友" onChange={(e) => console.log(e.target.value)}></Input>
+          <Input className="my-2" placeholder="搜索我的好友" onChange={(e) => setFilterFriendText(e.target.value)}></Input>
           <div>
             {
               chatUserList.length === 0 && <div className="text-center text-xs text-neutral-500 mt-10">🧐当前没有好友信息，快去添加好友吧。</div>
             }
             {
-              chatUserList.map((item: ChatUserItem) => {
+              chatUserList.filter((item: ChatUserItem)=> (!filterFriendText || item.friendNickName.indexOf(filterFriendText) != -1)).map((item: ChatUserItem) => {
                 return <div className={`relative h-12 flex items-center mb-2 cursor-pointer p-[4px] hover:bg-slate-100 ${chatUser?.friendId === item.friendId ? 'bg-slate-200' : ''}`} key={item.friendId} onClick={() => { changeChatUser(item) }}>
                   <div className="relative">
                     <Avatar>

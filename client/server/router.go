@@ -462,7 +462,7 @@ func (r Router) appLogin(c *fiber.Ctx) error {
 	}
 	// var adminId int64
 	// var adminName, adminRole, nickName string
-	adminUserList := r.db.QueryList("SELECT id, name, nickName, role, avatar FROM users WHERE (nickName = ? OR name = ? OR id = ?) AND pwd = ?", postBody["adminName"], postBody["adminName"], postBody["adminName"], postBody["adminPassword"])
+	adminUserList := r.db.QueryList("SELECT id, name, nickName, role, avatar FROM users WHERE (name = ? OR id = ?) AND pwd = ?", postBody["adminName"], postBody["adminName"], postBody["adminPassword"])
 	// err := r.db.DB.QueryRow("SELECT id, name, nickName, role FROM users WHERE (nickName = ? OR name = ?) AND pwd = ?", postBody["adminName"], postBody["adminName"], postBody["adminPassword"]).Scan(&adminId, &adminName, &nickName, &adminRole)
 	if len(adminUserList) != 1 {
 		r.Reply.Code = http.StatusBadRequest
