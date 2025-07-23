@@ -196,5 +196,9 @@ func (a *App) GetAppConfig() server.Config {
 }
 
 func (a *App) ToolsParseToken(token string) (*server.UserToken, error) {
-	return server.ParseToken(token)
+	if token == "" {
+		return nil, fmt.Errorf("token为空")
+	}
+	tok, err := server.ParseToken(token)
+	return tok, err
 }
