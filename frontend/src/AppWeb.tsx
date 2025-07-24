@@ -16,8 +16,10 @@ import { toast } from "sonner"
 import { Outlet, useNavigate } from 'react-router-dom'
 import { userAvatar } from "@/app/commonData"
 import { useWebSocket } from "@/hooks/useWebSocket"
+import { useLocation } from "react-router-dom"
 export default function AppWeb() {
     const { checkIsClient, setStoreData, closeWS, validExpToken, userInfo, wsHandle, redDotCount } = useClientStore()
+    const { pathname } = useLocation()
     const { request } = useApiRequest()
     const navigate = useNavigate()
     const { sendMessage } = useWebSocket()
@@ -405,7 +407,7 @@ export default function AppWeb() {
                         btnList.map((item: any) => (
                             <Tooltip key={item.key}>
                                 <TooltipTrigger asChild>
-                                    <div className="flex flex-col justify-center items-center cursor-pointer hover:bg-gray-100 py-4 relative" onClick={() => menuBtnEvent(item.key)}>
+                                    <div className={`flex flex-col justify-center items-center cursor-pointer hover:bg-gray-100 py-4 relative ${pathname.split('/').pop() === item.key ? "bg-zinc-300":""}`} onClick={() => menuBtnEvent(item.key)}>
                                         {item.icon}
                                         <span className="text-xs">{item.name}</span>
                                         {
