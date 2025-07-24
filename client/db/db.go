@@ -36,12 +36,12 @@ func InitDB(dbPath string) (SqlliteDB, error) {
 	if err := db.Ping(); err != nil {
 		return sdb, fmt.Errorf("数据库连接测试失败: %v", err)
 	}
-	if _, err := db.Exec(`DROP TABLE IF EXISTS friendships;
-		DROP TABLE IF EXISTS chat_records;
-		DROP TABLE IF EXISTS settings;
-		DROP TABLE IF EXISTS users;`); err != nil {
-		return sdb, fmt.Errorf("删除表失败: %v", err)
-	}
+	// if _, err := db.Exec(`DROP TABLE IF EXISTS friendships;
+	// 	DROP TABLE IF EXISTS chat_records;
+	// 	DROP TABLE IF EXISTS settings;
+	// 	DROP TABLE IF EXISTS users;`); err != nil {
+	// 	return sdb, fmt.Errorf("删除表失败: %v", err)
+	// }
 	// 初始化用户表结构
 	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS users (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -56,8 +56,8 @@ func InitDB(dbPath string) (SqlliteDB, error) {
 		return sdb, fmt.Errorf("初始化用户表结构失败: %v", err)
 	}
 	// 默认添加超级管理员999账户
-	db.Exec(`INSERT INTO users (id, name, nickName, pwd, role, ip, createdAt) VALUES (999 , "adminPlus", "超级管理员", "admin@123456", "admin+", "127.0.0.1", ?)`, time.Now().Format("2006-01-02 15:04:05"))
-	db.Exec(`INSERT INTO users (id, name, nickName, pwd, role, ip, createdAt) VALUES (1000 , "admin", "管理员", "admin@123", "admin", "127.0.0.1", ?)`, time.Now().Format("2006-01-02 15:04:05"))
+	db.Exec(`INSERT OR IGNORE INTO users (id, name, nickName, pwd, role, ip, createdAt) VALUES (999 , "adminPlus", "超级管理员", "admin@123456", "admin+", "127.0.0.1", ?)`, time.Now().Format("2006-01-02 15:04:05"))
+	db.Exec(`INSERT OR IGNORE INTO users (id, name, nickName, pwd, role, ip, createdAt) VALUES (1000 , "admin", "管理员", "admin@123", "admin", "127.0.0.1", ?)`, time.Now().Format("2006-01-02 15:04:05"))
 	// 初始化客户端设置表结构
 	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS settings (
 		"sId" INTEGER PRIMARY KEY AUTOINCREMENT,
