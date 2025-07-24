@@ -107,7 +107,7 @@ export default function Tools() {
                 </p>
                 <div className="p-2 rounded bg-slate-700 text-white h-60 overflow-auto">
                   {
-                    backData?.map(item=> (<p>{item}</p>))
+                    backData?.map((item, i)=> (<p key={`${i}-backData`}>{item}</p>))
                   }
                 </div>
               </div>

@@ -20,17 +20,20 @@ import {
 import { Input } from "@/components/ui/input"
 import { Link } from 'react-router-dom'
 import { OpenDirectory } from "@clientSDK/App"
-import React from 'react'
-
+import React, { } from 'react'
+import useClientStore from "@/store/appStore"
 export function NavMain({
   items,
+  path
 }: {
   items: {
     title: string
     path: string
     icon?: LucideIcon
-  }[]
+  }[],
+  path: string
 }) {
+  const { redDotCount } = useClientStore()
   const [dirPath, setDirPath] = React.useState("")
   const openDirectory = () => {
     OpenDirectory().then(res => {
@@ -50,7 +53,7 @@ export function NavMain({
                 <SidebarMenuButton
                   tooltip="快速分享"
                   className="min-w-8 bg-primary text-primary-foreground duration-200 ease-linear hover:bg-primary/90 hover:text-primary-foreground active:bg-primary/90 active:text-primary-foreground"
-                  // onClick={openDirectory}
+                // onClick={openDirectory}
                 >
                   <PlusCircleIcon />
                   <span>快速分享</span>
@@ -90,14 +93,19 @@ export function NavMain({
               className="h-9 w-9 shrink-0 group-data-[collapsible=icon]:opacity-0"
               variant="outline"
             >
-              <MailIcon />
+              <Link to={"chat"}>
+                <MailIcon />
+                {
+                  redDotCount > 0 && <p className="text-xs absolute top-[-5px] right-[-5px] bg-red-500 rounded px-[3px] text-white">{redDotCount}</p>
+                }
+              </Link>
             </Button>
           </SidebarMenuItem>
         </SidebarMenu>
         <SidebarMenu>
           {items.map((item) => (
             <SidebarMenuItem key={item.title}>
-              <SidebarMenuButton asChild tooltip={item.title}>
+              <SidebarMenuButton asChild tooltip={item.title} className={`${path === item.path ? 'bg-zinc-300' : ''}`}>
                 <Link to={item.path}>
                   {item.icon && <item.icon />}
                   <span>{item.title}</span>

@@ -15,10 +15,12 @@ import { useApiRequest } from "@/tools/request"
 import { toast } from "sonner"
 import { Outlet, useNavigate } from 'react-router-dom'
 import { userAvatar } from "@/app/commonData"
+import { useWebSocket } from "@/hooks/useWebSocket"
 export default function AppWeb() {
-    const { checkIsClient, setStoreData, closeWS, validExpToken, userInfo } = useClientStore()
+    const { checkIsClient, setStoreData, closeWS, validExpToken, userInfo, wsHandle, redDotCount } = useClientStore()
     const { request } = useApiRequest()
     const navigate = useNavigate()
+    const { sendMessage } = useWebSocket()
     // 分享文件列表信息
     const [openAlert, setOpenAlert] = useState<boolean>(false)
     const [openUserDialog, setOpenUserDialog] = useState<boolean>(true)
@@ -33,6 +35,7 @@ export default function AppWeb() {
     const socketList = useRef<Array<any>>([])
     const timeoutHandle = useRef<any>(null)
     const currentUserId = useRef<number>(-1)
+    const [trigger, setTrigger] = useState<boolean>(false)
     useEffect(() => {
         // web端设置为非客户端
         checkIsClient()
@@ -53,6 +56,10 @@ export default function AppWeb() {
             setOpenUserDialog(true)
         }
     }, [validExpToken])
+
+    useEffect(() => {
+        sendMessage({ type: "getNotifyRedDotData" })
+    }, [wsHandle, trigger])
 
     // 异步传递socket信息，将socket的信息暂存socketList，在100s内进行更新
     const setSocketQueue = useCallback(() => {
@@ -77,9 +84,24 @@ export default function AppWeb() {
             }
             let wsHandle = new WebSocket(`ws://${location.hostname}:4321/ws?ldToken=${token}&id=${userInfo.id}&name=${userInfo.name}`)
             wsHandle.onmessage = (event) => {
-                const data = JSON.parse(event.data);
-                socketList.current.push(data)
-                setSocketQueue()
+                const info = JSON.parse(event.data);
+                if (info.type === "replyNotifyRedDotData") { // 红点数据拦截进行全局监听
+                    console.log("replyNotifyRedDotData", info.content)
+                    setStoreData({
+                        before: (_, set) => {
+                            set({
+                                redDotCount: info.content.data.totalCount,
+                                redDotList: info.content.data.redDotList
+                            })
+                        }
+                    })
+                } else {
+                    if (["replyChatReceiveData", "replyAddFriends", "replyDealWithFriends", "replyLatestFriendList"].includes(info.type)) {
+                        setTrigger(pre => !pre)    
+                    }
+                    socketList.current.push(info)
+                    setSocketQueue()
+                }
             }
             wsHandle.onopen = () => {
                 setStoreData({
@@ -285,7 +307,7 @@ export default function AppWeb() {
                                                 <div className="flex item-center">
                                                     <Popover>
                                                         <PopoverTrigger asChild>
-                                                            <Avatar>
+                                                            <Avatar onClick={(e) => !isLogin && e.preventDefault()}>
                                                                 <AvatarFallback className="text-xl">
                                                                     {item.avatar || <UserRound />}
                                                                 </AvatarFallback>
@@ -383,9 +405,12 @@ export default function AppWeb() {
                         btnList.map((item: any) => (
                             <Tooltip key={item.key}>
                                 <TooltipTrigger asChild>
-                                    <div className="flex flex-col justify-center items-center cursor-pointer hover:bg-gray-100 py-4" onClick={() => menuBtnEvent(item.key)}>
+                                    <div className="flex flex-col justify-center items-center cursor-pointer hover:bg-gray-100 py-4 relative" onClick={() => menuBtnEvent(item.key)}>
                                         {item.icon}
                                         <span className="text-xs">{item.name}</span>
+                                        {
+                                            redDotCount > 0 && item.key==="chat" && <p className="text-xs absolute top-2 right-2 bg-red-500 rounded px-[3px] text-white">{redDotCount}</p>
+                                        }
                                     </div>
                                 </TooltipTrigger>
                                 <TooltipContent side="right">

@@ -16,12 +16,18 @@ import {
 } from "@/components/ui/sidebar"
 import { navMain, navSecondary } from "@/router"
 import { Link } from 'react-router-dom'
+import { useLocation } from 'react-router-dom'
 type AppSidebarProps = {
   sidebarProps: React.ComponentProps<typeof Sidebar>;
   loginEvent?: (adminId: string, adminPwd: string) => void;
 };
 
 const AppSidebar = React.forwardRef<NavUserRef, AppSidebarProps>(({ sidebarProps, loginEvent }, ref) => {
+  const { pathname } = useLocation()
+  const [path, setPath] = React.useState("")
+  React.useEffect(() => {
+    setPath(pathname.split('/').slice(-1)[0])
+  }, [pathname])
   return (
     <Sidebar collapsible="offcanvas" {...sidebarProps} className="pt-4">
       <SidebarHeader>
@@ -40,8 +46,8 @@ const AppSidebar = React.forwardRef<NavUserRef, AppSidebarProps>(({ sidebarProps
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <NavMain items={navMain} />
-        <NavSecondary items={navSecondary} className="mt-auto" />
+        <NavMain items={navMain} path={path}/>
+        <NavSecondary items={navSecondary} path={path} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>
         <NavUser loginEvent={loginEvent} ref={ref}/>

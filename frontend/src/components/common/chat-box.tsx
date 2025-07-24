@@ -14,16 +14,17 @@ import { Badge } from "@/components/ui/badge"
 import useClientStore from "@/store/appStore"
 import dayjs from "dayjs"
 import { useApiRequest } from '@/tools/request'
+import { useWebSocket } from "@/hooks/useWebSocket"
 import chatImg from "@/assets/img/chat.svg"
 
 // 发送ws服务器数据结构
-type WebMsg = {
-  sId?: string,
-  type: string,
-  content?: any,
-  user?: any,
-  sendData?: any,
-}
+// type WebMsg = {
+//   sId?: string,
+//   type: string,
+//   content?: any,
+//   user?: any,
+//   sendData?: any,
+// }
 
 // 客户端数据
 type ClientData = {
@@ -102,6 +103,7 @@ type Message = {
 export default function ChatBox({ userId }: { userId: number }) {
   const { wsHandle, userInfo, socketQueue, setStoreData } = useClientStore()
   const { upload, baseHost } = useApiRequest()
+  const { sendMessage } = useWebSocket()
   // console.log(baseHost, "baseHost")
   const [clientData, setClientData] = React.useState<ClientData>({ // 当前设备数据，包含了设备信息以及离线情况设备消息、通知
     clientID: "",
@@ -247,23 +249,23 @@ export default function ChatBox({ userId }: { userId: number }) {
     }
   }
 
-  const sendMessage = (webMsg: WebMsg) => { // 封装socket发送
-    if (!userInfo.userId || !userInfo.userName) {
-      console.warn("发送消息失败，未获取到用户信息。。。")
-      return
-    }
-    if (!wsHandle || wsHandle.readyState != wsHandle.OPEN) {
-      console.warn("发送消息失败，socket连接断开。。。", wsHandle?.readyState)
-      return
-    }
-    const { sId, type, sendData, content, user } = webMsg
-    let timeStamp = new Date().getTime()
-    let clientType = "LD_WEB"
-    let initUser = user || { userId: userInfo.userId, userName: userInfo.userName }
-    let initContent = content || {}
-    let webSendData = { sId: sId || `LD_${timeStamp}`, type, sendData, content: initContent, user: initUser, timeStamp, clientType }
-    wsHandle.send(JSON.stringify(webSendData))
-  }
+  // const sendMessage = (webMsg: WebMsg) => { // 封装socket发送
+  //   if (!userInfo.userId || !userInfo.userName) {
+  //     console.warn("发送消息失败，未获取到用户信息。。。")
+  //     return
+  //   }
+  //   if (!wsHandle || wsHandle.readyState != wsHandle.OPEN) {
+  //     console.warn("发送消息失败，socket连接断开。。。", wsHandle?.readyState)
+  //     return
+  //   }
+  //   const { sId, type, sendData, content, user } = webMsg
+  //   let timeStamp = new Date().getTime()
+  //   let clientType = "LD_WEB"
+  //   let initUser = user || { userId: userInfo.userId, userName: userInfo.userName }
+  //   let initContent = content || {}
+  //   let webSendData = { sId: sId || `LD_${timeStamp}`, type, sendData, content: initContent, user: initUser, timeStamp, clientType }
+  //   wsHandle.send(JSON.stringify(webSendData))
+  // }
   const initData = () => { // 初始化数据
     setClientData({
       clientID: "",
@@ -413,13 +415,13 @@ export default function ChatBox({ userId }: { userId: number }) {
                   }
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="min-w-fit max-w-4xl">
+              <PopoverContent className="min-w-max">
                 {
                   !notifyList || (Array.isArray(notifyList) && notifyList.length === 0) && <div className="text-center text-xs text-neutral-800">没有通知信息</div>
                 }
                 {
                   notifyList.map((item: NotifyItem) => (
-                    <div key={item.fId} className="flex items-center justify-between">
+                    <div key={item.fId} className="flex items-center justify-between mt-4">
                       <div className="flex items-center text-xs text-neutral-800 pr-4 flex-wrap">
                         <Bell size={15} />
                         <span className="ml-2">来自</span>
@@ -480,7 +482,7 @@ export default function ChatBox({ userId }: { userId: number }) {
       {/* 好友聊天窗口面板 */}
       <div className={`w-full absolute sm:relative sm:w-[calc(100%-16rem)] bg-white ${chatUser?.friendId ? 'h-full' : 'h-0 sm:h-full'}`}>
         {
-          !chatUser?.friendId && <img src={chatImg} className="scale-50 hidden sm:block" alt="" />
+          !chatUser?.friendId && <div className="flex justify-center items-center w-full h-full"><img src={chatImg} className="w-[40vw] hidden sm:block" alt="" /></div>
         }
         {
           chatUser?.friendId && <Card className="pt-12 sm:pt-0 h-full flex flex-col justify-between border-0 rounded-none">

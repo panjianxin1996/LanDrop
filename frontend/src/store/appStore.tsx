@@ -43,6 +43,8 @@ type AppStore = {
   isOnline: boolean, // 是否在线
   enterKeyToSend: boolean, // 回车发送
   devMode: boolean, // 开发模式
+  redDotCount: number, // 红点数据
+  redDotList: Array<any>, // 红点列表
 }
 
 // 持久化白名单
@@ -117,6 +119,8 @@ const useClientStore = create<AppStore>()(
       isOnline: true,
       enterKeyToSend: false,
       devMode: false,
+      redDotCount: 0,
+      redDotList: [],
     }),
     // 设置持久化存储名称白名单
     { name: 'client-store', partialize: (state) => Object.fromEntries(Object.entries(state).filter(([key]) => !blackList.includes(key))) }

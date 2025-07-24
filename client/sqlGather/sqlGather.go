@@ -223,6 +223,10 @@ var SqlMap = map[string]string{
 	WHERE 
 		f.status = 'accept' 
 		AND f.friendId = ?`,
+	// 【红点接口】查询申请添加好友数据
+	"queryRequestAddFriend": `SELECT * FROM friendships WHERE status = 'pending' AND friendId = ?`,
+	// 【红点接口】查询未查看好友聊天记录（历史聊天记录，未在线聊天记录）
+	"queryUnreadFriendChatRecord": `SELECT * FROM chat_records WHERE toId = ? AND isRead = 'n'`,
 }
 
 func (sg *SqlGather) RunQuery(runType string, args ...any) []map[string]any {

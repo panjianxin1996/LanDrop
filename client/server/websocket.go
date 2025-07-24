@@ -652,5 +652,23 @@ func InitFunc() {
 			log.Println("目标客户端未在线", to, m.SID)
 		}
 	}
-
+	// 获取通知红点
+	FuncMap["getNotifyRedDotData"] = func(c *WSClient, m WebMsg) {
+		// log.Println("=================================接收到getNotifyRedDotData")
+		uId := m.User.UserId
+		var redDotData []map[string]any
+		// 查询添加好友请求
+		addFriendData := sg.RunQuery("queryRequestAddFriend", uId)
+		redDotData = append(redDotData, addFriendData...)
+		// 查询未读好友聊天记录
+		friendChatRecordData := sg.RunQuery("queryUnreadFriendChatRecord", uId)
+		redDotData = append(redDotData, friendChatRecordData...)
+		// log.Println("=================================完成", redDotData)
+		commonReply(c, m.SID, "replyNotifyRedDotData", 1, map[string]any{
+			"totalCount":         len(redDotData),
+			"friendRequestCount": len(addFriendData),
+			"chatRecordCount":    len(friendChatRecordData),
+			"redDotList":         redDotData,
+		})
+	}
 }

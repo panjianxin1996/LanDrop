@@ -10,18 +10,21 @@ import { Button } from "@/components/ui/button";
 import { useConsole, ConsoleViewer } from '@/hooks/useConsole';
 import { MonitorCog, CircleX } from 'lucide-react';
 import { toast } from "sonner";
+import { useWebSocket } from "@/hooks/useWebSocket"
 export default function App() {
   // console.log("APP组件渲染！"+new Date())
   const navigate = useNavigate();
   const { request } = useApiRequest()
+  const { sendMessage } = useWebSocket()
   const consoleHook = useConsole();
-  const { isClient, checkIsClient, setStoreData, closeWS, selectNetAdapter, setSelectNetAdapter, userInfo, devMode } = useClientStore()
+  const { isClient, checkIsClient, setStoreData, closeWS, selectNetAdapter, setSelectNetAdapter, userInfo, devMode, wsHandle } = useClientStore()
   const [userId, setUserId] = useState<number>(-1)
   const socketList = useRef<Array<any>>([])
   const timeoutHandle = useRef<any>(null)
   const wsRef = useRef<WebSocket | null>(null)
   const sidebarRef = useRef<any>(null)
   const adminLoginInfo = useRef<Record<string, any>>({})
+  const [trigger ,setTrigger] = useState<boolean>(false)
   useEffect(() => {
     if (userInfo.userId && userInfo.userPwd) {
       let pwd = atob(atob(userInfo.userPwd))
@@ -111,8 +114,20 @@ export default function App() {
             }))
           }
         })
-      }
-      else {
+      } else if (info.type === "replyNotifyRedDotData") { // 红点数据拦截进行全局监听
+        console.log("replyNotifyRedDotData", info.content)
+        setStoreData({
+          before: (_, set)=>{
+            set({
+              redDotCount: info.content.data.totalCount,
+              redDotList: info.content.data.redDotList
+            })
+          }
+        })
+      } else {
+        if (["replyChatReceiveData","replyAddFriends", "replyDealWithFriends", "replyLatestFriendList"].includes(info.type)) {
+          setTrigger(pre => !pre)
+        }
         socketList.current.push(info)
         setSocketQueue()
       }
@@ -125,8 +140,12 @@ export default function App() {
       })
       setUserId(+userInfo.userId)
     }
-
   }, [])
+
+  useEffect(()=>{
+    console.log(trigger, "更新")
+    sendMessage({type: "getNotifyRedDotData"})
+  },[wsHandle,trigger])
 
   const appLogin = (adminLoginInfo: Record<string, any>, loginType: string) => {
     request("/appLogin", "POST", {
