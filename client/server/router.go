@@ -548,6 +548,7 @@ func (r Router) updateUserInfo(c *fiber.Ctx) error {
 }
 
 func (r Router) uploadChatFiles(c *fiber.Ctx) error {
+	token := c.Locals("userToken").(*UserToken)
 	form, err := c.MultipartForm()
 	if err != nil {
 		r.Reply.Code = http.StatusBadRequest
@@ -590,7 +591,7 @@ func (r Router) uploadChatFiles(c *fiber.Ctx) error {
 			// }
 			// 4. 生成唯一文件名（避免冲突）
 			newFilename := generateFilename(f.Filename)
-			userDir := fmt.Sprintf("%v/%v", time.Now().Format("2006_01"), "test")
+			userDir := fmt.Sprintf("%v/%v", time.Now().Format("2006_01"), token.Username)
 			savePath := filepath.Join(r.userDir, userDir)
 			// 检测文件夹是否存在
 			if err := os.MkdirAll(savePath, 0755); err != nil {
