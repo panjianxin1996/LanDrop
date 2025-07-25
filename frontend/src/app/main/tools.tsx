@@ -1,4 +1,4 @@
-import { ToolsParseToken, ToolsPingHost, ToolsScanNetwork } from "@clientSDK/App"
+import { ToolsParseToken, ToolsPingHost } from "@clientSDK/App"
 import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -13,7 +13,6 @@ export default function Tools() {
   const [backData, setBackData] = useState<Array<string>>([])
   const [loading, setLoading] = useState<boolean>(false)
   const [sendData, setSendData] = useState<string>("")
-  const [subnetMask, setSubnetMask] = useState<string>("")
   // 解析token
   const parseToken = () => {
     setBackData([])
