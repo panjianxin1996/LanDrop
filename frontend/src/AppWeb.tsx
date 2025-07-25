@@ -106,9 +106,7 @@ export default function AppWeb() {
                 }
             }
             wsHandle.onopen = () => {
-                setStoreData({
-                    set: { wsHandle },
-                })
+                setStoreData({ wsHandle })
                 resolve(wsHandle.readyState);
             }
             wsHandle.onerror = () => {

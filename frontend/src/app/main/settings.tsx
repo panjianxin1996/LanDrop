@@ -57,9 +57,7 @@ export default function Settings() {
   }
 
   const changeDevMode = (val: boolean) => {
-    setStoreData({
-      set: {devMode: val}
-    })
+    setStoreData({devMode: val})
   }
 
   React.useEffect(() => {

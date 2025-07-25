@@ -2,22 +2,21 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware' // 持久化存储到localStorage
 import { GetAppConfig } from "@clientSDK/App"
 
-type SetStoreDataParams = {
-  // name?: string // 更新storeKey
-  // value?: any // 更新storeValue
-
-  before?: (store: AppStore, set: { // 更新前钩子
-    (partial: AppStore | Partial<AppStore> | ((state: AppStore) => AppStore | Partial<AppStore>), replace?: false): void;
-    (state: AppStore | ((state: AppStore) => AppStore), replace: true): void;
-  }) => void
-  set?: any
-  finish?: (store: AppStore) => void // 更新后钩子
+type SetFunction = (state: Partial<AppStore> | ((state: AppStore) => Partial<AppStore>)) => void;
+interface SetStoreFullParams {
+  before?: (store: AppStore, set: SetFunction) => void;
+  set?: Partial<AppStore> | ((state: AppStore) => Partial<AppStore>);
+  finish?: (store: AppStore) => void;
 }
+type SetStoreDataParams =
+  | SetStoreFullParams
+  | Partial<AppStore>
+  | ((state: AppStore) => Partial<AppStore>);
 
 type AppStore = {
   isClient: boolean // 是否客户端【区分为客户端app和用户端web】
-  checkIsClient: () => Promise<boolean>
-  clientVersion: string
+  checkIsClient: () => Promise<boolean> // 检测是否为客户端
+  clientVersion: string // 客户端版本号
   setStoreData: (params: SetStoreDataParams) => void // 通用更新store数据函数
   deviceLogsData: any // 设备数据
   wsHandle: WebSocket | null // websocket实例
@@ -36,8 +35,8 @@ type AppStore = {
     role: string,
     avatar: string,
     userPwd: string,
-  },
-  validExpToken: boolean,
+  }, // 用户信息
+  validExpToken: boolean, // token是否有效
   uploadedFiles: Record<string, any>, // 上传的文件列表
   socketQueue: Array<any>, // 消息队列
   isOnline: boolean, // 是否在线
@@ -68,15 +67,35 @@ const useClientStore = create<AppStore>()(
       },
       clientVersion: '',
       setStoreData: (params: SetStoreDataParams) => {
-        if (params.before) params.before(get(), set) // 前置钩子
-        if (params.set) set(params.set) // 没有传递钩子直接更新数据
-        params.finish && params.finish(get()) // 完成后钩子
+        const currentStore = get();
+        if (typeof params === 'function') {
+          set(params as (state: AppStore) => Partial<AppStore>);
+          return;
+        }
+        if (params && typeof params === 'object' && !('before' in params)) {
+          set(params as Partial<AppStore>);
+          return;
+        }
+        const { before, set: setParam, finish } = params as SetStoreFullParams;
+        if (before) before(currentStore, set);
+        if (setParam) {
+          if (typeof setParam === 'function') {
+            set(setParam as (state: AppStore) => Partial<AppStore>, false);
+          } else {
+            set(setParam as Partial<AppStore>, false);
+          }
+          setTimeout(() => {
+            finish?.(get());
+          }, 0);
+        } else {
+          finish?.(currentStore);
+        }
       },
       deviceLogsData: [],
       wsHandle: null,
       closeWS: () => {
         const ws = get().wsHandle
-        return new Promise((resolve)=> {
+        return new Promise((resolve) => {
           if (!ws || ws.readyState !== ws.OPEN) {
             resolve(-1)
             return
@@ -101,9 +120,6 @@ const useClientStore = create<AppStore>()(
       netAdapterList: [],
       ipv4Address: "",
       ipv6Address: "",
-      // adminId: "",
-      // adminName: "",
-      // token: "",
       userInfo: {
         userId: "",
         userName: "",

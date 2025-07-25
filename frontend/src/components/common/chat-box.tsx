@@ -151,11 +151,11 @@ export default function ChatBox({ userId }: { userId: number }) {
       })
     }
   }, [socketQueue]) // socket队列数据更新
-  React.useEffect(() => {
+  React.useLayoutEffect(() => {
     if (chatUser && chatWindowRef.current) {
       chatWindowRef.current.scrollTo({
         top: chatWindowRef.current.scrollHeight,
-        behavior: 'smooth' // 平滑滚动
+        behavior: 'auto' // 平滑滚动
       });
     }
   }, [messages])
@@ -166,10 +166,7 @@ export default function ChatBox({ userId }: { userId: number }) {
       console.warn("监听到ws处理错误:", content.error)
       if (content.code === 401) {
         setStoreData({
-          set: {
-            validExpToken: true,
-
-          }
+          validExpToken: true,
         })
       }
     },
@@ -454,7 +451,7 @@ export default function ChatBox({ userId }: { userId: number }) {
               chatUserList.length === 0 && <div className="text-center text-xs text-neutral-500 mt-10">🧐当前没有好友信息，快去添加好友吧。</div>
             }
             {
-              chatUserList.filter((item: ChatUserItem)=> (!filterFriendText || item.friendNickName.indexOf(filterFriendText) != -1)).map((item: ChatUserItem) => {
+              chatUserList.filter((item: ChatUserItem) => (!filterFriendText || item.friendNickName.indexOf(filterFriendText) != -1)).map((item: ChatUserItem) => {
                 return <div className={`relative h-12 flex items-center mb-2 cursor-pointer p-[4px] hover:bg-slate-100 ${chatUser?.friendId === item.friendId ? 'bg-slate-200' : ''}`} key={item.friendId} onClick={() => { changeChatUser(item) }}>
                   <div className="relative">
                     <Avatar>
@@ -468,7 +465,7 @@ export default function ChatBox({ userId }: { userId: number }) {
                   </div>
                   <div className="w-3/5 flex flex-col justify-between pl-4">
                     <p className="text-sm font-medium leading-none whitespace-nowrap overflow-visible truncate">{item.friendNickName}</p>
-                    <p className="text-xs text-muted-foreground whitespace-nowrap overflow-visible truncate mt-2">{ item.msgFiles && item.msgFiles.length > 0 ? `[${item.msgFiles && item.msgFiles.length}个文件]` : item.lastMsg ? item.lastMsg : ''}</p>
+                    <p className="text-xs text-muted-foreground whitespace-nowrap overflow-visible truncate mt-2">{item.msgFiles && item.msgFiles.length > 0 ? `[${item.msgFiles && item.msgFiles.length}个文件]` : item.lastMsg ? item.lastMsg : ''}</p>
                   </div>
                   <div className="w-[calc(40%-2.5rem)] flex flex-col justify-start h-full text-xs text-gray-400 pl-4 text-right">
                     <div>{item.msgTime ? dayjs(item.msgTime).format("HH:MM") : ''}</div>
@@ -504,7 +501,7 @@ export default function ChatBox({ userId }: { userId: number }) {
                         : "bg-muted"
                     )}
                   >
-                    {message.type === "muti" && message.files.map((item: any) => (<img src={baseHost + item.url + `?token=` + userInfo.token} alt="" />))}
+                    {message.type === "muti" && message.files.map((item: any) => (<img key={item.url} src={baseHost + item.url + `?token=` + userInfo.token} alt="" />))}
                     {message.message}
                   </div>
                 ))}

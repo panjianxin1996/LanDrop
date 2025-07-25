@@ -24,7 +24,7 @@ export default function App() {
   const wsRef = useRef<WebSocket | null>(null)
   const sidebarRef = useRef<any>(null)
   const adminLoginInfo = useRef<Record<string, any>>({})
-  const [trigger ,setTrigger] = useState<boolean>(false)
+  const [trigger, setTrigger] = useState<boolean>(false)
   useEffect(() => {
     if (userInfo.userId && userInfo.userPwd) {
       let pwd = atob(atob(userInfo.userPwd))
@@ -69,9 +69,7 @@ export default function App() {
     request("/getNetworkInfo").then(res => {
       if (res && res.code === 200) {
         setStoreData({
-          set: {
-            netAdapterList: res.data,
-          }
+          netAdapterList: res.data,
         })
         if (selectNetAdapter === "") {
           // 如果第一次加载选中第一个网卡
@@ -117,7 +115,7 @@ export default function App() {
       } else if (info.type === "replyNotifyRedDotData") { // 红点数据拦截进行全局监听
         console.log("replyNotifyRedDotData", info.content)
         setStoreData({
-          before: (_, set)=>{
+          before: (_, set) => {
             set({
               redDotCount: info.content.data.totalCount,
               redDotList: info.content.data.redDotList
@@ -125,7 +123,7 @@ export default function App() {
           }
         })
       } else {
-        if (["replyChatReceiveData","replyAddFriends", "replyDealWithFriends", "replyLatestFriendList"].includes(info.type)) {
+        if (["replyChatReceiveData", "replyAddFriends", "replyDealWithFriends", "replyLatestFriendList"].includes(info.type)) {
           setTrigger(pre => !pre)
         }
         socketList.current.push(info)
@@ -134,18 +132,16 @@ export default function App() {
     }
     wsHandle.onopen = () => {
       setStoreData({
-        set: {
-          wsHandle: wsHandle,
-        }
+        wsHandle: wsHandle,
       })
       setUserId(+userInfo.userId)
     }
   }, [])
 
-  useEffect(()=>{
+  useEffect(() => {
     console.log(trigger, "更新")
-    sendMessage({type: "getNotifyRedDotData"})
-  },[wsHandle,trigger])
+    sendMessage({ type: "getNotifyRedDotData" })
+  }, [wsHandle, trigger])
 
   const appLogin = (adminLoginInfo: Record<string, any>, loginType: string) => {
     request("/appLogin", "POST", {

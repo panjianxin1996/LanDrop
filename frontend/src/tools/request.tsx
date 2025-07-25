@@ -59,7 +59,7 @@ export function useApiRequest() {
         });
 
         const response = await instance.request<T>({ url, method, data });
-        setStoreData({ set: { validExpToken: false } });
+        setStoreData({ validExpToken: false });
         return response.data;
 
       } catch (err) {
@@ -176,7 +176,7 @@ export function useApiRequest() {
         },
       });
     } else {
-      setStoreData({ set: { validExpToken: false } });
+      setStoreData({ validExpToken: false });
     }
     setError(errorData);
     toast.error("请求出错", {
