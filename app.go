@@ -202,3 +202,11 @@ func (a *App) ToolsParseToken(token string) (*server.UserToken, error) {
 	tok, err := server.ParseToken(token)
 	return tok, err
 }
+
+func (a *App) ToolsScanNetwork(ipAddr string, subnetMask string) (tools.ScanNetworkData, error) {
+	if ipAddr == "" || subnetMask == "" {
+		return tools.ScanNetworkData{}, fmt.Errorf("ip地址或子网掩码不能为空")
+	}
+	scanData, err := tools.ScanNetWork(ipAddr, subnetMask)
+	return scanData, err
+}

@@ -30,6 +30,10 @@ export function ToolsPingHost(arg1, arg2) {
   return window['go']['main']['App']['ToolsPingHost'](arg1, arg2);
 }
 
+export function ToolsScanNetwork(arg1, arg2) {
+  return window['go']['main']['App']['ToolsScanNetwork'](arg1, arg2);
+}
+
 export function UpdateConfigData(arg1) {
   return window['go']['main']['App']['UpdateConfigData'](arg1);
 }

@@ -25,6 +25,7 @@ export default function App() {
   const sidebarRef = useRef<any>(null)
   const adminLoginInfo = useRef<Record<string, any>>({})
   const [trigger, setTrigger] = useState<boolean>(false)
+  console.log("emit...")
   useEffect(() => {
     if (userInfo.userId && userInfo.userPwd) {
       let pwd = atob(atob(userInfo.userPwd))
@@ -94,14 +95,7 @@ export default function App() {
     }, (Math.random() * 100)) // 设置更新为100秒的延迟
   }, [])
 
-  const connectWS = useCallback((id: string, name: string, token: string) => {
-    if (wsRef.current) {
-      wsRef.current.close();
-      wsRef.current = null;
-    }
-    let wsHandle = new WebSocket(`ws://127.0.0.1:${localStorage.getItem("appPort") || "4321"}/ws?ldToken=${token}&id=${id}&name=${name}`)
-    wsRef.current = wsHandle;
-    wsHandle.onmessage = (event) => {
+  const onMessage = (event:any) => {
       const info = JSON.parse(event.data);
       if (info.type === "deviceRealTimeInfo") {
         let newNetWorkLog = { ...info.content.network, ...info.content }
@@ -130,6 +124,15 @@ export default function App() {
         setSocketQueue()
       }
     }
+
+  const connectWS = useCallback((id: string, name: string, token: string) => {
+    if (wsRef.current) {
+      wsRef.current.close();
+      wsRef.current = null;
+    }
+    let wsHandle = new WebSocket(`ws://127.0.0.1:${localStorage.getItem("appPort") || "4321"}/ws?ldToken=${token}&id=${id}&name=${name}`)
+    wsRef.current = wsHandle;
+    wsHandle.onmessage = onMessage
     wsHandle.onopen = () => {
       setStoreData({
         wsHandle: wsHandle,

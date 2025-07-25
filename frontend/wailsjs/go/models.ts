@@ -74,3 +74,28 @@ export namespace server {
 
 }
 
+export namespace tools {
+	
+	export class ScanNetworkData {
+	    startRange: number[];
+	    endRange: number[];
+	    devices: any[];
+	    totalCount: number;
+	    error: any;
+	
+	    static createFrom(source: any = {}) {
+	        return new ScanNetworkData(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.startRange = source["startRange"];
+	        this.endRange = source["endRange"];
+	        this.devices = source["devices"];
+	        this.totalCount = source["totalCount"];
+	        this.error = source["error"];
+	    }
+	}
+
+}
+
