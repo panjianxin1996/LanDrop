@@ -103,7 +103,7 @@ const NavUser = forwardRef<NavUserRef,{loginEvent?: (adminId: string,adminPwd: s
                           {userData.avatar || <UserRound />}
                         </AvatarFallback>
                       </Avatar>
-                      <div className="absolute bottom-0 right-0 p-[4px] bg-white rounded shadow">
+                      <div className="absolute bottom-0 right-0 p-[4px] bg-primary text-white rounded shadow">
                         <Pen size={10} />
                       </div>
                     </div>
@@ -122,9 +122,9 @@ const NavUser = forwardRef<NavUserRef,{loginEvent?: (adminId: string,adminPwd: s
                       changeName ?
                         <Input maxLength={8} className="mr-2 h-8" onBlur={() => setChangeName(false)} onChange={(e) => (setUserData(prev => ({ ...prev, nickName: e.target.value })))} />
                         :
-                        <span className="truncate font-medium">{userData.nickName}</span>
+                        <span className="truncate font-medium h-8 leading-8">{userData.nickName}</span>
                     }
-                    <Button size="sm" variant="outline" className="px-2 py-4 text-xs h-6" onClick={() => setChangeName(changeName ? false : true)} >
+                    <Button size="sm" variant="default" className="px-2 py-2 text-xs h-6 p-2" onClick={() => setChangeName(changeName ? false : true)} >
                       {changeName ? <CheckLine size={15} /> : <PenLine size={15} />}
                     </Button>
                   </div>
@@ -153,12 +153,10 @@ const NavUser = forwardRef<NavUserRef,{loginEvent?: (adminId: string,adminPwd: s
           </DialogHeader>
         </DialogContent>
       </Dialog>
-
     </SidebarMenu>
   )
 })
 export {
   NavUser
 }
-
 export type { NavUserRef }

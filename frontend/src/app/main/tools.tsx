@@ -11,16 +11,16 @@ export default function Tools() {
   const { userInfo } = useClientStore()
   const [backData, setBackData] = useState<Array<string>>([])
   const [loading, setLoading] = useState<boolean>(false)
-  const sendRef = useRef<any>("")
+  const [sendData, setSendData] = useState<string>("")
   const containerRef = useRef<any>(null)
   // 解析token
   const parseToken = () => {
     setBackData([])
     setLoading(true)
-    if (!sendRef.current) {
+    if (!sendData) {
       return
     }
-    ToolsParseToken(sendRef.current).then((res: any) => {
+    ToolsParseToken(sendData).then((res: any) => {
       setBackData([JSON.stringify(res, null, 2)])
     }).catch(err => {
       setBackData([err])
@@ -50,7 +50,7 @@ export default function Tools() {
       {/* 超级管理员才能查看  */
         userInfo.role === "admin+" && <Sheet>
           <SheetTrigger asChild>
-            <Card className="w-24 h-24 cursor-pointer hover:bg-gray-50 relative overflow-hidden" onClick={() => setBackData([])}>
+            <Card className="w-24 h-24 cursor-pointer hover:bg-gray-50 relative overflow-hidden" onClick={() => {setSendData("");setBackData([])}}>
               <p className="absolute w-16 top-2 -right-4 text-white bg-red-500 text-xs rotate-45 text-center">超管</p>
               <CardContent className="flex flex-col justify-center items-center h-full p-0">
                 <Braces />
@@ -63,10 +63,10 @@ export default function Tools() {
               <SheetTitle>解析LDToken</SheetTitle>
               <SheetDescription asChild>
                 <div>
-                  <Textarea onChange={(e) => sendRef.current = e.target.value}></Textarea>
+                  <Textarea onChange={(e) => setSendData(e.target.value)}></Textarea>
                   <p className="text-right my-4">
-                    <Button onClick={() => { setBackData([]); sendRef.current = ""; }} size="sm" variant={"destructive"} className="mr-2" disabled={loading}>清空</Button>
-                    <Button onClick={() => parseToken()} size="sm" disabled={!sendRef.current || loading}>
+                    <Button onClick={() => { setBackData([]); setSendData(""); }} size="sm" variant={"destructive"} className="mr-2" disabled={loading}>清空</Button>
+                    <Button onClick={() => parseToken()} size="sm" disabled={!sendData || loading}>
                       {
                         loading && <Loader size={15} className="animate-spin" />
                       }
@@ -84,7 +84,7 @@ export default function Tools() {
       }
       <Sheet>
         <SheetTrigger asChild>
-          <Card className="w-24 h-24 cursor-pointer hover:bg-gray-50" onClick={() => setBackData([])}>
+          <Card className="w-24 h-24 cursor-pointer hover:bg-gray-50" onClick={() => {setSendData("");setBackData([])}}>
             <CardContent className="flex flex-col justify-center items-center h-full p-0">
               <Cable />
               <span className="text-sm text-slate-600 mt-4">Ping主机</span>
@@ -96,9 +96,9 @@ export default function Tools() {
             <SheetTitle>Ping主机连接</SheetTitle>
             <SheetDescription asChild>
               <div ref={containerRef}>
-                <Input placeholder="请输入主机IP/域名地址" onChange={(e) => sendRef.current = e.target.value} />
+                <Input placeholder="请输入主机IP/域名地址" onChange={(e) => setSendData(e.target.value)} />
                 <p className="text-right my-4">
-                  <Button onClick={() => PingHost(sendRef.current)} size="sm" disabled={!sendRef.current || loading}>
+                  <Button onClick={() => PingHost(sendData)} size="sm" disabled={!sendData || loading}>
                     {
                       loading && <Loader size={15} className="animate-spin" />
                     }
