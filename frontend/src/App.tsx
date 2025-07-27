@@ -229,7 +229,7 @@ export default function App() {
       <SidebarInset className="overflow-auto !w-3/5 !m-0 !rounded-none h-full">
         <AppHeader />
         <main className="flex flex-1 flex-col">
-          <Outlet />
+          <Outlet/>
         </main>
       </SidebarInset>
 

@@ -7,7 +7,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTr
 import { Braces, Cable, Loader, Network } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import useStore from "@/store/appStore"
-import NetworkScannerDisplay from "@/components/common/network"
+import NetworkScanner from "@/components/common/network"
 export default function Tools() {
   const userInfo = useStore(state => state.userInfo)
   const [backData, setBackData] = useState<Array<string>>([])
@@ -133,10 +133,10 @@ export default function Tools() {
           </Card>
         </SheetTrigger>
         <SheetContent className="!max-w-full overflow-auto p-2">
-          <SheetHeader>
-            <SheetTitle></SheetTitle>
-            <SheetDescription asChild>
-              <NetworkScannerDisplay />
+          <SheetHeader className="mt-14">
+            {/* <SheetTitle></SheetTitle> */}
+            <SheetDescription asChild >
+              <NetworkScanner />
             </SheetDescription>
           </SheetHeader>
         </SheetContent>

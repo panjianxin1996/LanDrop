@@ -100,7 +100,7 @@ type Message = {
   type: string | null
 }
 
-export default function ChatBox({ userId }: { userId: number }) {
+export default function ChatBox() {
   const { wsHandle, userInfo, socketQueue, setStoreData } = useStore()
   const { upload, baseHost } = useApiRequest()
   const { sendMessage } = useWebSocket()
@@ -126,13 +126,13 @@ export default function ChatBox({ userId }: { userId: number }) {
   const TextArea = React.useRef<ChatTextAreaRef>(null)
   const [filterFriendText, setFilterFriendText] = React.useState("")
   React.useEffect(() => {
-    console.log("当前聊天用户ID:", userId)
-    if (userId && userId > 0 && wsHandle) {
+    console.log("当前聊天用户ID:", userInfo.userId)
+    if (userInfo.userId && wsHandle) {
       initData()
       sendMessage({ type: "pullData" }) // 获取初始数据
       queryFriendList()
     }
-  }, [userId])
+  }, [userInfo.userId])
   React.useEffect(() => {
     chatUserRef.current = chatUser;
   }, [chatUser]);

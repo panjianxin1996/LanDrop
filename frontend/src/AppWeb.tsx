@@ -439,7 +439,7 @@ export default function AppWeb() {
                         }
                     </DropdownMenuContent>
                 </DropdownMenu>
-                <Outlet context={{ userId: currentUserId.current }} />
+                <Outlet />
             </div>
             <div style={{ height: "5vh" }}>
             </div>
