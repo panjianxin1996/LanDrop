@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { RectangleEllipsis, CloudUpload, MessageCircle, UserPlus, CircleUserRound, UserRound, FolderOpen, Menu, ChevronsUpDown } from 'lucide-react'
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import useClientStore from "@/store/appStore"
+import useStore from "@/store/appStore"
 import React, { useEffect, useState, useCallback, useRef } from "react"
 import { useApiRequest } from "@/tools/request"
 import { toast } from "sonner"
@@ -18,7 +18,7 @@ import { userAvatar } from "@/app/commonData"
 import { useWebSocket } from "@/hooks/useWebSocket"
 import { useLocation } from "react-router-dom"
 export default function AppWeb() {
-    const { checkIsClient, setStoreData, closeWS, validExpToken, userInfo, wsHandle, redDotCount } = useClientStore()
+    const { checkIsClient, setStoreData, closeWS, validExpToken, userInfo, wsHandle, redDotCount } = useStore()
     const { pathname } = useLocation()
     const { request } = useApiRequest()
     const navigate = useNavigate()

@@ -1,4 +1,4 @@
-import useClientStore from "@/store/appStore"
+import useStore from "@/store/appStore"
 import React from "react"
 type WebMsg = {
     sId?: string,
@@ -8,7 +8,7 @@ type WebMsg = {
     sendData?: any,
 }
 export function useWebSocket() {
-    const { userInfo, wsHandle } = useClientStore()
+    const { userInfo, wsHandle } = useStore()
     const sendMessage = React.useCallback((webMsg: WebMsg) => {
         console.log("发送消息", wsHandle?.readyState, webMsg)
         if (!userInfo.userId || !userInfo.userName) {

@@ -18,7 +18,7 @@ type AppStore = {
   checkIsClient: () => Promise<boolean> // 检测是否为客户端
   clientVersion: string // 客户端版本号
   setStoreData: (params: SetStoreDataParams) => void // 通用更新store数据函数
-  deviceLogsData: any // 设备数据
+  // deviceLogsData: any // 设备数据
   wsHandle: WebSocket | null // websocket实例
   // connectWS: (id: string, name: string, token: string) => void // 连接websocket
   closeWS: () => Promise<any> // 关闭websocket
@@ -46,10 +46,17 @@ type AppStore = {
   redDotList: Array<any>, // 红点列表
 }
 
-// 持久化白名单
-const blackList = ['deviceLogsData', 'wsHandle']
+interface DeviceLogsStore {
+  deviceLogsData: any[]
+  addDeviceLog: (log: any) => void
+  setDeviceLogs: (logs: any[]) => void
+  clearDeviceLogs: () => void
+}
 
-const useClientStore = create<AppStore>()(
+// 持久化白名单
+const blackList = ['wsHandle']
+
+const useStore = create<AppStore>()(
   persist(
     (set, get) => ({
       isClient: false,
@@ -91,7 +98,7 @@ const useClientStore = create<AppStore>()(
           finish?.(currentStore);
         }
       },
-      deviceLogsData: [],
+      // deviceLogsData: [],
       wsHandle: null,
       closeWS: () => {
         const ws = get().wsHandle
@@ -143,4 +150,25 @@ const useClientStore = create<AppStore>()(
   )
 )
 
-export default useClientStore
+// 日志数据存储
+const MAX_DEVICE_LOGS = 24
+
+const useLogsStore = create<DeviceLogsStore>((set) => ({
+  deviceLogsData: [],
+  addDeviceLog: (log) =>
+    set((state) => {
+      const newData = [...state.deviceLogsData, log]
+      if (newData.length > MAX_DEVICE_LOGS) {
+        return { deviceLogsData: newData.slice(-MAX_DEVICE_LOGS) }
+      }
+      return { deviceLogsData: newData }
+    }),
+  setDeviceLogs: (logs) => set({ deviceLogsData: logs.slice(-MAX_DEVICE_LOGS) }),
+  clearDeviceLogs: () => set({ deviceLogsData: [] }),
+}))
+
+export default useStore
+export {
+  useStore,
+  useLogsStore
+}

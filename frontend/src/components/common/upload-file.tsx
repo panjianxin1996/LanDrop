@@ -3,7 +3,7 @@ import axios from 'axios';
 import { CloudUpload } from 'lucide-react'
 import { autoUnitCalc } from "@/tools/tool"
 import { Progress } from "@/components/ui/progress"
-import useClientStore from "@/store/appStore"
+import useStore from "@/store/appStore"
 import dayjs from 'dayjs'
 import { Button } from "@/components/ui/button"
 
@@ -19,7 +19,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
   maxFileSize = 5 * 1024 * 1024 * 1024, // 默认5GB
   multiple = false,
 }) => {
-  const { uploadedFiles, setStoreData, userInfo } = useClientStore()
+  const { uploadedFiles, setStoreData, userInfo } = useStore()
   const [isDragging, setIsDragging] = useState(false); // 是否正在拖拽
   const [uploadList, setUploadList] = useState<any>([])
   const fileInputRef = useRef<HTMLInputElement>(null); // 文件输入框引用

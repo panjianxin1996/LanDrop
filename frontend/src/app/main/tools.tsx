@@ -6,10 +6,10 @@ import { useState } from "react"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { Braces, Cable, Loader, Network } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
-import useClientStore from "@/store/appStore"
+import useStore from "@/store/appStore"
 import NetworkScannerDisplay from "@/components/common/network"
 export default function Tools() {
-  const { userInfo } = useClientStore()
+  const userInfo = useStore(state => state.userInfo)
   const [backData, setBackData] = useState<Array<string>>([])
   const [loading, setLoading] = useState<boolean>(false)
   const [sendData, setSendData] = useState<string>("")

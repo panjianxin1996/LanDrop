@@ -22,7 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import useClientStore from "@/store/appStore"
+import useStore,{useLogsStore} from "@/store/appStore"
 import { useApiRequest } from "@/tools/request"
 
 const chartConfig = {
@@ -43,7 +43,8 @@ export function ChartNetwork({  }: {
   // deviceLogs: Array<any>
 }) {
   const { request } = useApiRequest()
-  const { selectNetAdapter, setSelectNetAdapter, netAdapterList, ipv4Address, ipv6Address, userInfo, deviceLogsData } = useClientStore()
+  const { selectNetAdapter, setSelectNetAdapter, netAdapterList, ipv4Address, ipv6Address, userInfo,  } = useStore()
+  const {deviceLogsData} = useLogsStore()
   const [allNetData, setAllNetData] = React.useState<any>([])
 
   React.useEffect(() => {

@@ -11,7 +11,7 @@ import ChatTextArea, { type ChatTextAreaRef } from "@/components/common/chatText
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, } from "@/components/ui/tooltip"
 import { Popover, PopoverContent, PopoverTrigger, } from "@/components/ui/popover"
 import { Badge } from "@/components/ui/badge"
-import useClientStore from "@/store/appStore"
+import useStore from "@/store/appStore"
 import dayjs from "dayjs"
 import { useApiRequest } from '@/tools/request'
 import { useWebSocket } from "@/hooks/useWebSocket"
@@ -101,7 +101,7 @@ type Message = {
 }
 
 export default function ChatBox({ userId }: { userId: number }) {
-  const { wsHandle, userInfo, socketQueue, setStoreData } = useClientStore()
+  const { wsHandle, userInfo, socketQueue, setStoreData } = useStore()
   const { upload, baseHost } = useApiRequest()
   const { sendMessage } = useWebSocket()
   // console.log(baseHost, "baseHost")

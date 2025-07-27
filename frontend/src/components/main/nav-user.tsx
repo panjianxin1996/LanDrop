@@ -6,7 +6,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { userAvatar } from "@/app/commonData"
 import { forwardRef, useEffect, useImperativeHandle, useState } from "react"
 import { Button } from "@/components/ui/button"
-import useClientStore from "@/store/appStore"
+import useStore from "@/store/appStore"
 import { Input } from "@/components/ui/input"
 import { useApiRequest } from "@/tools/request"
 import { toast } from "sonner"
@@ -17,7 +17,7 @@ interface NavUserRef {
 }
 
 const NavUser = forwardRef<NavUserRef,{loginEvent?: (adminId: string,adminPwd: string) => void}>(({loginEvent}, ref) => {
-  const { userInfo } = useClientStore()
+  const { userInfo } = useStore()
   const { request } = useApiRequest()
   const { isMobile } = useSidebar()
   const [userData, setUserData] = useState<{

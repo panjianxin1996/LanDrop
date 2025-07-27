@@ -1,6 +1,6 @@
 import { toast } from "sonner";
 import { useState, useCallback } from "react";
-import useClientStore from "@/store/appStore";
+import useStore from "@/store/appStore";
 import axios, { AxiosProgressEvent, AxiosRequestConfig, AxiosError } from "axios";
 
 type RequestMethod = "GET" | "POST" | "PUT" | "DELETE";
@@ -27,7 +27,7 @@ interface UploadOptions extends AxiosRequestConfig {
 }
 
 export function useApiRequest() {
-  const { isClient, setStoreData, userInfo } = useClientStore();
+  const { isClient, setStoreData, userInfo } = useStore();
   const baseHost = `http://${isClient
     ? `127.0.0.1:${localStorage.getItem("appPort") || "4321"}`
     : location.host

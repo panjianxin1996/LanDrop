@@ -2,9 +2,9 @@ import { ChartNetwork } from "@/components/main/chart-network"
 import { SectionCards, type DeviceInfo } from "@/components/main/chart-device-info"
 import { useEffect, useState } from "react"
 import { useApiRequest } from "@/tools/request"
-import useClientStore from "@/store/appStore";
+import useStore from "@/store/appStore";
 export default function Dashboard() {
-  const { userInfo } = useClientStore()
+  const { userInfo } = useStore()
   const [deviceInfo, setDeviceInfo] = useState<DeviceInfo>({
     cpuInfo: { modelName: '-', cores: 0, },
     memInfo: { total: 0 }

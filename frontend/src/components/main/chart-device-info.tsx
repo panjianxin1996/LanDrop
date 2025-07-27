@@ -14,7 +14,7 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart"
-import useClientStore from "@/store/appStore";
+import {useLogsStore} from "@/store/appStore";
 const chartConfig = {
   desktop: {
     label: "Desktop",
@@ -41,7 +41,7 @@ export function SectionCards({ deviceInfo }: {
     { type: 'cpu', title: 'CPU利用率', icon: <CpuIcon size={15} />, iconDesc: '核', lineType: 'cpuUsage' },
     { type: 'mem', title: '内存利用率', icon: <MemoryStickIcon size={15} />, iconDesc: '-', lineType: 'memUsage' },
   ]
-  const { deviceLogsData } = useClientStore()
+  const { deviceLogsData } = useLogsStore()
   return (
     <div className="*:data-[slot=card]:shadow-xs md:grid-cols-[repeat(2,minmax(0,1fr))] grid grid-cols-1 gap-4 px-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card lg:px-6">
       {

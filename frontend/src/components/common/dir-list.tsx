@@ -34,7 +34,7 @@ import {
     Button,
 } from "@/components/ui/button"
 import { OpenDirInExplorer } from "@clientSDK/App"
-import useClientStore from "@/store/appStore"
+import useStore from "@/store/appStore"
 import { useApiRequest } from "@/tools/request"
 import { toast } from "sonner"
 
@@ -49,7 +49,7 @@ export interface DirItem {
     fileCode: string
 }
 export default function DirList(props: { dirData: any, sharedDir: string, className?: string, reload: () => void }) {
-    const { isClient } = useClientStore()
+    const { isClient } = useStore()
     const { baseHost } = useApiRequest()
     const [showType, setShowType] = React.useState("card")
     const [activeFile, setActiveFile] = React.useState<DirItem>({

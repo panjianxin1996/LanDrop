@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 're
 import { Textarea } from "@/components/ui/textarea"
 import { Toggle } from "@/components/ui/toggle"
 import { CornerDownLeft, PanelTopOpen, PanelTopClose, CircleX } from 'lucide-react'
-import useClientStore from '@/store/appStore'
+import useStore from '@/store/appStore'
 import { Button } from '@/components/ui/button'
 export interface ChatTextAreaRef {
     getInput: () => string;
@@ -17,7 +17,7 @@ interface ChatTextAreaProps {
 }
 
 const ChatTextArea = forwardRef<ChatTextAreaRef, ChatTextAreaProps>(({ className, children,hasDataEvent, onEnterPressEvent }, ref) => {
-    const { setStoreData, enterKeyToSend } = useClientStore()
+    const { setStoreData, enterKeyToSend } = useStore()
     const [input, setInput] = useState('');
     const [files, setFiles] = useState<Array<{ file: File, id: string, preview?: string }>>([]);
     const [isDragging, setIsDragging] = useState(false);

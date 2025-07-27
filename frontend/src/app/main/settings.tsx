@@ -9,10 +9,10 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { Label } from "@/components/ui/label"
 import { OpenDirectory, UpdateConfigData, RestartServer, ExitApp } from "@clientSDK/App"
 import { Switch } from "@/components/ui/switch"
-import useClientStore from "@/store/appStore"
+import useStore from "@/store/appStore"
 export default function Settings() {
   const { request } = useApiRequest()
-  const { setStoreData, devMode } = useClientStore()
+  const { setStoreData, devMode } = useStore()
   const [sharedDir, setSharedDir] = React.useState<string>("")
   const [tokenExpiryTime, setTokenExpiryTime] = React.useState<number>(24)
   const [needUpdateConfig, setNeedUpdateConfig] = React.useState<any>({})

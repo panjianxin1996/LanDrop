@@ -21,7 +21,7 @@ import { Input } from "@/components/ui/input"
 import { Link } from 'react-router-dom'
 import { OpenDirectory } from "@clientSDK/App"
 import React, { } from 'react'
-import useClientStore from "@/store/appStore"
+import useStore from "@/store/appStore"
 export function NavMain({
   items,
   path
@@ -33,7 +33,7 @@ export function NavMain({
   }[],
   path: string
 }) {
-  const { redDotCount } = useClientStore()
+  const { redDotCount } = useStore()
   const [dirPath, setDirPath] = React.useState("")
   const openDirectory = () => {
     OpenDirectory().then(res => {
