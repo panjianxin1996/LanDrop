@@ -4,15 +4,20 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { useState } from "react"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
-import { Braces, Cable, Loader, Network } from "lucide-react"
+import { Braces, Cable, Loader, Network, Replace } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import useStore from "@/store/appStore"
-import NetworkScanner from "@/components/common/network"
+import NetworkScanner from "@/components/tools/networkScanner"
+import Base64Translatar from "@/components/tools/base64Translatar"
 export default function Tools() {
   const userInfo = useStore(state => state.userInfo)
   const [backData, setBackData] = useState<Array<string>>([])
   const [loading, setLoading] = useState<boolean>(false)
   const [sendData, setSendData] = useState<string>("")
+  const toolList = [
+    { name: "网络扫描", icon: <Network />, component: <NetworkScanner /> },
+    { name: "base64转码", icon: <Replace />, component: <Base64Translatar /> },
+  ]
   // 解析token
   const parseToken = () => {
     setBackData([])
@@ -123,9 +128,31 @@ export default function Tools() {
           </SheetHeader>
         </SheetContent>
       </Sheet>
-      <Sheet>
+      {
+        toolList.map(item => (
+          <Sheet key={item.name}>
+            <SheetTrigger asChild>
+              <Card className="w-24 h-24 cursor-pointer hover:bg-gray-50">
+                <CardContent className="flex flex-col justify-center items-center h-full p-0">
+                  {item.icon}
+                  <span className="text-sm text-slate-600 mt-4">{item.name}</span>
+                </CardContent>
+              </Card>
+            </SheetTrigger>
+            <SheetContent className="!max-w-full overflow-auto p-2">
+              <SheetHeader className="mt-5">
+                <SheetTitle></SheetTitle>
+                <SheetDescription asChild >
+                  {item.component}
+                </SheetDescription>
+              </SheetHeader>
+            </SheetContent>
+          </Sheet>
+        ))
+      }
+      {/* <Sheet>
         <SheetTrigger asChild>
-          <Card className="w-24 h-24 cursor-pointer hover:bg-gray-50" onClick={() => { setSendData(""); setBackData([]) }}>
+          <Card className="w-24 h-24 cursor-pointer hover:bg-gray-50">
             <CardContent className="flex flex-col justify-center items-center h-full p-0">
               <Network />
               <span className="text-sm text-slate-600 mt-4">扫描网段</span>
@@ -134,13 +161,31 @@ export default function Tools() {
         </SheetTrigger>
         <SheetContent className="!max-w-full overflow-auto p-2">
           <SheetHeader className="mt-14">
-            {/* <SheetTitle></SheetTitle> */}
+            <SheetTitle></SheetTitle>
             <SheetDescription asChild >
               <NetworkScanner />
             </SheetDescription>
           </SheetHeader>
         </SheetContent>
       </Sheet>
+      <Sheet>
+        <SheetTrigger asChild>
+          <Card className="w-24 h-24 cursor-pointer hover:bg-gray-50">
+            <CardContent className="flex flex-col justify-center items-center h-full p-0">
+              <Network />
+              <span className="text-sm text-slate-600 mt-4">扫描网段</span>
+            </CardContent>
+          </Card>
+        </SheetTrigger>
+        <SheetContent className="!max-w-full overflow-auto p-2">
+          <SheetHeader className="mt-14">
+            <SheetTitle></SheetTitle>
+            <SheetDescription asChild >
+              <NetworkScanner />
+            </SheetDescription>
+          </SheetHeader>
+        </SheetContent>
+      </Sheet> */}
     </div>
   )
 }

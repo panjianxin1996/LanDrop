@@ -1,11 +1,15 @@
 import { useState, useCallback, useMemo } from 'react';
 import { ToolsScanNetwork } from "@clientSDK/App"
-
+import { Button } from '@/components/ui/button'
+import { MonitorOff, Monitor, Server, Computer } from "lucide-react"
+import { useStore } from '@/store/appStore';
 interface Device {
     ip: string;
     hostname: string;
     mac?: string;
     vendor?: string;
+    os?: string;
+    model?: string;
 }
 
 interface ScanResult {
@@ -17,10 +21,11 @@ interface ScanResult {
 }
 
 const NetworkScanner = () => {
+    const ipv4Address = useStore(state => state.ipv4Address);
     const [scanResult, setScanResult] = useState<ScanResult | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [progress, setProgress] = useState(0);
-    const [ipAddress, setIpAddress] = useState('192.168.1.1');
+    const [ipAddress, setIpAddress] = useState(ipv4Address);
     const [subnetMask, setSubnetMask] = useState('255.255.255.0');
     const [isValid, setIsValid] = useState(true);
 
@@ -28,18 +33,18 @@ const NetworkScanner = () => {
     const validateInputs = useCallback(() => {
         const ipRegex = /^(\d{1,3}\.){3}\d{1,3}$/;
         const maskRegex = /^(\d{1,3}\.){3}\d{1,3}$|^\/\d{1,2}$/;
-        
+
         // 验证IP地址每个段是否在0-255范围内
-        const isValidIp = ipRegex.test(ipAddress) && 
+        const isValidIp = ipRegex.test(ipAddress) &&
             ipAddress.split('.').every(part => parseInt(part, 10) <= 255);
-        
+
         // 验证子网掩码
         const isValidMask = maskRegex.test(subnetMask) && (
-            subnetMask.startsWith('/') ? 
-                parseInt(subnetMask.slice(1), 10) <= 32 : 
+            subnetMask.startsWith('/') ?
+                parseInt(subnetMask.slice(1), 10) <= 32 :
                 subnetMask.split('.').every(part => parseInt(part, 10) <= 255)
         );
-        
+
         const isValidFormat = isValidIp && isValidMask;
         setIsValid(isValidFormat);
         return isValidFormat;
@@ -48,7 +53,7 @@ const NetworkScanner = () => {
     // 扫描网络
     const handleScan = useCallback(() => {
         if (!validateInputs()) return;
-        
+
         setIsLoading(true);
         setProgress(0);
         setScanResult(null);
@@ -91,21 +96,21 @@ const NetworkScanner = () => {
     const getDevicePosition = useCallback((index: number, total: number) => {
         // 计算应该放在第几圈 (0: 内圈, 1: 中圈, 2: 外圈)
         const circleIndex = Math.min(2, Math.floor(index / Math.max(1, Math.ceil(total / 3))));
-        
+
         // 每圈的半径
         const circleRadii = [120, 200, 280];
         const radius = circleRadii[circleIndex];
-        
+
         // 当前圈内的设备数量
         const devicesPerCircle = Math.max(1, Math.ceil(total / 3));
         const circleDeviceIndex = index % devicesPerCircle;
-        
+
         // 计算角度 (从顶部开始，-90度偏移)
         const angle = (circleDeviceIndex / devicesPerCircle) * 2 * Math.PI - Math.PI / 2;
-        
+
         // 添加随机偏移避免完全对齐
         const angleOffset = (Math.random() * 0.2 - 0.1) * Math.PI;
-        
+
         return {
             x: Math.cos(angle + angleOffset) * radius,
             y: Math.sin(angle + angleOffset) * radius,
@@ -118,7 +123,7 @@ const NetworkScanner = () => {
     // 设备位置缓存
     const devicePositions = useMemo(() => {
         if (!scanResult?.devices.length) return [];
-        return scanResult.devices.map((_, index) => 
+        return scanResult.devices.map((_, index) =>
             getDevicePosition(index, scanResult.devices.length)
         );
     }, [scanResult?.devices, getDevicePosition]);
@@ -138,7 +143,7 @@ const NetworkScanner = () => {
             {/* 主内容 */}
             <div className="relative z-10 container mx-auto px-4 py-8">
                 <div className="text-center mb-8">
-                    <h1 className="text-2xl font-bold mb-2 text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-700">
+                    <h1 className="text-2xl font-bold mb-2 text-transparent bg-clip-text bg-gradient-to-r from-slate-900 to-gray-800">
                         网络设备扫描器
                     </h1>
                     <p className="text-gray-600 max-w-2xl mx-auto">
@@ -149,53 +154,37 @@ const NetworkScanner = () => {
                     <div className="mt-6 max-w-md mx-auto bg-white rounded-xl p-6 shadow-sm border border-gray-200">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    IP地址
-                                </label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">IP地址</label>
                                 <input
                                     type="text"
                                     value={ipAddress}
                                     onChange={(e) => setIpAddress(e.target.value)}
-                                    className={`w-full px-3 py-2 rounded-lg border focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition ${
-                                        isValid ? 'border-gray-300' : 'border-red-300'
-                                    }`}
-                                    placeholder="例如: 192.168.1.1"
+                                    className={`w-full px-3 py-2 rounded-lg border focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition ${isValid ? 'border-gray-300' : 'border-red-300'}`}
+                                    placeholder="192.168.1.1"
                                 />
                                 {!isValid && (
                                     <p className="mt-1 text-xs text-red-500">请输入有效的IPv4地址</p>
                                 )}
                             </div>
-
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    子网掩码
-                                </label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">子网掩码</label>
                                 <input
                                     type="text"
                                     value={subnetMask}
                                     onChange={(e) => setSubnetMask(e.target.value)}
-                                    className={`w-full px-3 py-2 rounded-lg border focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition ${
-                                        isValid ? 'border-gray-300' : 'border-red-300'
-                                    }`}
-                                    placeholder="例如: 255.255.255.0 或 /24"
+                                    className={`w-full px-3 py-2 rounded-lg border focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition ${isValid ? 'border-gray-300' : 'border-red-300'}`}
+                                    placeholder="255.255.255.0或/24"
                                 />
                                 {!isValid && (
                                     <p className="mt-1 text-xs text-red-500">请输入有效的子网掩码或CIDR</p>
                                 )}
                             </div>
                         </div>
-
-                        <button
+                        <Button
                             onClick={handleScan}
                             disabled={isLoading}
-                            className={`mt-4 w-full px-4 py-2.5 rounded-lg font-medium transition-all ${
-                                isLoading
-                                    ? 'bg-blue-400 cursor-not-allowed'
-                                    : 'bg-blue-600 hover:bg-blue-700 shadow-sm hover:shadow-md text-white'
-                            }`}
-                        >
-                            {isLoading ? `扫描中... ${progress}%` : '开始扫描'}
-                        </button>
+                            className='mt-2 w-full'
+                        >{isLoading ? `扫描中... ${progress}%` : '开始扫描'}</Button>
                     </div>
                 </div>
 
@@ -220,7 +209,6 @@ const NetworkScanner = () => {
                                 </div>
                             </div>
                         </div>
-
                         {/* 设备可视化圆环 */}
                         {scanResult.devices.length > 0 && (
                             <div className="relative h-[650px] w-full flex items-center justify-center mb-8 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
@@ -238,15 +226,12 @@ const NetworkScanner = () => {
                                         }}
                                     />
                                 ))}
-
                                 {/* 中心点 */}
                                 <div className="absolute w-4 h-4 bg-gray-700 rounded-full z-10" />
-
                                 {/* 设备节点 */}
                                 {scanResult.devices.map((device, index) => {
                                     const pos = devicePositions[index];
                                     if (!pos) return null;
-                                    
                                     const size = 3.5 - pos.circleIndex * 0.5; // 内圈设备大一些
                                     return (
                                         <div
@@ -265,16 +250,17 @@ const NetworkScanner = () => {
                                                 {device.hostname || device.ip}
                                             </div>
                                             <div className="h-full w-full flex items-center justify-center text-white">
-                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                                                </svg>
+                                                {
+                                                    device.os === "Windows" ?
+                                                        <Monitor size={20} /> :
+                                                        ["Linux/Unix Server", "Linux/Unix", "Web Server OS"].includes(device.os || "") ? <Server /> : <Computer />
+                                                }
                                             </div>
                                         </div>
                                     );
                                 })}
                             </div>
                         )}
-
                         {/* 设备列表 */}
                         {scanResult.devices.length > 0 && (
                             <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
@@ -286,9 +272,11 @@ const NetworkScanner = () => {
                                         >
                                             <div className="flex items-center mb-2">
                                                 <div className="bg-blue-100 p-2 rounded-full mr-3">
-                                                    <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                                                    </svg>
+                                                    {
+                                                        device.os === "Windows" ?
+                                                            <Monitor size={20} className="text-blue-600" /> :
+                                                            ["Linux/Unix Server", "Linux/Unix", "Web Server OS"].includes(device.os || "") ? <Server size={20} className="text-blue-600" /> : <Computer size={20} className="text-blue-600" />
+                                                    }
                                                 </div>
                                                 <div>
                                                     <h3 className="font-medium text-gray-800 truncate max-w-[160px]">
@@ -306,14 +294,11 @@ const NetworkScanner = () => {
                                 </div>
                             </div>
                         )}
-
                         {/* 无设备提示 */}
                         {scanResult.devices.length === 0 && !scanResult.error && (
                             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
                                 <div className="mx-auto w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-                                    <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.172 16.172a4 4 0 015.656 0M9 12h6m-6-4h6m2 5.291A7.962 7.962 0 0112 15c-2.34 0-4.467-.881-6.08-2.33" />
-                                    </svg>
+                                    <MonitorOff size={25} />
                                 </div>
                                 <h3 className="text-lg font-medium text-gray-800 mb-1">未发现活动设备</h3>
                                 <p className="text-gray-500">在指定网络范围内没有发现活动的设备</p>
