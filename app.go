@@ -41,8 +41,12 @@ func (a *App) startup(ctx context.Context) {
 		systray.SetTitle("LanDrop")
 		systray.SetTooltip("LanDrop")
 		systray.SetLeftClick(runtime.GOOS, func() {
-			a.WindowShow()
-			log.Println("左键埋点检测")
+			select {
+			case <-time.After(100 * time.Millisecond): // 防抖
+				a.WindowShow()
+				log.Println("左键埋点检测")
+			default:
+			}
 		})
 		mShow := systray.AddMenuItem("显示窗口", "显示应用窗口")
 		systray.AddSeparator()
@@ -56,6 +60,7 @@ func (a *App) startup(ctx context.Context) {
 				// 退出应用
 				log.Println("右键埋点检测2")
 				a.ExitApp()
+			case <-time.After(10 * time.Millisecond): // 防止过度占用CPU
 			}
 		}
 	}, nil)
@@ -94,7 +99,10 @@ func (a *App) Version() string {
 func (a *App) ExitApp() {
 	log.Println("退出应用")
 	a.stopExit = false
-	wailsRuntime.Quit(a.ctx)
+	go func() {
+		time.Sleep(100 * time.Millisecond) // 给托盘退出留时间
+		wailsRuntime.Quit(a.ctx)
+	}()
 }
 
 // 隐藏应用窗口

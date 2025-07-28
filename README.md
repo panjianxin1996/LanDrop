@@ -52,3 +52,12 @@ wails build -devtools
 ```
 landrop启动了一个dns服务器，需要将landrop客户端的ip的地址作为其他客户端的dns服务器就可以通过landrop.go:4321访问到landrop服务。当客户端的电脑开启了ipv6的地址，并且ipv6 dns服务默认自动获取，那么会导致landrop.go解析失败，因为dns解析规则是先ipv6然后ipv4,所以客户端的ipv4和ipv6的ip地址都要作为客户端的dns服务器配置。
 ```
+
+## Mac系统中systray和wails兼容冲突
+mac系统不使用系统托盘工具，如果需要构建mac系统应用需要注释掉systray的代码
+在mac系统所有操作都要使用sudo运行
+```
+sudo wails dev
+
+sudo wails build
+```
