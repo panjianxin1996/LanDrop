@@ -152,42 +152,6 @@ export default function Tools() {
           </Sheet>
         ))
       }
-      {/* <Sheet>
-        <SheetTrigger asChild>
-          <Card className="w-24 h-24 cursor-pointer hover:bg-gray-50">
-            <CardContent className="flex flex-col justify-center items-center h-full p-0">
-              <Network />
-              <span className="text-sm text-slate-600 mt-4">扫描网段</span>
-            </CardContent>
-          </Card>
-        </SheetTrigger>
-        <SheetContent className="!max-w-full overflow-auto p-2">
-          <SheetHeader className="mt-14">
-            <SheetTitle></SheetTitle>
-            <SheetDescription asChild >
-              <NetworkScanner />
-            </SheetDescription>
-          </SheetHeader>
-        </SheetContent>
-      </Sheet>
-      <Sheet>
-        <SheetTrigger asChild>
-          <Card className="w-24 h-24 cursor-pointer hover:bg-gray-50">
-            <CardContent className="flex flex-col justify-center items-center h-full p-0">
-              <Network />
-              <span className="text-sm text-slate-600 mt-4">扫描网段</span>
-            </CardContent>
-          </Card>
-        </SheetTrigger>
-        <SheetContent className="!max-w-full overflow-auto p-2">
-          <SheetHeader className="mt-14">
-            <SheetTitle></SheetTitle>
-            <SheetDescription asChild >
-              <NetworkScanner />
-            </SheetDescription>
-          </SheetHeader>
-        </SheetContent>
-      </Sheet> */}
     </div>
   )
 }
