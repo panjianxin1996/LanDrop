@@ -151,7 +151,7 @@ const NetworkScanner = () => {
                     </p>
 
                     {/* 输入表单 */}
-                    <div className="mt-6 max-w-md mx-auto bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+                    <div className="mt-6 max-w-md mx-auto bg-white rounded-xl p-6 shadow-lg border border-gray-200">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">IP地址</label>

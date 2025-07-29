@@ -4,11 +4,12 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { useState } from "react"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
-import { Braces, Cable, Loader, Network, Replace } from "lucide-react"
+import { Braces, Cable, Loader, Network, Replace, BetweenVerticalEnd } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import useStore from "@/store/appStore"
 import NetworkScanner from "@/components/tools/networkScanner"
 import Base64Translatar from "@/components/tools/base64Translatar"
+import TextDiff from "@/components/tools/textDiff"
 export default function Tools() {
   const userInfo = useStore(state => state.userInfo)
   const [backData, setBackData] = useState<Array<string>>([])
@@ -17,6 +18,7 @@ export default function Tools() {
   const toolList = [
     { name: "网络扫描", icon: <Network />, component: <NetworkScanner /> },
     { name: "base64转码", icon: <Replace />, component: <Base64Translatar /> },
+    { name: "文本对比", icon: <BetweenVerticalEnd />, component: <TextDiff /> },
   ]
   // 解析token
   const parseToken = () => {
