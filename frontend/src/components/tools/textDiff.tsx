@@ -104,7 +104,7 @@ const TextDiffTool: React.FC = () => {
           <CardContent>
             <div className="flex flex-col lg:flex-row gap-6">
               {/* 左侧控制面板 */}
-              <div className="w-full lg:w-1/5 space-y-6">
+              <div className="w-full lg:w-2/12 space-y-6">
                 <div className="space-y-2">
                   <Label htmlFor="language">语言</Label>
                   <Select value={language} onValueChange={handleLanguageChange}>
@@ -137,7 +137,7 @@ const TextDiffTool: React.FC = () => {
               </div>
 
               {/* 右侧文件选择区域 */}
-              <div className="w-full lg:w-4/5 grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
+              <div className="w-full lg:w-10/12 grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
                 {/* Original 文件区域 */}
                 <div>
                   <Label className="font-medium">对比文本</Label>
